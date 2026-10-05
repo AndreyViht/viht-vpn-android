@@ -78,7 +78,7 @@ jobs:
           ls -la release-apks/
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: viht-vpn-android-apks
           path: release-apks/*.apk
