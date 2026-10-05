@@ -39,20 +39,25 @@ jobs:
             node -e "
               const fs = require('fs');
               const https = require('https');
-              fetch('https://github.com/scripchenko/pingwin.git/info/lfs/objects/batch', {
-                method: 'POST',
-                headers: { 'Accept': 'application/vnd.git-lfs+json', 'Content-Type': 'application/vnd.git-lfs+json' },
-                body: JSON.stringify({ operation: 'download', transfers: ['basic'], objects: [{ oid: '3a706062e1b3e804ca7f7abbdef523a05c4ad7c125ab1496e2b0a52a62c360a5', size: 92997417 }] })
-              }).then(r => r.json()).then(d => {
-                const url = d.objects[0].actions.download.href;
-                const file = fs.createWriteStream('app/libs/libbox.aar');
-                https.get(url, r => {
-                  r.pipe(file);
-                  file.on('finish', () => console.log('libbox.aar downloaded successfully'));
+              async function run() {
+                const resp = await fetch('https://github.com/scripchenko/pingwin.git/info/lfs/objects/batch', {
+                  method: 'POST',
+                  headers: { 'Accept': 'application/vnd.git-lfs+json', 'Content-Type': 'application/vnd.git-lfs+json' },
+                  body: JSON.stringify({ operation: 'download', transfers: ['basic'], objects: [{ oid: '3a706062e1b3e804ca7f7abbdef523a05c4ad7c125ab1496e2b0a52a62c360a5', size: 92997417 }] })
                 });
-              });
+                const data = await resp.json();
+                const downloadUrl = data.objects[0].actions.download.href;
+                const file = fs.createWriteStream('app/libs/libbox.aar');
+                await new Promise((resolve, reject) => {
+                  https.get(downloadUrl, res => {
+                    res.pipe(file);
+                    file.on('finish', () => { file.close(); resolve(); });
+                  }).on('error', reject);
+                });
+                console.log('libbox.aar downloaded and verified');
+              }
+              run().catch(e => { console.error(e); process.exit(1); });
             "
-            sleep 15
           fi
 
       - name: Set up Gradle
@@ -82,7 +87,7 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.2
-          name: "Viht VPN Android v1.0.2"
+          tag_name: v1.3.2
+          name: "Viht VPN Android v1.3.2 (Unified Engine)"
           files: release-apk/VihtVPN.apk
           generate_release_notes: true
