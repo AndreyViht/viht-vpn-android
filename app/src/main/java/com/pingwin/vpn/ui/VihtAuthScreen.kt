@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import com.pingwin.vpn.AuthCallbackServer
 import com.pingwin.vpn.VihtApiClient
 import com.pingwin.vpn.VihtPreferences
+import com.pingwin.vpn.VihtServer
 import com.pingwin.vpn.ui.theme.VihtAccentRed
 import com.pingwin.vpn.ui.theme.VihtBgCard
 import com.pingwin.vpn.ui.theme.VihtBgElevated
