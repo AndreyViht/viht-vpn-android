@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.pingwin.vpn.ui.VihtAuthScreen
 import com.pingwin.vpn.ui.VihtBottomNavBar
+import com.pingwin.vpn.ui.VihtFloatingIslandNavBar
 import com.pingwin.vpn.ui.VihtCabinetScreen
 import com.pingwin.vpn.ui.VihtHomeScreen
 import com.pingwin.vpn.ui.VihtServersScreen
@@ -417,7 +418,7 @@ class MainActivity : ComponentActivity() {
                                 // Floating Island Navigation Bar at the bottom
                                 VihtFloatingIslandNavBar(
                                     currentTab = currentTab,
-                                    onTabSelected = { tab -> currentTab = tab },
+                                    onTabSelected = { tab: VihtTab -> currentTab = tab },
                                     modifier = Modifier.align(Alignment.BottomCenter)
                                 )
                             }
