@@ -1,9 +1,7 @@
-name: Viht VPN Android Release
+name: Build Viht VPN APK
 
 on:
   push:
-    tags:
-      - 'v*'
     branches:
       - main
   workflow_dispatch:
@@ -13,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Viht VPN Release APK
+    name: Build Viht VPN APK
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -66,24 +64,25 @@ jobs:
       - name: Verify libbox SHA-256
         run: ./gradlew verifyLibbox --console=plain
 
-      - name: Build Release and Debug APKs
-        run: ./gradlew assembleDebug assembleRelease --console=plain --stacktrace
+      - name: Build Single Universal APK
+        run: ./gradlew assembleDebug --console=plain --stacktrace
 
-      - name: Rename & Organize APKs
+      - name: Organize Single APK
         run: |
-          mkdir -p release-apks
-          find app/build/outputs/apk/ -name "*.apk" -exec cp {} release-apks/ \;
-          ls -la release-apks/
+          mkdir -p release-apk
+          cp app/build/outputs/apk/debug/*.apk release-apk/VihtVPN.apk
+          ls -la release-apk/
 
-      - name: Upload Artifacts
+      - name: Upload Single APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: viht-vpn-android-apks
-          path: release-apks/*.apk
+          name: VihtVPN-Android
+          path: release-apk/VihtVPN.apk
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: release-apks/*.apk
+          tag_name: v1.0.0
+          name: "Viht VPN Android v1.0.0"
+          files: release-apk/VihtVPN.apk
           generate_release_notes: true
