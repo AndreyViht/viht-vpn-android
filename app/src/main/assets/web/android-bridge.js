@@ -4,21 +4,24 @@
   const pendingCallbacks = new Map();
   let callbackId = 0;
 
-  window.__vihtNativeCallback = function(id, resultJson) {
-    const cb = pendingCallbacks.get(id);
+  window.__vihtNativeCallback = function(id, result) {
+    const key = String(id);
+    const cb = pendingCallbacks.get(key);
     if (cb) {
-      pendingCallbacks.delete(id);
-      try {
-        cb(JSON.parse(resultJson));
-      } catch (e) {
-        cb(resultJson);
+      pendingCallbacks.delete(key);
+      if (typeof result === 'string') {
+        try {
+          cb(JSON.parse(result));
+          return;
+        } catch (e) {}
       }
+      cb(result);
     }
   };
 
   function callNativeAsync(method, ...args) {
     return new Promise((resolve) => {
-      const id = ++callbackId;
+      const id = String(++callbackId);
       pendingCallbacks.set(id, resolve);
       if (window.VihtNative && window.VihtNative[method]) {
         try {

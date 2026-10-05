@@ -20,8 +20,8 @@ android {
         applicationId = "ru.anviht.vpn"
         minSdk = 29
         targetSdk = 37
-        versionCode = 4
-        versionName = "1.3.2"
+        versionCode = 5
+        versionName = "1.3.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -84,6 +84,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.work:work-runtime:2.11.2")
+    implementation("androidx.webkit:webkit:1.12.1")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.joaomgcd:taskerpluginlibrary:0.4.10")
     testImplementation(libs.junit)

@@ -87,7 +87,7 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.3.2
-          name: "Viht VPN Android v1.3.2 (Unified Engine)"
+          tag_name: v1.3.3
+          name: "Viht VPN Android v1.3.3 (WebViewAssetLoader & Engine Fix)"
           files: release-apk/VihtVPN.apk
           generate_release_notes: true

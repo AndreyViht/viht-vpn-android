@@ -23,10 +23,10 @@ class AndroidVihtBridge(
     private val webView: WebView
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
-    private var pendingConnectCallbackId: Long? = null
+    private var pendingConnectCallbackId: String? = null
     private var pendingConfigData: Pair<String, String>? = null
 
-    private fun respond(callbackId: Long, json: Any) {
+    private fun respond(callbackId: String, json: Any) {
         val jsonStr = when (json) {
             is JSONObject -> json.toString()
             is JSONArray -> json.toString()
@@ -34,7 +34,7 @@ class AndroidVihtBridge(
             else -> json.toString()
         }
         activity.runOnUiThread {
-            webView.evaluateJavascript("window.__vihtNativeCallback($callbackId, $jsonStr);", null)
+            webView.evaluateJavascript("window.__vihtNativeCallback('$callbackId', $jsonStr);", null)
         }
     }
 
@@ -66,7 +66,7 @@ class AndroidVihtBridge(
     }
 
     @JavascriptInterface
-    fun getSystemInfo(callbackId: Long) {
+    fun getSystemInfo(callbackId: String) {
         val hwid = VihtPreferences.getHwid(activity)
         val info = JSONObject().apply {
             put("hwid", hwid)
@@ -78,12 +78,12 @@ class AndroidVihtBridge(
     }
 
     @JavascriptInterface
-    fun getAppVersion(callbackId: Long) {
-        respond(callbackId, "1.3.2")
+    fun getAppVersion(callbackId: String) {
+        respond(callbackId, "1.3.3")
     }
 
     @JavascriptInterface
-    fun getVpnStatus(callbackId: Long) {
+    fun getVpnStatus(callbackId: String) {
         val state = when (VpnStatus.state.value) {
             VpnConnectionState.CONNECTED -> "connected"
             VpnConnectionState.CONNECTING -> "connecting"
@@ -98,7 +98,7 @@ class AndroidVihtBridge(
     }
 
     @JavascriptInterface
-    fun vpnConnect(callbackId: Long, serverJson: String, settingsJson: String) {
+    fun vpnConnect(callbackId: String, serverJson: String, settingsJson: String) {
         scope.launch {
             try {
                 val srvObj = JSONObject(serverJson)
@@ -180,7 +180,7 @@ class AndroidVihtBridge(
     }
 
     @JavascriptInterface
-    fun vpnDisconnect(callbackId: Long) {
+    fun vpnDisconnect(callbackId: String) {
         activity.runOnUiThread {
             AutoVlessVpnService.stop(activity)
             respond(callbackId, JSONObject().apply { put("ok", true) })
@@ -188,12 +188,12 @@ class AndroidVihtBridge(
     }
 
     @JavascriptInterface
-    fun vpnUpdateSettings(callbackId: Long, settingsJson: String) {
+    fun vpnUpdateSettings(callbackId: String, settingsJson: String) {
         respond(callbackId, JSONObject().apply { put("ok", true) })
     }
 
     @JavascriptInterface
-    fun startAuthServer(callbackId: Long, provider: String) {
+    fun startAuthServer(callbackId: String, provider: String) {
         AuthCallbackServer.start { token, subToken, tgId, email ->
             val payload = JSONObject().apply {
                 put("token", if (subToken.isNotBlank()) subToken else token)
@@ -217,7 +217,7 @@ class AndroidVihtBridge(
     }
 
     @JavascriptInterface
-    fun pingServers(callbackId: Long, serversJson: String) {
+    fun pingServers(callbackId: String, serversJson: String) {
         scope.launch {
             try {
                 val results = JSONObject()
@@ -259,21 +259,21 @@ class AndroidVihtBridge(
     }
 
     @JavascriptInterface
-    fun saveCredentials(callbackId: Long, key: String, value: String) {
+    fun saveCredentials(callbackId: String, key: String, value: String) {
         val prefs = activity.getSharedPreferences("viht_credentials", Context.MODE_PRIVATE)
         prefs.edit().putString(key, value).apply()
         respond(callbackId, JSONObject().apply { put("ok", true) })
     }
 
     @JavascriptInterface
-    fun getCredentials(callbackId: Long, key: String) {
+    fun getCredentials(callbackId: String, key: String) {
         val prefs = activity.getSharedPreferences("viht_credentials", Context.MODE_PRIVATE)
         val v = prefs.getString(key, null)
         respond(callbackId, v ?: "")
     }
 
     @JavascriptInterface
-    fun clearCredentials(callbackId: Long) {
+    fun clearCredentials(callbackId: String) {
         val prefs = activity.getSharedPreferences("viht_credentials", Context.MODE_PRIVATE)
         prefs.edit().clear().apply()
         respond(callbackId, JSONObject().apply { put("ok", true) })

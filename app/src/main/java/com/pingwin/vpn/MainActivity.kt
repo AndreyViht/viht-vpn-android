@@ -7,8 +7,13 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
+import android.webkit.ConsoleMessage
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -16,6 +21,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
+import androidx.webkit.WebViewAssetLoader
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -98,17 +104,31 @@ class MainActivity : ComponentActivity() {
         window.navigationBarColor = Color.parseColor("#07090E")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            window.decorView.systemUiVisibility = window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+            window.decorView.systemUiVisibility =
+                window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
         }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
+
+        // Official Android standard asset loader to avoid CORS and module restrictions
+        val assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .addPathHandler("/res/", WebViewAssetLoader.ResourcesPathHandler(this))
+            .build()
 
         webView = WebView(this).apply {
             setBackgroundColor(Color.parseColor("#07090E"))
+
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 databaseEnabled = true
                 allowFileAccess = true
                 allowContentAccess = true
+                allowFileAccessFromFileURLs = true
+                allowUniversalAccessFromFileURLs = true
                 cacheMode = WebSettings.LOAD_DEFAULT
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 useWideViewPort = true
@@ -116,19 +136,51 @@ class MainActivity : ComponentActivity() {
                 textZoom = 100
             }
 
+            webChromeClient = object : WebChromeClient() {
+                override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                    Log.d(
+                        "VihtWeb",
+                        "[JS ${consoleMessage?.messageLevel()}] ${consoleMessage?.message()} (${consoleMessage?.sourceId()}:${consoleMessage?.lineNumber()})"
+                    )
+                    return true
+                }
+            }
+
             webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                override fun shouldInterceptRequest(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): WebResourceResponse? {
+                    val url = request?.url ?: return null
+                    return assetLoader.shouldInterceptRequest(url)
+                }
+
+                override fun shouldOverrideUrlLoading(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): Boolean {
                     val url = request?.url?.toString() ?: return false
-                    if (url.startsWith("file:///android_asset/")) {
+                    if (url.startsWith("https://appassets.androidplatform.net/") ||
+                        url.startsWith("file:///android_asset/")
+                    ) {
                         return false
                     }
-                    // Open external links in real browser
+                    // Open external links in device browser
                     try {
                         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        Log.e("VihtWeb", "Failed to open external url: $url", e)
                     }
                     return true
+                }
+
+                override fun onReceivedError(
+                    view: WebView?,
+                    request: WebResourceRequest?,
+                    error: WebResourceError?
+                ) {
+                    super.onReceivedError(view, request, error)
+                    Log.e("VihtWeb", "WebView error: ${error?.description} on ${request?.url}")
                 }
             }
         }
@@ -138,8 +190,8 @@ class MainActivity : ComponentActivity() {
 
         setContentView(webView)
 
-        // Load the React app bundled from Windows-vpn-dectop
-        webView.loadUrl("file:///android_asset/web/index.html")
+        // Load the React app via standard WebViewAssetLoader domain
+        webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
 
         handleDeepLink(intent)
 
