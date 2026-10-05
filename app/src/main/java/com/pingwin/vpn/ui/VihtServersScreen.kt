@@ -251,6 +251,7 @@ fun VihtServersScreen(
         }
     }
 }
+}
 
 @Composable
 private fun BadgeChip(text: String, color: Color) {
