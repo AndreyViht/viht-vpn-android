@@ -242,20 +242,38 @@ fun VihtTopBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
-            Text(
-                text = title,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 1.5.sp,
-                color = VihtTextPrimary
-            )
-            if (!subtitle.isNullOrBlank()) {
-                Text(
-                    text = subtitle,
-                    fontSize = 12.sp,
-                    color = VihtTextSecondary
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(VihtNeonCyan.copy(alpha = 0.12f))
+                    .border(1.dp, VihtNeonCyan.copy(alpha = 0.4f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Shield,
+                    contentDescription = "Viht Shield",
+                    tint = VihtNeonCyan,
+                    modifier = Modifier.size(20.dp)
                 )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+                Text(
+                    text = title,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.2.sp,
+                    color = VihtTextPrimary
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Text(
+                        text = subtitle,
+                        fontSize = 12.sp,
+                        color = VihtTextSecondary
+                    )
+                }
             }
         }
 
@@ -288,54 +306,62 @@ fun VihtTopBar(
     }
 }
 
+/**
+ * Floating Island Navigation Bar ("островок как на айфоне внизу")
+ */
 @Composable
-fun VihtBottomNavBar(
+fun VihtFloatingIslandNavBar(
     currentTab: VihtTab,
-    onTabSelected: (VihtTab) -> Unit
+    onTabSelected: (VihtTab) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = VihtBgSurface,
-        shadowElevation = 16.dp
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
+        Surface(
+            shape = RoundedCornerShape(32.dp),
+            color = Color(0xF20E1320),
+            border = androidx.compose.foundation.BorderStroke(
+                width = 1.2.dp,
+                brush = Brush.horizontalGradient(
+                    listOf(
+                        VihtNeonCyan.copy(alpha = 0.5f),
+                        VihtElectricPurple.copy(alpha = 0.4f),
+                        VihtNeonCyan.copy(alpha = 0.5f)
+                    )
+                )
+            ),
+            shadowElevation = 20.dp
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(VihtBorderSubtle)
-            )
-
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                BottomNavItem(
+                FloatingIslandItem(
                     icon = Icons.Default.Home,
                     label = "Главная",
                     selected = currentTab == VihtTab.HOME,
                     onClick = { onTabSelected(VihtTab.HOME) }
                 )
-                BottomNavItem(
+                FloatingIslandItem(
                     icon = Icons.Default.Language,
                     label = "Серверы",
                     selected = currentTab == VihtTab.SERVERS,
                     onClick = { onTabSelected(VihtTab.SERVERS) }
                 )
-                BottomNavItem(
+                FloatingIslandItem(
                     icon = Icons.Default.AccountCircle,
                     label = "Кабинет",
                     selected = currentTab == VihtTab.CABINET,
                     onClick = { onTabSelected(VihtTab.CABINET) }
                 )
-                BottomNavItem(
+                FloatingIslandItem(
                     icon = Icons.Default.Settings,
                     label = "Настройки",
                     selected = currentTab == VihtTab.SETTINGS,
@@ -347,33 +373,63 @@ fun VihtBottomNavBar(
 }
 
 @Composable
-private fun BottomNavItem(
+fun VihtBottomNavBar(
+    currentTab: VihtTab,
+    onTabSelected: (VihtTab) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    VihtFloatingIslandNavBar(currentTab = currentTab, onTabSelected = onTabSelected, modifier = modifier)
+}
+
+@Composable
+private fun FloatingIslandItem(
     icon: ImageVector,
     label: String,
     selected: Boolean,
     onClick: () -> Unit
 ) {
     val activeColor = if (selected) VihtNeonCyan else VihtTextMuted
+    val bgModifier = if (selected) {
+        Modifier
+            .clip(RoundedCornerShape(22.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        VihtNeonCyan.copy(alpha = 0.22f),
+                        VihtElectricPurple.copy(alpha = 0.18f)
+                    )
+                )
+            )
+            .border(1.dp, VihtNeonCyan.copy(alpha = 0.45f), RoundedCornerShape(22.dp))
+    } else {
+        Modifier.clip(RoundedCornerShape(22.dp))
+    }
 
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    Row(
+        modifier = bgModifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = if (selected) 14.dp else 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = activeColor,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(20.dp)
         )
-        Spacer(modifier = Modifier.height(3.dp))
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = activeColor
-        )
+        if (selected) {
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = VihtNeonCyan
+            )
+        }
     }
 }

@@ -119,12 +119,71 @@ object VihtPreferences {
         prefs.edit().putString(KEY_SELECTED_SERVER_ID, serverId).apply()
     }
 
+    private const val KEY_SAVED_SERVERS = "viht_saved_servers_json"
+
+    fun isLoggedIn(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val token = prefs.getString(KEY_AUTH_TOKEN, null)
+        val tgId = prefs.getString(KEY_TELEGRAM_ID, null)
+        return !token.isNullOrBlank() || !tgId.isNullOrBlank()
+    }
+
+    fun getSavedServers(context: Context): List<VihtServer>? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val jsonStr = prefs.getString(KEY_SAVED_SERVERS, null) ?: return null
+        return runCatching {
+            val arr = org.json.JSONArray(jsonStr)
+            val list = mutableListOf<VihtServer>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                list.add(
+                    VihtServer(
+                        id = obj.getString("id"),
+                        name = obj.getString("name"),
+                        flag = obj.optString("flag", "🌐"),
+                        host = obj.getString("host"),
+                        port = obj.optInt("port", 443),
+                        ping = if (obj.has("ping")) obj.getInt("ping") else null,
+                        isRecommended = obj.optBoolean("isRecommended", false),
+                        isYouTubeNoAds = obj.optBoolean("isYouTubeNoAds", false),
+                        isLte = obj.optBoolean("isLte", false),
+                        vlessUri = obj.optString("vlessUri", "")
+                    )
+                )
+            }
+            if (list.isNotEmpty()) list else null
+        }.getOrNull()
+    }
+
+    fun setSavedServers(context: Context, servers: List<VihtServer>) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        runCatching {
+            val arr = org.json.JSONArray()
+            for (s in servers) {
+                val obj = org.json.JSONObject()
+                obj.put("id", s.id)
+                obj.put("name", s.name)
+                obj.put("flag", s.flag)
+                obj.put("host", s.host)
+                obj.put("port", s.port)
+                if (s.ping != null) obj.put("ping", s.ping)
+                obj.put("isRecommended", s.isRecommended)
+                obj.put("isYouTubeNoAds", s.isYouTubeNoAds)
+                obj.put("isLte", s.isLte)
+                obj.put("vlessUri", s.vlessUri)
+                arr.put(obj)
+            }
+            prefs.edit().putString(KEY_SAVED_SERVERS, arr.toString()).apply()
+        }
+    }
+
     fun clearAuth(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit()
             .remove(KEY_AUTH_TOKEN)
             .remove(KEY_TELEGRAM_ID)
             .remove(KEY_USER_EMAIL)
+            .remove(KEY_SAVED_SERVERS)
             .apply()
     }
 }

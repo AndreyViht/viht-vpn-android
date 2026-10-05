@@ -5,9 +5,11 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,15 +23,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +42,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,18 +51,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pingwin.vpn.AuthCallbackServer
 import com.pingwin.vpn.VihtApiClient
 import com.pingwin.vpn.VihtPreferences
 import com.pingwin.vpn.ui.theme.VihtAccentRed
 import com.pingwin.vpn.ui.theme.VihtBgCard
 import com.pingwin.vpn.ui.theme.VihtBgElevated
 import com.pingwin.vpn.ui.theme.VihtBgMain
+import com.pingwin.vpn.ui.theme.VihtBgSurface
 import com.pingwin.vpn.ui.theme.VihtBorderActive
 import com.pingwin.vpn.ui.theme.VihtBorderCyan
 import com.pingwin.vpn.ui.theme.VihtBorderSubtle
@@ -71,7 +81,8 @@ import kotlin.random.Random
 
 @Composable
 fun VihtAuthScreen(
-    onBack: () -> Unit,
+    isWelcomeMode: Boolean = false,
+    onBack: () -> Unit = {},
     onAuthSuccess: () -> Unit
 ) {
     val context = LocalContext.current
@@ -87,11 +98,61 @@ fun VihtAuthScreen(
     var isVerifyingCode by remember { mutableStateOf(false) }
     var codeSentSuccess by remember { mutableStateOf(false) }
 
+    // Browser OAuth State (Yandex & VK)
+    var isWaitingBrowserAuth by remember { mutableStateOf(false) }
+    var browserProviderName by remember { mutableStateOf("") }
+
     // Token Auth State
     var tokenInput by remember { mutableStateOf("") }
     var isCheckingToken by remember { mutableStateOf(false) }
 
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            AuthCallbackServer.stop()
+        }
+    }
+
+    val startBrowserOAuth = { provider: String ->
+        browserProviderName = if (provider == "yandex") "Яндекс ID" else "VK ID"
+        isWaitingBrowserAuth = true
+        errorMessage = null
+
+        AuthCallbackServer.start { token, subToken, tgId, email ->
+            scope.launch {
+                val effectiveToken = subToken.ifBlank { token }
+                if (effectiveToken.isNotBlank()) {
+                    VihtPreferences.setAuthToken(context, effectiveToken)
+                }
+                if (tgId.isNotBlank()) {
+                    VihtPreferences.setTelegramId(context, tgId)
+                }
+                if (email.isNotBlank()) {
+                    VihtPreferences.setUserEmail(context, email)
+                }
+
+                // Fetch full profile and clients
+                val res = VihtApiClient.fetchCabinetProfile(context, token = effectiveToken, telegramId = tgId)
+                AuthCallbackServer.stop()
+                isWaitingBrowserAuth = false
+
+                if (res.isSuccess) {
+                    val (profile, servers) = res.getOrThrow()
+                    VihtPreferences.setSavedServers(context, servers)
+                    Toast.makeText(context, "Вход выполнен успешно!", Toast.LENGTH_SHORT).show()
+                    onAuthSuccess()
+                } else {
+                    errorMessage = "Не удалось загрузить подписку. Попробуйте еще раз."
+                }
+            }
+        }
+
+        val cbUrl = "http://127.0.0.1:${AuthCallbackServer.PORT}/auth/callback"
+        val loginUrl = "https://anviht.ru/lk?provider=$provider&desktop_callback=${Uri.encode(cbUrl)}"
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl))
+        context.startActivity(intent)
+    }
 
     Column(
         modifier = Modifier
@@ -101,39 +162,154 @@ fun VihtAuthScreen(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 40.dp)
     ) {
-        // Back Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = VihtTextPrimary
+        if (!isWelcomeMode) {
+            // Back Header for settings/cabinet modal
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = VihtTextPrimary
+                    )
+                }
+                Text(
+                    text = "Вход в Viht VPN",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = VihtTextPrimary
                 )
             }
-            Text(
-                text = "Вход в Viht VPN",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = VihtTextPrimary
-            )
+        } else {
+            // Welcome Header
+            Spacer(modifier = Modifier.height(24.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Glowing Logo Shield
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                listOf(
+                                    VihtNeonCyan.copy(alpha = 0.25f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                        .border(1.5.dp, VihtNeonCyan.copy(alpha = 0.6f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = "Viht VPN",
+                        tint = VihtNeonCyan,
+                        modifier = Modifier.size(44.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "VIHT VPN",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 2.sp,
+                    color = VihtTextPrimary
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Добро пожаловать!",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = VihtNeonGreen
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Авторизуйтесь, чтобы подключить вашу подписку и серверы",
+                    fontSize = 13.sp,
+                    color = VihtTextSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+            }
         }
 
-        // Subtitle
-        Text(
-            text = "Синхронизируйте ваши устройства и подписку с личным кабинетом",
-            fontSize = 13.sp,
-            color = VihtTextSecondary,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-        )
+        Spacer(modifier = Modifier.height(20.dp))
 
-        Spacer(modifier = Modifier.height(14.dp))
+        // Waiting for Browser OAuth dialog card
+        if (isWaitingBrowserAuth) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                VihtGlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    borderColor = VihtNeonCyan
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            color = VihtNeonCyan,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(40.dp)
+                        )
 
-        // Tabs: Telegram / Token / VK & Yandex
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Авторизация через $browserProviderName...",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = VihtTextPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Мы открыли страницу входа в браузере. Завершите вход, и приложение автоматически подключит вашу подписку.",
+                            fontSize = 12.sp,
+                            color = VihtTextSecondary,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(VihtBgElevated)
+                                .clickable {
+                                    AuthCallbackServer.stop()
+                                    isWaitingBrowserAuth = false
+                                }
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Отмена",
+                                fontSize = 12.sp,
+                                color = VihtTextMuted
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+
+        // Tabs: Telegram / Яндекс / VK / Ключ
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -150,71 +326,81 @@ fun VihtAuthScreen(
                 }
             )
             AuthTabButton(
+                text = "Яндекс ID",
+                selected = selectedTab == "yandex",
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    selectedTab = "yandex"
+                    errorMessage = null
+                }
+            )
+            AuthTabButton(
+                text = "VK ID",
+                selected = selectedTab == "vk",
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    selectedTab = "vk"
+                    errorMessage = null
+                }
+            )
+            AuthTabButton(
                 text = "Ключ",
                 selected = selectedTab == "token",
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(0.9f),
                 onClick = {
                     selectedTab = "token"
                     errorMessage = null
                 }
             )
-            AuthTabButton(
-                text = "VK / Яндекс",
-                selected = selectedTab == "oauth",
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    selectedTab = "oauth"
-                    errorMessage = null
-                }
-            )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        if (errorMessage != null) {
+        // Error Banner
+        AnimatedVisibility(visible = !errorMessage.isNullOrBlank()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
+                    .padding(horizontal = 20.dp, vertical = 6.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(VihtAccentRed.copy(alpha = 0.15f))
                     .border(1.dp, VihtAccentRed.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
                     .padding(12.dp)
             ) {
                 Text(
-                    text = errorMessage!!,
+                    text = errorMessage ?: "",
                     fontSize = 12.sp,
                     color = VihtAccentRed
                 )
             }
-            Spacer(modifier = Modifier.height(14.dp))
         }
 
-        // TAB 1: TELEGRAM
+        // TAB 1: TELEGRAM AUTH
         if (selectedTab == "telegram") {
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                 VihtGlassCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(18.dp)) {
                         Text(
-                            text = "Авторизация по Telegram ID",
-                            fontSize = 15.sp,
+                            text = "Вход по Telegram ID",
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = VihtTextPrimary
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Бот @vpnvihtbot отправит одноразовый 6-значный проверочный код.",
+                            text = "Код подтверждения придет прямо в нашего бота @vpnvihtbot в Telegram.",
                             fontSize = 12.sp,
                             color = VihtTextSecondary
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
+                        // Input Telegram ID
                         OutlinedTextField(
                             value = telegramIdInput,
-                            onValueChange = { telegramIdInput = it.filter { c -> c.isDigit() } },
+                            onValueChange = { telegramIdInput = it.filter { char -> char.isDigit() } },
                             label = { Text("Ваш числовой Telegram ID") },
-                            placeholder = { Text("Например: 123456789") },
+                            placeholder = { Text("Например, 712345678") },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -226,27 +412,29 @@ fun VihtAuthScreen(
                             singleLine = true
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        // Button: Send Code
+                        // Send Code Button
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(if (telegramIdInput.isNotBlank() && !isSendingCode) VihtNeonCyan else VihtBgElevated)
+                                .background(if (telegramIdInput.isNotBlank()) VihtNeonCyan else VihtBgElevated)
                                 .clickable(enabled = telegramIdInput.isNotBlank() && !isSendingCode) {
                                     scope.launch {
                                         isSendingCode = true
                                         errorMessage = null
-                                        val code = String.format("%06d", Random.nextInt(100000, 999999))
-                                        sentCode = code
+                                        val code = Random.nextInt(100000, 999999).toString()
                                         val result = VihtApiClient.sendTelegramAuthCode(telegramIdInput, code)
                                         isSendingCode = false
+
                                         if (result.isSuccess) {
+                                            sentCode = code
                                             codeSentSuccess = true
-                                            Toast.makeText(context, "Код отправлен в бота @vpnvihtbot!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Код отправлен в бота!", Toast.LENGTH_SHORT).show()
                                         } else {
-                                            errorMessage = result.exceptionOrNull()?.message ?: "Не удалось отправить код"
+                                            errorMessage = result.exceptionOrNull()?.message
+                                                ?: "Не удалось отправить код. Убедитесь, что запустили @vpnvihtbot в Telegram."
                                         }
                                     }
                                 }
@@ -297,23 +485,45 @@ fun VihtAuthScreen(
                                     .background(if (enteredCode.length == 6) VihtNeonGreen else VihtBgElevated)
                                     .clickable(enabled = enteredCode.length == 6 && !isVerifyingCode) {
                                         if (enteredCode == sentCode) {
-                                            VihtPreferences.setTelegramId(context, telegramIdInput)
-                                            VihtPreferences.setAuthToken(context, "tg:$telegramIdInput")
-                                            Toast.makeText(context, "Авторизация успешна!", Toast.LENGTH_SHORT).show()
-                                            onAuthSuccess()
+                                            scope.launch {
+                                                isVerifyingCode = true
+                                                VihtPreferences.setTelegramId(context, telegramIdInput)
+                                                VihtPreferences.setAuthToken(context, "tg:$telegramIdInput")
+
+                                                // Fetch real profile & clients
+                                                val res = VihtApiClient.fetchCabinetProfile(
+                                                    context,
+                                                    token = "tg:$telegramIdInput",
+                                                    telegramId = telegramIdInput
+                                                )
+                                                isVerifyingCode = false
+
+                                                if (res.isSuccess) {
+                                                    val (profile, servers) = res.getOrThrow()
+                                                    VihtPreferences.setSavedServers(context, servers)
+                                                    Toast.makeText(context, "Вход выполнен успешно!", Toast.LENGTH_SHORT).show()
+                                                    onAuthSuccess()
+                                                } else {
+                                                    errorMessage = "Не удалось получить ключи подписки. Проверьте ID."
+                                                }
+                                            }
                                         } else {
-                                            errorMessage = "Неверный код. Проверьте сообщение в @vpnvihtbot."
+                                            errorMessage = "Неверный проверочный код. Посмотрите сообщение в @vpnvihtbot."
                                         }
                                     }
                                     .padding(vertical = 12.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = "Подтвердить и войти",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = VihtBgMain
-                                )
+                                if (isVerifyingCode) {
+                                    CircularProgressIndicator(color = VihtBgMain, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                                } else {
+                                    Text(
+                                        text = "Подтвердить и войти",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = VihtBgMain
+                                    )
+                                }
                             }
                         }
 
@@ -344,20 +554,122 @@ fun VihtAuthScreen(
             }
         }
 
-        // TAB 2: TOKEN / SUBSCRIPTION LINK
+        // TAB 2: YANDEX ID
+        if (selectedTab == "yandex") {
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                VihtGlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Text(
+                            text = "Вход через Яндекс ID",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = VihtTextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Авторизуйтесь в личном кабинете на anviht.ru через Яндекс, и приложение автоматически загрузит вашу подписку.",
+                            fontSize = 12.sp,
+                            color = VihtTextSecondary
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Yandex Button
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFFC3F1D))
+                                .clickable { startBrowserOAuth("yandex") }
+                                .padding(vertical = 14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Я",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Войти через Яндекс ID",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // TAB 3: VK ID
+        if (selectedTab == "vk") {
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                VihtGlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Text(
+                            text = "Вход через VK ID",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = VihtTextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Авторизуйтесь через аккаунт ВКонтакте, чтобы мгновенно получить ваши серверы и синхронизировать устройство.",
+                            fontSize = 12.sp,
+                            color = VihtTextSecondary
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // VK ID Button
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF0077FF))
+                                .clickable { startBrowserOAuth("vk") }
+                                .padding(vertical = 14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "VK",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Войти через VK ID",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // TAB 4: TOKEN / SUBSCRIPTION LINK
         if (selectedTab == "token") {
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                 VihtGlassCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(18.dp)) {
                         Text(
                             text = "Вход по ключу или ссылке",
-                            fontSize = 15.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = VihtTextPrimary
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Вставьте ссылку подписки или токен (например, sub:12345 или https://anviht.ru/subscription-link/...)",
+                            text = "Вставьте ссылку подписки или токен (например, sub:xxxx или https://anviht.ru/subscription-link/...)",
                             fontSize = 12.sp,
                             color = VihtTextSecondary
                         )
@@ -410,7 +722,9 @@ fun VihtAuthScreen(
                                         isCheckingToken = false
 
                                         if (res.isSuccess) {
+                                            val (profile, servers) = res.getOrThrow()
                                             VihtPreferences.setAuthToken(context, clean)
+                                            VihtPreferences.setSavedServers(context, servers)
                                             Toast.makeText(context, "Вход выполнен успешно!", Toast.LENGTH_SHORT).show()
                                             onAuthSuccess()
                                         } else {
@@ -431,78 +745,6 @@ fun VihtAuthScreen(
                                     color = VihtBgMain
                                 )
                             }
-                        }
-                    }
-                }
-            }
-        }
-
-        // TAB 3: VK & YANDEX
-        if (selectedTab == "oauth") {
-            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                VihtGlassCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        Text(
-                            text = "Вход через VK и Яндекс",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = VihtTextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Авторизуйтесь в личном кабинете на сайте Viht, чтобы мгновенно получить доступ.",
-                            fontSize = 12.sp,
-                            color = VihtTextSecondary
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // VK ID Button
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF0077FF))
-                                .clickable {
-                                    val hwid = VihtPreferences.getHwid(context)
-                                    val url = "https://anviht.ru/auth?platform=android&hwid=$hwid"
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    context.startActivity(intent)
-                                }
-                                .padding(vertical = 13.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Войти через VK ID",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Yandex Button
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFFC3F1D))
-                                .clickable {
-                                    val hwid = VihtPreferences.getHwid(context)
-                                    val url = "https://anviht.ru/auth?platform=android&provider=yandex&hwid=$hwid"
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    context.startActivity(intent)
-                                }
-                                .padding(vertical = 13.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Войти через Яндекс ID",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
                         }
                     }
                 }

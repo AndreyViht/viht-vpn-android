@@ -64,7 +64,7 @@ jobs:
       - name: Verify libbox SHA-256
         run: ./gradlew verifyLibbox --console=plain
 
-      - name: Build Single Universal APK
+      - name: Build Optimized Single APK
         run: ./gradlew assembleDebug --console=plain --stacktrace
 
       - name: Organize Single APK
@@ -82,7 +82,7 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: "Viht VPN Android v1.0.0"
+          tag_name: v1.0.1
+          name: "Viht VPN Android v1.0.1"
           files: release-apk/VihtVPN.apk
           generate_release_notes: true

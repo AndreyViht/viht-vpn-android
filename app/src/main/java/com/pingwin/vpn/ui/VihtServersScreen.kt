@@ -60,7 +60,7 @@ fun VihtServersScreen(
             .fillMaxSize()
             .background(VihtBgMain)
             .statusBarsPadding()
-            .padding(bottom = 80.dp)
+            .padding(bottom = 100.dp)
     ) {
         // Header
         Row(
@@ -78,55 +78,76 @@ fun VihtServersScreen(
                     color = VihtTextPrimary
                 )
                 Text(
-                    text = "${servers.size} доступных локаций",
+                    text = if (servers.isEmpty()) "Синхронизация..." else "${servers.size} доступных локаций",
                     fontSize = 12.sp,
                     color = VihtTextSecondary
                 )
             }
 
             // Ping Button
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(VihtNeonCyan.copy(alpha = 0.12f))
-                    .border(1.dp, VihtNeonCyan.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                    .clickable(enabled = !isMeasuringPing) { onMeasurePingClick() }
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (isMeasuringPing) {
-                        CircularProgressIndicator(
-                            color = VihtNeonCyan,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = VihtNeonCyan,
-                            modifier = Modifier.size(16.dp)
+            if (servers.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(VihtNeonCyan.copy(alpha = 0.12f))
+                        .border(1.dp, VihtNeonCyan.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                        .clickable(enabled = !isMeasuringPing) { onMeasurePingClick() }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isMeasuringPing) {
+                            CircularProgressIndicator(
+                                color = VihtNeonCyan,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh",
+                                tint = VihtNeonCyan,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isMeasuringPing) "Замер..." else "Пинг",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = VihtNeonCyan
                         )
                     }
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (isMeasuringPing) "Замер..." else "Пинг",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = VihtNeonCyan
-                    )
                 }
             }
         }
 
-        // Servers List
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(servers, key = { it.id }) { server ->
+        if (servers.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = VihtNeonCyan, modifier = Modifier.size(36.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Синхронизация ваших персональных серверов...",
+                        fontSize = 13.sp,
+                        color = VihtTextSecondary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            // Servers List
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(servers, key = { it.id }) { server ->
                 val isSelected = server.id == selectedServerId
 
                 VihtGlassCard(

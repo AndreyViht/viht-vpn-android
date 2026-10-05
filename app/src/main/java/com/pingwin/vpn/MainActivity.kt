@@ -76,19 +76,30 @@ class MainActivity : ComponentActivity() {
         handleDeepLink(intent)
     }
 
+    private var onDeepLinkReceived: (() -> Unit)? = null
+
     private fun handleDeepLink(intent: Intent?) {
         val data: Uri? = intent?.data
         if (data != null) {
             val token = data.getQueryParameter("token") ?: data.getQueryParameter("sub")
+            val subToken = data.getQueryParameter("sub_token")
             val tgId = data.getQueryParameter("tg_id") ?: data.getQueryParameter("telegram_id")
+            val email = data.getQueryParameter("email")
 
-            if (!token.isNullOrBlank()) {
-                VihtPreferences.setAuthToken(this, token)
-                Toast.makeText(this, "Токен подписки получен!", Toast.LENGTH_SHORT).show()
+            val effectiveToken = subToken ?: token
+            if (!effectiveToken.isNullOrBlank()) {
+                VihtPreferences.setAuthToken(this, effectiveToken)
             }
             if (!tgId.isNullOrBlank()) {
                 VihtPreferences.setTelegramId(this, tgId)
-                Toast.makeText(this, "Telegram ID синхронизирован!", Toast.LENGTH_SHORT).show()
+            }
+            if (!email.isNullOrBlank()) {
+                VihtPreferences.setUserEmail(this, email)
+            }
+
+            if (!effectiveToken.isNullOrBlank() || !tgId.isNullOrBlank()) {
+                Toast.makeText(this, "Авторизация успешно получена!", Toast.LENGTH_SHORT).show()
+                onDeepLinkReceived?.invoke()
             }
         }
     }
@@ -102,12 +113,19 @@ class MainActivity : ComponentActivity() {
                 val scope = rememberCoroutineScope()
                 val vpnState by VpnStatus.state.collectAsState()
 
+                // Auth state gate
+                var isLoggedIn by rememberSaveable {
+                    mutableStateOf(VihtPreferences.isLoggedIn(this@MainActivity))
+                }
+
                 // Navigation states
                 var currentTab by rememberSaveable { mutableStateOf(VihtTab.HOME) }
                 var currentSubScreen by rememberSaveable { mutableStateOf(SubScreen.NONE) }
 
                 // Servers and Profile state
-                var servers by remember { mutableStateOf(VihtApiClient.DEFAULT_SERVERS) }
+                var servers by remember {
+                    mutableStateOf(VihtPreferences.getSavedServers(this@MainActivity) ?: emptyList())
+                }
                 var selectedServerId by rememberSaveable {
                     mutableStateOf(VihtPreferences.getSelectedServerId(this@MainActivity))
                 }
@@ -128,7 +146,15 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val selectedServer = remember(servers, selectedServerId) {
-                    servers.find { it.id == selectedServerId } ?: servers.firstOrNull() ?: VihtApiClient.DEFAULT_SERVERS.first()
+                    servers.find { it.id == selectedServerId }
+                        ?: servers.firstOrNull()
+                        ?: VihtServer(
+                            id = "none",
+                            name = if (isLoggedIn) "Загрузка серверов..." else "Требуется авторизация",
+                            flag = "🌐",
+                            host = "anviht.ru",
+                            port = 443
+                        )
                 }
 
                 // Pending connection permissions
@@ -159,7 +185,7 @@ class MainActivity : ComponentActivity() {
                     try {
                         val vlessLink = selectedServer.vlessUri
                         if (vlessLink.isBlank()) {
-                            Toast.makeText(this@MainActivity, "Ключ сервера не найден", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, "Ключ сервера не найден. Авторизуйтесь в кабинете.", Toast.LENGTH_SHORT).show()
                             return
                         }
 
@@ -204,6 +230,7 @@ class MainActivity : ComponentActivity() {
                             userProfile = prof
                             if (srvs.isNotEmpty()) {
                                 servers = srvs
+                                VihtPreferences.setSavedServers(this@MainActivity, srvs)
                             }
                         }
 
@@ -215,8 +242,20 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Register deep link listener
+                LaunchedEffect(Unit) {
+                    onDeepLinkReceived = {
+                        isLoggedIn = true
+                        refreshCabinetData()
+                    }
+                    if (isLoggedIn) {
+                        refreshCabinetData()
+                    }
+                }
+
                 // Ping measurer
                 fun measureAllPings() {
+                    if (servers.isEmpty()) return
                     scope.launch {
                         isMeasuringPing = true
                         val updated = withContext(Dispatchers.IO) {
@@ -228,18 +267,16 @@ class MainActivity : ComponentActivity() {
                             }.awaitAll()
                         }
                         servers = updated
+                        VihtPreferences.setSavedServers(this@MainActivity, updated)
                         isMeasuringPing = false
                     }
                 }
 
-                // Initial sync on startup
-                LaunchedEffect(Unit) {
-                    refreshCabinetData()
-                }
-
                 // Back handling
-                BackHandler(enabled = currentSubScreen != SubScreen.NONE || currentTab != VihtTab.HOME) {
-                    if (currentSubScreen != SubScreen.NONE) {
+                BackHandler(enabled = !isLoggedIn || currentSubScreen != SubScreen.NONE || currentTab != VihtTab.HOME) {
+                    if (!isLoggedIn) {
+                        finish()
+                    } else if (currentSubScreen != SubScreen.NONE) {
                         currentSubScreen = SubScreen.NONE
                     } else if (currentTab != VihtTab.HOME) {
                         currentTab = VihtTab.HOME
@@ -247,128 +284,143 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // UI Root
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(VihtBgMain)
-                ) {
-                    // Screens
-                    when (currentSubScreen) {
-                        SubScreen.AUTH -> {
-                            VihtAuthScreen(
-                                onBack = { currentSubScreen = SubScreen.NONE },
-                                onAuthSuccess = {
-                                    currentSubScreen = SubScreen.NONE
-                                    refreshCabinetData()
-                                }
-                            )
+                if (!isLoggedIn) {
+                    // FIRST LAUNCH GATE: WELCOME & AUTHENTICATION ONLY
+                    VihtAuthScreen(
+                        isWelcomeMode = true,
+                        onAuthSuccess = {
+                            isLoggedIn = true
+                            refreshCabinetData()
                         }
-                        SubScreen.APP_ROUTING -> {
-                            AppRoutingScreen(
-                                onBack = { currentSubScreen = SubScreen.NONE }
-                            )
-                        }
-                        SubScreen.GENERAL -> {
-                            GeneralScreen(
-                                onBack = { currentSubScreen = SubScreen.NONE }
-                            )
-                        }
-                        SubScreen.LOGS -> {
-                            LogsScreen(
-                                onBack = { currentSubScreen = SubScreen.NONE }
-                            )
-                        }
-                        SubScreen.NONE -> {
-                            when (currentTab) {
-                                VihtTab.HOME -> {
-                                    VihtHomeScreen(
-                                        vpnState = vpnState,
-                                        selectedServer = selectedServer,
-                                        userProfile = userProfile,
-                                        bypassRussia = bypassRussia,
-                                        onBypassRussiaChange = { enabled ->
-                                            bypassRussia = enabled
-                                            VihtPreferences.setBypassRussianSites(this@MainActivity, enabled)
-                                        },
-                                        onPowerClick = { toggleVpn() },
-                                        onServerSelectClick = { currentTab = VihtTab.SERVERS },
-                                        onAppRoutingClick = { currentSubScreen = SubScreen.APP_ROUTING },
-                                        onCabinetClick = { currentTab = VihtTab.CABINET }
-                                    )
-                                }
-                                VihtTab.SERVERS -> {
-                                    VihtServersScreen(
-                                        servers = servers,
-                                        selectedServerId = selectedServerId,
-                                        isMeasuringPing = isMeasuringPing,
-                                        onMeasurePingClick = { measureAllPings() },
-                                        onServerSelect = { srv ->
-                                            selectedServerId = srv.id
-                                            VihtPreferences.setSelectedServerId(this@MainActivity, srv.id)
-                                            // Auto-reconnect if connected
-                                            if (vpnState == VpnConnectionState.CONNECTED) {
-                                                toggleVpn()
-                                                toggleVpn()
-                                            }
-                                            currentTab = VihtTab.HOME
-                                        }
-                                    )
-                                }
-                                VihtTab.CABINET -> {
-                                    VihtCabinetScreen(
-                                        userProfile = userProfile,
-                                        activeDevices = activeDevices,
-                                        isLoading = isCabinetLoading,
-                                        onRefresh = { refreshCabinetData() },
-                                        onDisconnectDevice = { dev ->
-                                            scope.launch {
-                                                val res = VihtApiClient.disconnectDevice(this@MainActivity, dev.hwid)
-                                                if (res.isSuccess) {
-                                                    Toast.makeText(this@MainActivity, "Устройство отключено", Toast.LENGTH_SHORT).show()
-                                                    refreshCabinetData()
-                                                } else {
-                                                    Toast.makeText(this@MainActivity, "Не удалось отключить", Toast.LENGTH_SHORT).show()
-                                                }
-                                            }
-                                        },
-                                        onOpenAuth = { currentSubScreen = SubScreen.AUTH },
-                                        onLogout = {
-                                            VihtPreferences.clearAuth(this@MainActivity)
-                                            userProfile = null
-                                            Toast.makeText(this@MainActivity, "Вы вышли из аккаунта", Toast.LENGTH_SHORT).show()
-                                            refreshCabinetData()
-                                        }
-                                    )
-                                }
-                                VihtTab.SETTINGS -> {
-                                    VihtSettingsScreen(
-                                        bypassRussia = bypassRussia,
-                                        onBypassRussiaChange = { enabled ->
-                                            bypassRussia = enabled
-                                            VihtPreferences.setBypassRussianSites(this@MainActivity, enabled)
-                                        },
-                                        autoBoot = autoBoot,
-                                        onAutoBootChange = { enabled ->
-                                            autoBoot = enabled
-                                            VihtPreferences.setAutoConnectOnBoot(this@MainActivity, enabled)
-                                        },
-                                        killSwitch = killSwitch,
-                                        onKillSwitchChange = { enabled ->
-                                            killSwitch = enabled
-                                            VihtPreferences.setKillSwitch(this@MainActivity, enabled)
-                                        },
-                                        onAppRoutingClick = { currentSubScreen = SubScreen.APP_ROUTING },
-                                        onGeneralLanguageClick = { currentSubScreen = SubScreen.GENERAL },
-                                        onLogsClick = { currentSubScreen = SubScreen.LOGS }
-                                    )
-                                }
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(VihtBgMain)
+                    ) {
+                        // Screens
+                        when (currentSubScreen) {
+                            SubScreen.AUTH -> {
+                                VihtAuthScreen(
+                                    isWelcomeMode = false,
+                                    onBack = { currentSubScreen = SubScreen.NONE },
+                                    onAuthSuccess = {
+                                        currentSubScreen = SubScreen.NONE
+                                        refreshCabinetData()
+                                    }
+                                )
                             }
+                            SubScreen.APP_ROUTING -> {
+                                AppRoutingScreen(
+                                    onBack = { currentSubScreen = SubScreen.NONE }
+                                )
+                            }
+                            SubScreen.GENERAL -> {
+                                GeneralScreen(
+                                    onBack = { currentSubScreen = SubScreen.NONE }
+                                )
+                            }
+                            SubScreen.LOGS -> {
+                                LogsScreen(
+                                    onBack = { currentSubScreen = SubScreen.NONE }
+                                )
+                            }
+                            SubScreen.NONE -> {
+                                when (currentTab) {
+                                    VihtTab.HOME -> {
+                                        VihtHomeScreen(
+                                            vpnState = vpnState,
+                                            selectedServer = selectedServer,
+                                            userProfile = userProfile,
+                                            bypassRussia = bypassRussia,
+                                            onBypassRussiaChange = { enabled ->
+                                                bypassRussia = enabled
+                                                VihtPreferences.setBypassRussianSites(this@MainActivity, enabled)
+                                            },
+                                            onPowerClick = { toggleVpn() },
+                                            onServerSelectClick = { currentTab = VihtTab.SERVERS },
+                                            onAppRoutingClick = { currentSubScreen = SubScreen.APP_ROUTING },
+                                            onCabinetClick = { currentTab = VihtTab.CABINET }
+                                        )
+                                    }
+                                    VihtTab.SERVERS -> {
+                                        VihtServersScreen(
+                                            servers = servers,
+                                            selectedServerId = selectedServerId,
+                                            isMeasuringPing = isMeasuringPing,
+                                            onMeasurePingClick = { measureAllPings() },
+                                            onServerSelect = { srv ->
+                                                selectedServerId = srv.id
+                                                VihtPreferences.setSelectedServerId(this@MainActivity, srv.id)
+                                                // Auto-reconnect if connected
+                                                if (vpnState == VpnConnectionState.CONNECTED) {
+                                                    toggleVpn()
+                                                    toggleVpn()
+                                                }
+                                                currentTab = VihtTab.HOME
+                                            }
+                                        )
+                                    }
+                                    VihtTab.CABINET -> {
+                                        VihtCabinetScreen(
+                                            userProfile = userProfile,
+                                            activeDevices = activeDevices,
+                                            isLoading = isCabinetLoading,
+                                            onRefresh = { refreshCabinetData() },
+                                            onDisconnectDevice = { dev ->
+                                                scope.launch {
+                                                    val res = VihtApiClient.disconnectDevice(this@MainActivity, dev.hwid)
+                                                    if (res.isSuccess) {
+                                                        Toast.makeText(this@MainActivity, "Устройство отключено", Toast.LENGTH_SHORT).show()
+                                                        refreshCabinetData()
+                                                    } else {
+                                                        Toast.makeText(this@MainActivity, "Не удалось отключить", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+                                            },
+                                            onOpenAuth = { currentSubScreen = SubScreen.AUTH },
+                                            onLogout = {
+                                                VihtPreferences.clearAuth(this@MainActivity)
+                                                isLoggedIn = false
+                                                servers = emptyList()
+                                                userProfile = null
+                                                currentTab = VihtTab.HOME
+                                                Toast.makeText(this@MainActivity, "Вы вышли из аккаунта", Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                    }
+                                    VihtTab.SETTINGS -> {
+                                        VihtSettingsScreen(
+                                            bypassRussia = bypassRussia,
+                                            onBypassRussiaChange = { enabled ->
+                                                bypassRussia = enabled
+                                                VihtPreferences.setBypassRussianSites(this@MainActivity, enabled)
+                                            },
+                                            autoBoot = autoBoot,
+                                            onAutoBootChange = { enabled ->
+                                                autoBoot = enabled
+                                                VihtPreferences.setAutoConnectOnBoot(this@MainActivity, enabled)
+                                            },
+                                            killSwitch = killSwitch,
+                                            onKillSwitchChange = { enabled ->
+                                                killSwitch = enabled
+                                                VihtPreferences.setKillSwitch(this@MainActivity, enabled)
+                                            },
+                                            onAppRoutingClick = { currentSubScreen = SubScreen.APP_ROUTING },
+                                            onGeneralLanguageClick = { currentSubScreen = SubScreen.GENERAL },
+                                            onLogsClick = { currentSubScreen = SubScreen.LOGS }
+                                        )
+                                    }
+                                }
 
-                            // Bottom Navigation pinned
-                            VihtBottomNavBar(
-                                currentTab = currentTab,
-                                onTabSelected = { tab -> currentTab = tab }
-                            )
+                                // Floating Island Navigation Bar at the bottom
+                                VihtFloatingIslandNavBar(
+                                    currentTab = currentTab,
+                                    onTabSelected = { tab -> currentTab = tab },
+                                    modifier = Modifier.align(Alignment.BottomCenter)
+                                )
+                            }
                         }
                     }
                 }

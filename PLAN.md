@@ -67,7 +67,11 @@
   - [x] `VihtSettingsScreen.kt` — обход сайтов РФ, раздельное туннелирование (выбор приложений), автозапуск, Kill Switch, выбор языка, логи
   - [x] `MainActivity.kt` — главное окно, объединяющее навигацию по табам, обработку deep link, фоновую синхронизацию с API и управление VPN
 
-- [ ] **Этап 7: Сборка, тестирование и релиз через GitHub Actions**
-  - [ ] Создание удаленного репозитория `viht-vpn-android` на GitHub или привязка к существующему
-  - [ ] Загрузка кода и запуск сборки Release APK
-  - [ ] Получение собранных APK файлов
+- [x] **Этап 7: Сборка, тестирование и релиз через GitHub Actions**
+  - [x] Создание удаленного репозитория `viht-vpn-android` на GitHub (`https://github.com/AndreyViht/viht-vpn-android.git`)
+  - [x] Оптимизация сборки под единый универсальный файл без сплитов по ABI (`splits.abi.isEnable = false`)
+  - [x] Успешная компиляция и подпись релизного универсального APK: `VihtVPN.apk`
+  - [x] Публикация официального релиза GitHub Release `v1.0.0`:
+    - Ссылка на скачивание: https://github.com/AndreyViht/viht-vpn-android/releases/download/v1.0.0/VihtVPN.apk
+    - Страница релиза: https://github.com/AndreyViht/viht-vpn-android/releases/tag/v1.0.0
+
