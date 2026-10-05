@@ -1,1 +1,2 @@
-app/libs/libbox.aar filter=lfs diff=lfs merge=lfs -text
+# Git attributes for Viht VPN Android
+* text=auto eol=lf
