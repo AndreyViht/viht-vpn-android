@@ -16,7 +16,7 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 
 object VihtApiClient {
-    private const val API_BASE = "https://anviht.ru/cabinet-api"
+    private const val API_BASE = "https://anviht.ru/api/cabinet-api"
     private const val DEBUG_KEY = "VihtSuperDebug2026"
 
     val DEFAULT_SERVERS = listOf(
@@ -175,10 +175,11 @@ object VihtApiClient {
             conn.setRequestProperty("X-Device-HWID", hwid)
 
             if (!effectiveToken.isNullOrBlank()) {
-                val authHeader = if (effectiveToken.startsWith("sub:") || effectiveToken.startsWith("Bearer ")) {
-                    effectiveToken
+                val cleanToken = effectiveToken.removePrefix("Bearer ").trim()
+                val authHeader = if (cleanToken.startsWith("sub:") || cleanToken.startsWith("tg:") || cleanToken.startsWith("eyJ")) {
+                    "Bearer $cleanToken"
                 } else {
-                    "Bearer sub:$effectiveToken"
+                    "Bearer sub:$cleanToken"
                 }
                 conn.setRequestProperty("Authorization", authHeader)
             }
@@ -219,6 +220,13 @@ object VihtApiClient {
                 activeDevicesCount = profileObj?.optInt("active_devices_count", 1) ?: 1,
                 token = effectiveToken
             )
+
+            val subTokenFromProfile = profileObj?.optString("subscription_token", "") ?: ""
+            val subTokenFromSub = subObj?.optString("subscription_token", "") ?: ""
+            val returnedSubToken = if (subTokenFromProfile.isNotBlank()) subTokenFromProfile else subTokenFromSub
+            if (returnedSubToken.isNotBlank()) {
+                VihtPreferences.setAuthToken(context, returnedSubToken)
+            }
 
             val clientsArr = json.optJSONArray("clients")
             val servers = parseClients(clientsArr)
@@ -333,10 +341,11 @@ object VihtApiClient {
             conn.setRequestProperty("X-HWID", hwid)
 
             if (!effectiveToken.isNullOrBlank()) {
-                val authHeader = if (effectiveToken.startsWith("sub:") || effectiveToken.startsWith("Bearer ")) {
-                    effectiveToken
+                val cleanToken = effectiveToken.removePrefix("Bearer ").trim()
+                val authHeader = if (cleanToken.startsWith("sub:") || cleanToken.startsWith("tg:") || cleanToken.startsWith("eyJ")) {
+                    "Bearer $cleanToken"
                 } else {
-                    "Bearer sub:$effectiveToken"
+                    "Bearer sub:$cleanToken"
                 }
                 conn.setRequestProperty("Authorization", authHeader)
             }
@@ -415,10 +424,11 @@ object VihtApiClient {
             conn.setRequestProperty("X-App-Name", "Viht Android")
 
             if (!effectiveToken.isNullOrBlank()) {
-                val authHeader = if (effectiveToken.startsWith("sub:") || effectiveToken.startsWith("Bearer ")) {
-                    effectiveToken
+                val cleanToken = effectiveToken.removePrefix("Bearer ").trim()
+                val authHeader = if (cleanToken.startsWith("sub:") || cleanToken.startsWith("tg:") || cleanToken.startsWith("eyJ")) {
+                    "Bearer $cleanToken"
                 } else {
-                    "Bearer sub:$effectiveToken"
+                    "Bearer sub:$cleanToken"
                 }
                 conn.setRequestProperty("Authorization", authHeader)
             }

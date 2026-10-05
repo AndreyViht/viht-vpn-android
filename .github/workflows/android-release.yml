@@ -82,7 +82,7 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1
-          name: "Viht VPN Android v1.0.1"
+          tag_name: v1.0.2
+          name: "Viht VPN Android v1.0.2"
           files: release-apk/VihtVPN.apk
           generate_release_notes: true

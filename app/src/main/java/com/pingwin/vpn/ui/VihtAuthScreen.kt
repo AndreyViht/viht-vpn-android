@@ -287,21 +287,73 @@ fun VihtAuthScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(VihtBgElevated)
-                                .clickable {
-                                    AuthCallbackServer.stop()
-                                    isWaitingBrowserAuth = false
-                                }
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Отмена",
-                                fontSize = 12.sp,
-                                color = VihtTextMuted
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(VihtNeonCyan.copy(alpha = 0.15f))
+                                    .border(1.dp, VihtNeonCyan.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                        val clipText = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+                                        if (!clipText.isNullOrBlank()) {
+                                            var clean = clipText
+                                            if (clean.contains("/sub/")) {
+                                                clean = clean.substringAfter("/sub/").substringBefore("?").substringBefore("/").trim()
+                                            } else if (clean.contains("subscription-link/")) {
+                                                clean = clean.substringAfter("subscription-link/").substringBefore("?").substringBefore("/").trim()
+                                            }
+                                            scope.launch {
+                                                val res = VihtApiClient.fetchCabinetProfile(context, token = clean)
+                                                if (res.isSuccess) {
+                                                    val (profile, servers) = res.getOrThrow()
+                                                    VihtPreferences.setAuthToken(context, clean)
+                                                    VihtPreferences.setSavedServers(context, servers)
+                                                    AuthCallbackServer.stop()
+                                                    isWaitingBrowserAuth = false
+                                                    Toast.makeText(context, "Вход выполнен успешно!", Toast.LENGTH_SHORT).show()
+                                                    onAuthSuccess()
+                                                } else {
+                                                    Toast.makeText(context, "Ссылка в буфере не подошла: скопируйте ссылку подписки в кабинете", Toast.LENGTH_LONG).show()
+                                                }
+                                            }
+                                        } else {
+                                            Toast.makeText(context, "Буфер обмена пуст. Скопируйте ссылку подписки в кабинете.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(imageVector = Icons.Default.ContentPaste, contentDescription = "Paste", tint = VihtNeonCyan, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Вставить из буфера",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = VihtNeonCyan
+                                    )
+                                }
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(VihtBgElevated)
+                                    .clickable {
+                                        AuthCallbackServer.stop()
+                                        isWaitingBrowserAuth = false
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "Отмена",
+                                    fontSize = 12.sp,
+                                    color = VihtTextMuted
+                                )
+                            }
                         }
                     }
                 }
@@ -714,8 +766,32 @@ fun VihtAuthScreen(
                                         errorMessage = null
 
                                         var clean = tokenInput.trim()
-                                        if (clean.contains("subscription-link/")) {
-                                            clean = clean.substringAfter("subscription-link/").substringBefore("?")
+                                        if (clean.contains("/sub/")) {
+                                            clean = clean.substringAfter("/sub/").substringBefore("?").substringBefore("/").trim()
+                                        } else if (clean.contains("subscription-link/")) {
+                                            clean = clean.substringAfter("subscription-link/").substringBefore("?").substringBefore("/").trim()
+                                        }
+
+                                        if (clean.startsWith("vless://")) {
+                                            val hash = if (clean.contains("#")) clean.substringAfter("#") else ""
+                                            val name = if (hash.isNotBlank()) {
+                                                runCatching { java.net.URLDecoder.decode(hash, "UTF-8") }.getOrDefault(hash)
+                                            } else "Мой VLESS сервер"
+                                            val customServer = VihtServer(
+                                                id = "custom_${System.currentTimeMillis()}",
+                                                name = name,
+                                                flag = "🌐",
+                                                host = "anviht.ru",
+                                                port = 443,
+                                                ping = 50,
+                                                vlessUri = clean
+                                            )
+                                            VihtPreferences.setAuthToken(context, "custom_vless")
+                                            VihtPreferences.setSavedServers(context, listOf(customServer))
+                                            isCheckingToken = false
+                                            Toast.makeText(context, "Ключ VLESS успешно добавлен!", Toast.LENGTH_SHORT).show()
+                                            onAuthSuccess()
+                                            return@launch
                                         }
 
                                         val res = VihtApiClient.fetchCabinetProfile(context, token = clean)
