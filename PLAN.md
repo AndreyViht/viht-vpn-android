@@ -67,15 +67,14 @@
   - [x] `VihtSettingsScreen.kt` — обход сайтов РФ, раздельное туннелирование (выбор приложений), автозапуск, Kill Switch, выбор языка, логи
   - [x] `MainActivity.kt` — главное окно, объединяющее навигацию по табам, обработку deep link, фоновую синхронизацию с API и управление VPN
 
-- [x] **Этап 7: Сборка, тестирование и релиз через GitHub Actions**
-  - [x] Создание удаленного репозитория `viht-vpn-android` на GitHub (`https://github.com/AndreyViht/viht-vpn-android.git`)
-  - [x] Оптимизация сборки под единый универсальный файл без сплитов по ABI (`splits.abi.isEnable = false`)
-  - [x] Внедрение Floating Island навигации («островок как на iPhone» внизу экрана)
-  - [x] Гейт первого запуска: обязательное окно приветствия и авторизации до доступа к ключам
-  - [x] Вход через Telegram ID с кодом в бота, Яндекс ID и VK ID через локальный OAuth-сервер
-  - [x] Оптимизация размера APK: фильтрация arm64-v8a и сжатие нативных библиотек
-  - [x] Публикация официального релиза GitHub Release `v1.0.1`:
-    - Ссылка на скачивание: https://github.com/AndreyViht/viht-vpn-android/releases/download/v1.0.1/VihtVPN.apk
-    - Страница релиза: https://github.com/AndreyViht/viht-vpn-android/releases/tag/v1.0.1
+- [x] **Этап 8: Исправление авторизации и релиз v1.0.2**
+  - [x] Исправлен базовый endpoint в `VihtApiClient.kt`: изменен с `https://anviht.ru/cabinet-api` (где Nginx отдавал HTML SPA с ошибкой `<!doctype...`) на `https://anviht.ru/api/cabinet-api` (реальная Edge Function Supabase).
+  - [x] Исправлена отправка проверочных кодов в бота Telegram `@vpnvihtbot`: проверено сквозным тестом для ID `8613298149`.
+  - [x] Исправлен формат заголовков `Authorization: Bearer sub:...` для бесшовной валидации токенов подписки и сессий.
+  - [x] Добавлена кнопка «Вставить из буфера» в окне ожидания браузерной авторизации (Яндекс ID и VK ID).
+  - [x] Улучшен парсинг ссылок подписки в табе «Ключ» (поддержка `anviht.ru/sub/...`, `subscription-link/...` и прямых ссылок `vless://`).
+  - [x] Публикация официального релиза GitHub Release `v1.0.2`:
+    - Ссылка на скачивание: https://github.com/AndreyViht/viht-vpn-android/releases/download/v1.0.2/VihtVPN.apk
+    - Страница релиза: https://github.com/AndreyViht/viht-vpn-android/releases/tag/v1.0.2
 
 
