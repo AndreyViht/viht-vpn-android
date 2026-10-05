@@ -1,0 +1,331 @@
+<resources>
+    <string name="app_name">Viht VPN</string>
+
+    <string name="settings_title">Настройки</string>
+    <string name="settings_general">Общие</string>
+    <string name="settings_general_subtitle">Язык и основные параметры</string>
+    <string name="settings_routing">Маршрутизация</string>
+    <string name="settings_routing_subtitle">Приложения и сайты</string>
+    <string name="settings_automation">Автоматизация</string>
+    <string name="settings_automation_subtitle">Автовключение и правила</string>
+    <string name="settings_connections">Подключения</string>
+    <string name="settings_logs">Логи</string>
+    <string name="settings_logs_subtitle">Диагностика подключения</string>
+    <string name="settings_updates">Обновления</string>
+    <string name="settings_updates_subtitle">Проверка новых версий</string>
+    <string name="settings_about">О программе</string>
+
+    <string name="updates_title">Обновления</string>
+    <string name="updates_current_version">Установленная версия: %1$s</string>
+    <string name="updates_auto_check">Проверять автоматически</string>
+    <string name="updates_auto_check_subtitle">Раз в сутки проверять новую версию и сообщать о доступном обновлении</string>
+    <string name="updates_check">Проверить обновления</string>
+    <string name="updates_checking">Проверка обновлений…</string>
+    <string name="updates_up_to_date">У вас установлена последняя версия</string>
+    <string name="updates_available">Доступна новая версия: %1$s</string>
+    <string name="updates_download">Скачать и обновить</string>
+    <string name="updates_downloading">Загрузка обновления…</string>
+    <string name="updates_error">Не удалось проверить обновления</string>
+    <string name="updates_download_error">Не удалось скачать обновление</string>
+    <string name="updates_verification_error">Проверка обновления не пройдена. APK не будет установлен.</string>
+    <string name="updates_install_permission">Разрешите pingwin устанавливать обновления и повторите попытку</string>
+    <string name="settings_home">Главная</string>
+
+    <string name="general_title">Общие</string>
+    <string name="language_title">Язык</string>
+    <string name="language_english">English</string>
+    <string name="language_russian">Русский</string>
+    <string name="external_geoip_title">Определять страну сервера</string>
+    <string name="external_geoip_subtitle">Используются внешние GeoIP-сервисы. IP-адрес сервера будет передаваться сторонним сервисам.</string>
+    <string name="home_geoip_disabled">Страна: выкл.</string>
+    <string name="cancel">Отмена</string>
+
+    <string name="home_add_qr">QR-код</string>
+    <string name="home_add_clipboard">Буфер обмена</string>
+    <string name="home_add_manual">Вручную</string>
+    <string name="home_status_disconnected">Отключено</string>
+    <string name="home_status_connecting">Подключение…</string>
+    <string name="home_status_connected">Подключено</string>
+    <string name="home_status_error">Ошибка подключения</string>
+    <plurals name="home_apps_count">
+        <item quantity="one">%1$d приложение</item>
+        <item quantity="few">%1$d приложения</item>
+        <item quantity="many">%1$d приложений</item>
+        <item quantity="other">%1$d приложения</item>
+    </plurals>
+    <plurals name="home_sites_count">
+        <item quantity="one">%1$d домен</item>
+        <item quantity="few">%1$d домена</item>
+        <item quantity="many">%1$d доменов</item>
+        <item quantity="other">%1$d домена</item>
+    </plurals>
+    <string name="home_routing_disabled">Выключена</string>
+    <string name="home_automation_wifi_mobile">Wi-Fi + мобильная сеть</string>
+    <string name="home_automation_wifi">Wi-Fi</string>
+    <string name="home_automation_mobile">Мобильная сеть</string>
+    <string name="home_primary_server">Основной сервер</string>
+    <string name="home_app_rules">Правила приложений</string>
+    <string name="home_site_rules">Правила сайтов</string>
+    <string name="home_location_unknown">Местоположение не определено</string>
+
+    <string name="connections_title">Подключения</string>
+    <string name="connections_empty">Сохранённых подключений пока нет.</string>
+    <string name="connections_add">Добавить подключение</string>
+    <string name="connections_delete_title">Удалить подключение?</string>
+    <string name="connections_delete_message">Это подключение будет удалено.</string>
+
+    <string name="add_connection_title">Добавить подключение</string>
+    <string name="add_connection_hint">Вставьте VLESS-ссылку.</string>
+    <string name="add_connection_link_label">VLESS-ссылка</string>
+    <string name="add_connection_scan_qr">Сканировать QR-код</string>
+    <string name="add_connection_paste">Вставить из буфера</string>
+    <string name="add_connection_add">Добавить</string>
+    <string name="add_connection_error">Не удалось добавить подключение</string>
+
+    <string name="qr_scanner_prompt">Наведите камеру на QR-код</string>
+    <string name="qr_scanner_status">Поместите QR-код в рамку</string>
+
+    <string name="routing_title">Маршрутизация</string>
+    <string name="routing_intro">Настройте, какой трафик должен идти через VPN. Правила для приложений и сайтов задаются отдельно.</string>
+    <string name="routing_combined_rules_note">Правила приложений и сайтов объединяются: совпадение с любым правилом «через VPN» направляет трафик в VPN, но правило «без VPN» имеет приоритет при конфликте.</string>
+    <string name="routing_applications">Приложения</string>
+    <string name="routing_sites">Сайты</string>
+    <string name="routing_changes_reconnect">Изменения применяются после переподключения VPN.</string>
+    <string name="routing_all_apps_vpn">Все приложения идут через VPN</string>
+    <string name="routing_no_apps_for_vpn">Через VPN приложения не выбраны</string>
+    <string name="routing_all_sites_vpn">Все сайты идут через VPN</string>
+    <string name="routing_no_sites_for_vpn">Через VPN сайты не выбраны</string>
+    <string name="routing_only_selected_vpn">Только выбранные — через VPN</string>
+    <string name="routing_selected_without_vpn">Выбранные — без VPN</string>
+    <string name="routing_via_vpn_list">Через VPN: %1$s</string>
+    <string name="routing_without_vpn_list">Без VPN: %1$s</string>
+
+    <string name="app_routing_title">Маршрутизация приложений</string>
+    <string name="app_routing_enabled">Включено</string>
+    <string name="app_routing_disabled">Отключено. Все приложения работают через VPN.</string>
+    <string name="app_routing_mode_only_selected">Только приложения из списка — через VPN</string>
+    <string name="app_routing_mode_exclude_selected">Приложения из списка — без VPN</string>
+    <string name="app_routing_mode_only_selected_description">Только приложения из списка должны работать через VPN</string>
+    <string name="app_routing_mode_exclude_selected_description">Приложения из списка не должны работать через VPN</string>
+    <string name="app_routing_hide_system">Скрыть системные приложения</string>
+    <string name="app_routing_search">Поиск приложения</string>
+    <string name="app_routing_selected_count">Выбрано: %1$d</string>
+
+    <string name="site_routing_title">Маршрутизация сайтов</string>
+    <string name="site_routing_enabled">Правила действуют во всех приложениях и браузерах.</string>
+    <string name="site_routing_disabled">Отключено. Все сайты открываются через VPN.</string>
+    <string name="site_routing_mode_only_selected">Только адреса из списка — через VPN</string>
+    <string name="site_routing_mode_exclude_selected">Адреса из списка — без VPN</string>
+    <string name="site_routing_mode_only_selected_description">Только адреса из списка должны открываться через VPN</string>
+    <string name="site_routing_mode_exclude_selected_description">Адреса из списка не должны открываться через VPN</string>
+    <string name="site_routing_address_hint">Адрес, например youtube.com</string>
+    <string name="site_routing_add">Добавить</string>
+    <string name="site_routing_count">Адресов в списке: %1$d</string>
+    <string name="site_routing_delete">Удалить</string>
+
+    <string name="automation_title">Автоматизация</string>
+    <string name="automation_description">Автоматическое управление VPN в зависимости от сети.</string>
+    <string name="automation_location_explanation">Чтобы определять доверенную Wi-Fi сеть, Android требует доступ к геоданным. Разрешите доступ в любом режиме (на некоторых устройствах — «Всегда») и включите «Точное местоположение». pingwin использует это разрешение только для определения имени Wi-Fi сети.</string>
+    <string name="automation_enabled">Включена</string>
+    <string name="automation_disabled">Выключена</string>
+    <string name="automation_when_to_enable">Когда включать VPN</string>
+    <string name="automation_when_to_disable">Когда отключать VPN</string>
+    <string name="automation_disconnect_abroad">Местонахождение за границей</string>
+    <string name="automation_disconnect_abroad_subtitle">Отключать VPN, когда устройство зарегистрировано в мобильной сети другой страны</string>
+    <string name="automation_mobile_data">Мобильный интернет</string>
+    <string name="automation_mobile_data_subtitle">Включать VPN при использовании мобильной сети</string>
+    <string name="automation_untrusted_wifi">Недоверенный Wi-Fi</string>
+    <string name="automation_untrusted_wifi_subtitle">Включать VPN в Wi-Fi сетях, которых нет в списке доверенных</string>
+    <string name="automation_trusted_wifi">Доверенные Wi-Fi</string>
+    <string name="automation_trusted_wifi_example">Например: домашняя или офисная сеть.</string>
+    <string name="automation_add_current_wifi">Добавить текущую Wi-Fi сеть</string>
+    <string name="automation_wifi_ssid">Название Wi-Fi (SSID)</string>
+    <string name="automation_add_trusted_wifi">Добавить доверенную сеть</string>
+    <string name="automation_no_trusted_wifi">Доверенных Wi-Fi сетей пока нет.</string>
+    <string name="automation_disconnect_vpn">Доверенная Wi-Fi сеть</string>
+    <string name="automation_disconnect_vpn_subtitle">Отключать VPN при подключении к доверенной Wi-Fi сети</string>
+    <string name="automation_location_permission_required">Для доверенных Wi-Fi нужен доступ к местоположению</string>
+    <string name="automation_background_location_required">Для автоматизации Wi-Fi разрешите доступ к местоположению «Всегда» в разрешениях приложения</string>
+    <string name="automation_current_wifi_error">Не удалось определить текущую Wi-Fi сеть</string>
+    <string name="automation_trusted_wifi_added">Сеть «%1$s» добавлена в доверенные</string>
+
+    <string name="logs_title">Логи</string>
+    <string name="logs_detailed_logging">Подробное логирование</string>
+    <string name="logs_enabled">Включено</string>
+    <string name="logs_disabled">Выключено</string>
+    <string name="logs_recent_events">Последние события</string>
+    <string name="logs_refresh">Обновить</string>
+    <string name="logs_empty">Журнал пока пуст.</string>
+    <string name="logs_copy">Скопировать</string>
+    <string name="logs_share">Поделиться</string>
+    <string name="logs_clear">Очистить журнал</string>
+    <string name="logs_copied">Логи скопированы</string>
+    <string name="logs_share_chooser">Поделиться логами</string>
+    <string name="logs_file_error">Не удалось создать файл логов</string>
+    <string name="logs_device">Устройство: %1$s %2$s</string>
+    <string name="logs_created">Создано: %1$s</string>
+    <string name="logs_journal">Журнал:</string>
+
+    <string name="about_title">О программе</string>
+    <string name="about_version_line">Версия %1$s</string>
+    <string name="about_description">pingwin — лёгкий VPN-клиент на базе sing-box с поддержкой современных протоколов. Основной акцент сделан на простом управлении подключениями, раздельной маршрутизации приложений и сайтов, автоматизации и приватности.</string>
+    <string name="about_features_title">Возможности</string>
+    <string name="about_feature_connections">VLESS, VMess, Trojan, Shadowsocks, TUIC и Hysteria2 со сканированием QR-кодов и импортом из буфера обмена</string>
+    <string name="about_feature_routing">Раздельные правила маршрутизации для приложений и сайтов</string>
+    <string name="about_feature_automation">Автоматическое управление VPN для мобильной сети, доверенных и недоверенных Wi-Fi</string>
+    <string name="about_feature_macrodroid">Интеграция с MacroDroid: подключение, отключение и переключение VPN</string>
+    <string name="about_feature_logs">Диагностические логи для поиска проблем с подключением</string>
+    <string name="about_feature_languages">Интерфейс на английском и русском языках</string>
+    <string name="about_feature_privacy">Настройки приватности и маскирование адресов серверов</string>
+    <string name="about_github">GitHub</string>
+    <string name="about_support">Поддержка</string>
+    <string name="about_version">Версия</string>
+    <string name="about_core">Ядро</string>
+    <string name="about_protocol">Протокол</string>
+
+
+    <string name="connection_error_unsupported_protocol">Этот протокол подключения не поддерживается</string>
+    <string name="connection_error_input_too_large">Ссылка подключения слишком большая.</string>
+    <string name="connection_error_invalid_characters">Ссылка подключения содержит недопустимые управляющие символы.</string>
+    <string name="connection_error_duplicate">Это подключение уже добавлено</string>
+    <string name="vless_error_invalid_scheme">Ссылка должна начинаться с vless://</string>
+    <string name="vless_error_missing_uuid">В ссылке отсутствует UUID</string>
+    <string name="vless_error_missing_host">В ссылке отсутствует адрес сервера</string>
+    <string name="vless_error_invalid_port">Некорректный порт сервера VLESS</string>
+    <string name="hysteria2_error_invalid_scheme">Ссылка должна начинаться с hysteria2:// или hy2://</string>
+    <string name="hysteria2_error_missing_host">В ссылке отсутствует адрес сервера</string>
+    <string name="hysteria2_error_invalid_port">Некорректный порт сервера Hysteria2</string>
+    <string name="hysteria2_error_unsupported_obfs">Этот метод маскировки Hysteria2 не поддерживается</string>
+    <string name="hysteria2_error_missing_obfs_password">Отсутствует пароль маскировки Hysteria2</string>
+    <string name="hysteria2_error_unsupported_pin">Закрепление сертификата Hysteria2 пока не поддерживается</string>
+    <string name="hysteria2_error_unsupported_ech">ECH для Hysteria2 пока не поддерживается</string>
+    <string name="trojan_error_invalid_scheme">Ссылка должна начинаться с trojan://</string>
+    <string name="trojan_error_missing_password">В ссылке Trojan отсутствует пароль</string>
+    <string name="trojan_error_missing_host">В ссылке Trojan отсутствует адрес сервера</string>
+    <string name="trojan_error_invalid_port">Некорректный порт сервера Trojan</string>
+    <string name="tuic_error_invalid_scheme">Ссылка должна начинаться с tuic://</string>
+    <string name="tuic_error_missing_uuid">В ссылке TUIC отсутствует UUID</string>
+    <string name="tuic_error_missing_host">В ссылке TUIC отсутствует адрес сервера</string>
+    <string name="tuic_error_invalid_port">Некорректный порт сервера TUIC</string>
+    <string name="tuic_error_unsupported_congestion_control">Этот алгоритм управления перегрузкой TUIC не поддерживается</string>
+    <string name="tuic_error_unsupported_udp_relay_mode">Этот режим UDP relay TUIC не поддерживается</string>
+    <string name="shadowsocks_error_invalid_scheme">Ссылка должна начинаться с ss://</string>
+    <string name="shadowsocks_error_invalid_credentials">Некорректные данные авторизации Shadowsocks</string>
+    <string name="shadowsocks_error_missing_host">В ссылке Shadowsocks отсутствует адрес сервера</string>
+    <string name="shadowsocks_error_invalid_port">Некорректный порт сервера Shadowsocks</string>
+    <string name="shadowsocks_error_unsupported_plugin">Плагины Shadowsocks пока не поддерживаются</string>
+    <string name="vmess_error_invalid_scheme">Ссылка должна начинаться с vmess://</string>
+    <string name="vmess_error_invalid_data">Ссылка VMess содержит некорректные данные</string>
+    <string name="vmess_error_missing_uuid">В ссылке VMess отсутствует UUID</string>
+    <string name="vmess_error_missing_host">В ссылке VMess отсутствует адрес сервера</string>
+    <string name="vmess_error_invalid_port">Некорректный порт сервера VMess</string>
+    <string name="vmess_error_unsupported_tls">Этот режим TLS для VMess не поддерживается</string>
+    <string name="vmess_error_unsupported_network">Этот транспорт VMess не поддерживается</string>
+
+    <string name="singbox_error_unsupported_security">Поддерживаемые режимы безопасности: none, tls, reality</string>
+    <string name="singbox_error_unsupported_network">Поддерживаемые транспорты: tcp, ws, grpc, httpupgrade, http</string>
+    <string name="singbox_error_missing_public_key">Для Reality отсутствует public key (pbk)</string>
+    <string name="singbox_error_missing_server_name">Для Reality отсутствует server name (sni)</string>
+
+    <string name="macrodroid_vpn_permission_required">Сначала откройте pingwin и разрешите VPN-подключение</string>
+    <string name="macrodroid_no_server_selected">В pingwin не выбран сервер</string>
+    <string name="macrodroid_log_connect">MacroDroid: включение VPN</string>
+    <string name="macrodroid_log_disconnect">MacroDroid: отключение VPN</string>
+    <string name="macrodroid_log_toggle_connect">MacroDroid: переключение VPN — включение</string>
+    <string name="macrodroid_log_toggle_disconnect">MacroDroid: переключение VPN — отключение</string>
+    <string name="macrodroid_blurb_connect">Подключить pingwin к выбранному серверу</string>
+    <string name="macrodroid_blurb_disconnect">Отключить VPN pingwin</string>
+    <string name="macrodroid_blurb_toggle">Переключить состояние VPN pingwin</string>
+
+    <string name="automation_service_enabled">Автоматизация включена</string>
+    <string name="automation_service_wifi_unknown">Не удалось определить Wi-Fi сеть</string>
+    <string name="automation_log_ssid_unavailable">Автоматизация: SSID недоступен — правило Wi-Fi не применено</string>
+    <string name="automation_reason_trusted_wifi">Доверенный Wi-Fi: %1$s</string>
+    <string name="automation_reason_untrusted_wifi">Недоверенный Wi-Fi: %1$s</string>
+    <string name="automation_reason_mobile_data">Мобильный интернет</string>
+    <string name="automation_reason_abroad">За границей: страна мобильной сети отличается от домашней страны</string>
+    <string name="automation_log_vpn_permission_required">Автоматизация: требуется разрешение VPN</string>
+    <string name="automation_service_open_for_permission">Откройте pingwin и разрешите VPN</string>
+    <string name="automation_log_no_saved_server">Автоматизация: нет сохранённого сервера</string>
+    <string name="automation_service_no_saved_server">Нет сохранённого сервера</string>
+    <string name="automation_log_start_vpn">Автоматизация: включение VPN — %1$s</string>
+    <string name="automation_log_start_error">Автоматизация: ошибка запуска — %1$s</string>
+    <string name="automation_log_stop_vpn">Автоматизация: отключение VPN — %1$s</string>
+    <string name="automation_notification_channel">Автоматизация pingwin</string>
+
+    <string name="vpn_service_starting">VPN запускается</string>
+    <string name="vpn_log_start">Запуск VPN</string>
+    <string name="vpn_log_connected">VPN подключён</string>
+    <string name="vpn_service_running">VPN работает</string>
+    <string name="vpn_log_connection_error">Ошибка подключения: %1$s</string>
+    <string name="vpn_log_disconnected">VPN отключён</string>
+    <string name="vpn_notification_channel_description">Состояние VPN-соединения pingwin</string>
+
+    <string name="singbox_log_connected">Подробный журнал sing-box подключён</string>
+    <string name="singbox_log_connect_error">Не удалось подключить журнал sing-box: %1$s</string>
+    <string name="singbox_log_disconnected">Журнал sing-box отключён: %1$s</string>
+
+    <string name="macrodroid_action_connect">Подключить</string>
+    <string name="macrodroid_action_disconnect">Отключить</string>
+    <string name="macrodroid_action_toggle">Переключить</string>
+
+    <plurals name="saved_servers">
+        <item quantity="one">%d сохранённый сервер</item>
+        <item quantity="few">%d сохранённых сервера</item>
+        <item quantity="many">%d сохранённых серверов</item>
+        <item quantity="other">%d сохранённых серверов</item>
+    </plurals>
+
+    <!-- Viht VPN Additions -->
+    <string name="nav_home">Главная</string>
+    <string name="nav_servers">Серверы</string>
+    <string name="nav_cabinet">Кабинет</string>
+    <string name="nav_settings">Настройки</string>
+
+    <string name="auth_title">Вход в Viht VPN</string>
+    <string name="auth_subtitle">Выберите удобный способ авторизации</string>
+    <string name="auth_telegram">Войти через Telegram</string>
+    <string name="auth_telegram_id_hint">Ваш числовой Telegram ID</string>
+    <string name="auth_send_code">Получить код в @vpnvihtbot</string>
+    <string name="auth_enter_code">Введите 6-значный код из бота</string>
+    <string name="auth_verify_code">Подтвердить и войти</string>
+    <string name="auth_vk">Войти через VK ID</string>
+    <string name="auth_yandex">Войти через Яндекс ID</string>
+    <string name="auth_token_hint">Ключ или ссылка подписки (sub:...)</string>
+    <string name="auth_token_login">Войти по ключу</string>
+    <string name="auth_skip">Продолжить без авторизации</string>
+
+    <string name="cabinet_title">Личный кабинет</string>
+    <string name="cabinet_subscription_active">Подписка активна</string>
+    <string name="cabinet_subscription_expired">Подписка истекла</string>
+    <string name="cabinet_trial">Пробный период</string>
+    <string name="cabinet_days_left">Осталось: %1$d дн.</string>
+    <string name="cabinet_expires_at">Действует до: %1$s</string>
+    <string name="cabinet_renew">Продлить подписку</string>
+    <string name="cabinet_devices_title">Активные устройства</string>
+    <string name="cabinet_device_current">Это устройство</string>
+    <string name="cabinet_device_unbind">Отвязать</string>
+    <string name="cabinet_device_unbind_confirm">Отвязать это устройство от аккаунта?</string>
+    <string name="cabinet_logout">Выйти из аккаунта</string>
+
+    <string name="home_protected">ЗАЩИЩЕНО</string>
+    <string name="home_unprotected">ОТКЛЮЧЕНО</string>
+    <string name="home_bypass_ru">Обход сайтов РФ</string>
+    <string name="home_bypass_ru_sub">Банки, Госуслуги и сервисы РФ напрямую</string>
+    <string name="home_measure_ping">Замерить пинг</string>
+    <string name="home_session_duration">Сессия</string>
+    <string name="home_change_server">Сменить</string>
+
+    <string name="servers_title">Серверы и ключи</string>
+    <string name="servers_recommended">Рекомендуемый</string>
+    <string name="servers_no_ads">Без рекламы</string>
+    <string name="servers_lte">TEST LTE</string>
+    <string name="servers_select">Выбрать сервер</string>
+    <string name="server_germany">Германия</string>
+    <string name="server_netherlands">Нидерланды</string>
+    <string name="server_sweden">Стокгольм (Швеция)</string>
+    <string name="server_russia">Россия (Ютуб без рекламы)</string>
+</resources>
+
+
+

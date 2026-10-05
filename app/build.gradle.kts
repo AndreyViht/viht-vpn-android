@@ -1,0 +1,155 @@
+import java.security.MessageDigest
+
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+}
+
+val pingwinStoreFile = providers.gradleProperty("PINGWIN_STORE_FILE")
+val pingwinStorePassword = providers.gradleProperty("PINGWIN_STORE_PASSWORD")
+val pingwinKeyAlias = providers.gradleProperty("PINGWIN_KEY_ALIAS")
+val pingwinKeyPassword = providers.gradleProperty("PINGWIN_KEY_PASSWORD")
+
+android {
+    namespace = "com.pingwin.vpn"
+    compileSdk {
+        version = release(37)
+    }
+
+    defaultConfig {
+        applicationId = "ru.anviht.vpn"
+        minSdk = 29
+        targetSdk = 37
+        versionCode = 1
+        versionName = "1.0.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (pingwinStoreFile.isPresent && pingwinStorePassword.isPresent && pingwinKeyAlias.isPresent && pingwinKeyPassword.isPresent) {
+            create("release") {
+                storeFile = file(pingwinStoreFile.get())
+                storePassword = pingwinStorePassword.get()
+                keyAlias = pingwinKeyAlias.get()
+                keyPassword = pingwinKeyPassword.get()
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+        }
+        release {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
+            optimization {
+                enable = false
+            }
+        }
+    }
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include(
+                "arm64-v8a",
+                "armeabi-v7a"
+            )
+            isUniversalApk = true
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+}
+
+dependencies {
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation("androidx.work:work-runtime:2.11.2")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation("com.joaomgcd:taskerpluginlibrary:0.4.10")
+    testImplementation(libs.junit)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.androidx.junit)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+	implementation(files("libs/libbox.aar"))
+}
+
+val verifyLibbox = tasks.register("verifyLibbox") {
+    group = "verification"
+    description = "Verifies the SHA-256 checksum of the bundled libbox.aar"
+
+    inputs.file("libs/libbox.aar").withPropertyName("libboxAar")
+    inputs.file("libs/libbox.sha256").withPropertyName("libboxChecksum")
+
+    doLast {
+        val files =
+            inputs.files.files.associateBy { it.name }
+
+        val libboxFile =
+            checkNotNull(files["libbox.aar"]) {
+                "Missing bundled libbox artifact"
+            }
+
+        val checksumFile =
+            checkNotNull(files["libbox.sha256"]) {
+                "Missing libbox checksum file"
+            }
+
+        val expected =
+            checksumFile
+                .readText()
+                .trim()
+                .substringBefore(" ")
+                .lowercase()
+
+        val digest =
+            MessageDigest.getInstance("SHA-256")
+
+        libboxFile.inputStream().use { input ->
+            val buffer = ByteArray(1024 * 1024)
+
+            while (true) {
+                val count = input.read(buffer)
+
+                if (count < 0) {
+                    break
+                }
+
+                digest.update(buffer, 0, count)
+            }
+        }
+
+        val actual =
+            digest
+                .digest()
+                .joinToString("") { byte ->
+                    "%02x".format(byte)
+                }
+
+        check(actual == expected) {
+            "libbox.aar SHA-256 mismatch. Expected $expected but found $actual"
+        }
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(verifyLibbox)
+}

@@ -1,0 +1,91 @@
+name: Viht VPN Android Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Viht VPN Release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android 37 platform
+        run: sdkmanager "platforms;android-37.0"
+
+      - name: Ensure libbox.aar
+        run: |
+          mkdir -p app/libs
+          if [ ! -s app/libs/libbox.aar ] || [ $(wc -c < app/libs/libbox.aar) -lt 1000 ]; then
+            echo "Downloading libbox.aar from LFS..."
+            node -e "
+              const fs = require('fs');
+              const https = require('https');
+              fetch('https://github.com/scripchenko/pingwin.git/info/lfs/objects/batch', {
+                method: 'POST',
+                headers: { 'Accept': 'application/vnd.git-lfs+json', 'Content-Type': 'application/vnd.git-lfs+json' },
+                body: JSON.stringify({ operation: 'download', transfers: ['basic'], objects: [{ oid: '3a706062e1b3e804ca7f7abbdef523a05c4ad7c125ab1496e2b0a52a62c360a5', size: 92997417 }] })
+              }).then(r => r.json()).then(d => {
+                const url = d.objects[0].actions.download.href;
+                const file = fs.createWriteStream('app/libs/libbox.aar');
+                https.get(url, r => {
+                  r.pipe(file);
+                  file.on('finish', () => console.log('libbox.aar downloaded successfully'));
+                });
+              });
+            "
+            sleep 15
+          fi
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+
+      - name: Verify libbox SHA-256
+        run: ./gradlew verifyLibbox --console=plain
+
+      - name: Build Release and Debug APKs
+        run: ./gradlew assembleDebug assembleRelease --console=plain --stacktrace
+
+      - name: Rename & Organize APKs
+        run: |
+          mkdir -p release-apks
+          find app/build/outputs/apk/ -name "*.apk" -exec cp {} release-apks/ \;
+          ls -la release-apks/
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: viht-vpn-android-apks
+          path: release-apks/*.apk
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-apks/*.apk
+          generate_release_notes: true
