@@ -9,6 +9,8 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -190,11 +192,33 @@ class MainActivity : ComponentActivity() {
         bridge = AndroidVihtBridge(this, webView)
         webView.addJavascriptInterface(bridge, "VihtNative")
 
-        setContentView(webView)
+        // Root container to properly honor system status bar insets on all Android devices
+        val rootContainer = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#07090E"))
+            addView(
+                webView,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+        setContentView(rootContainer)
 
-        ViewCompat.setOnApplyWindowInsetsListener(webView) { v, windowInsets ->
+        var statusBarHeight = 0
+        val statusBarResId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        if (statusBarResId > 0) {
+            statusBarHeight = resources.getDimensionPixelSize(statusBarResId)
+        }
+        if (statusBarHeight <= 0) {
+            statusBarHeight = (28 * resources.displayMetrics.density).toInt()
+        }
+        rootContainer.setPadding(0, statusBarHeight, 0, 0)
+
+        ViewCompat.setOnApplyWindowInsetsListener(rootContainer) { v, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars())
-            v.setPadding(0, insets.top, 0, 0)
+            val topInset = if (insets.top > 0) insets.top else statusBarHeight
+            v.setPadding(0, topInset, 0, 0)
             windowInsets
         }
 

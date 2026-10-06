@@ -20,8 +20,8 @@ android {
         applicationId = "ru.anviht.vpn"
         minSdk = 29
         targetSdk = 37
-        versionCode = 7
-        versionName = "1.3.5"
+        versionCode = 8
+        versionName = "1.3.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
