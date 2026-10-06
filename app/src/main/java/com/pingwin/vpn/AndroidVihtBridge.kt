@@ -105,12 +105,25 @@ class AndroidVihtBridge(
                 val setObj = if (settingsJson.isNotBlank()) JSONObject(settingsJson) else JSONObject()
 
                 val serverId = srvObj.optString("id", "de_1")
-                val vlessUri = srvObj.optString("vlessUri", "")
+                var vlessUri = srvObj.optString("vless_uri").ifBlank {
+                    srvObj.optString("vlessUri").ifBlank {
+                        srvObj.optString("uri", "")
+                    }
+                }
+
+                if (vlessUri.isBlank()) {
+                    val saved = ConnectionStore.findById(activity, serverId)
+                        ?: ConnectionStore.selected(activity)
+                        ?: ConnectionStore.loadAll(activity).firstOrNull()
+                    if (saved != null && saved.link.isNotBlank()) {
+                        vlessUri = saved.link
+                    }
+                }
 
                 if (vlessUri.isBlank()) {
                     respond(callbackId, JSONObject().apply {
                         put("ok", false)
-                        put("error", "VLESS ключ не найден")
+                        put("error", "VLESS ключ не найден. Обновите список серверов.")
                     })
                     return@launch
                 }
@@ -227,7 +240,7 @@ class AndroidVihtBridge(
                     val id = s.optString("id")
                     var host = s.optString("host", "anviht.ru")
                     var port = s.optInt("port", 443)
-                    val vless = s.optString("vlessUri", "")
+                    val vless = s.optString("vless_uri").ifBlank { s.optString("vlessUri", "") }
                     if (vless.isNotBlank()) {
                         val hostRegex = "@([^:?#/]+)(?::(\\d+))?".toRegex()
                         hostRegex.find(vless)?.let { m ->
@@ -246,6 +259,33 @@ class AndroidVihtBridge(
                 respond(callbackId, results)
             } catch (e: Exception) {
                 respond(callbackId, JSONObject())
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun syncServers(callbackId: String, serversJson: String) {
+        scope.launch {
+            try {
+                val arr = JSONArray(serversJson)
+                val list = mutableListOf<SavedConnection>()
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val id = obj.optString("id", "")
+                    val name = obj.optString("name", "")
+                    val link = obj.optString("vless_uri").ifBlank { obj.optString("vlessUri", "") }
+                    if (id.isNotBlank() && link.isNotBlank()) {
+                        list.add(SavedConnection(id = id, name = name, link = link))
+                    }
+                }
+                if (list.isNotEmpty()) {
+                    ConnectionStore.saveAll(activity, list)
+                    Log.d("VihtBridge", "Successfully synced ${list.size} servers to ConnectionStore")
+                }
+                respond(callbackId, JSONObject().apply { put("ok", true) })
+            } catch (e: Exception) {
+                Log.e("VihtBridge", "syncServers failed", e)
+                respond(callbackId, JSONObject().apply { put("ok", false) })
             }
         }
     }

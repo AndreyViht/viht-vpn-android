@@ -202,7 +202,7 @@ object ConnectionStore {
         }
     }
 
-    private fun saveAll(
+    fun saveAll(
         context: Context,
         connections: List<SavedConnection>
     ) {

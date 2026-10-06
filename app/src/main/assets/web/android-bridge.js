@@ -63,7 +63,14 @@
     pingServers: (servers) => callNativeAsync('pingServers', servers),
 
     // VPN Engine
-    vpnConnect: (server, settings) => callNativeAsync('vpnConnect', server, settings),
+    vpnConnect: (server, settings) => {
+      if (server) {
+        if (!server.vlessUri && server.vless_uri) server.vlessUri = server.vless_uri;
+        if (!server.vless_uri && server.vlessUri) server.vless_uri = server.vlessUri;
+      }
+      return callNativeAsync('vpnConnect', server, settings);
+    },
+    syncServers: (servers) => callNativeAsync('syncServers', servers),
     vpnDisconnect: () => callNativeAsync('vpnDisconnect'),
     vpnUpdateSettings: (settings) => callNativeAsync('vpnUpdateSettings', settings),
     getVpnStatus: () => callNativeAsync('getVpnStatus'),

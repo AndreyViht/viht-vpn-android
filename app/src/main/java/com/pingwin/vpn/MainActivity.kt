@@ -24,6 +24,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.webkit.WebViewAssetLoader
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
@@ -189,6 +191,12 @@ class MainActivity : ComponentActivity() {
         webView.addJavascriptInterface(bridge, "VihtNative")
 
         setContentView(webView)
+
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { v, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars())
+            v.setPadding(0, insets.top, 0, 0)
+            windowInsets
+        }
 
         // Load the React app via standard WebViewAssetLoader domain
         webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
