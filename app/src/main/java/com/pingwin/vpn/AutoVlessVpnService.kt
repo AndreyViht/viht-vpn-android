@@ -601,13 +601,13 @@ class AutoVlessVpnService :
                 NOTIFICATION_CHANNEL_ID
             )
             .setContentTitle(
-                "Pingwin"
+                "Viht VPN"
             )
             .setContentText(
                 text
             )
             .setSmallIcon(
-                android.R.drawable.stat_sys_warning
+                R.drawable.ic_notification
             )
             .setOngoing(true)
             .setOnlyAlertOnce(true)
