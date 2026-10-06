@@ -79,7 +79,7 @@ class AndroidVihtBridge(
 
     @JavascriptInterface
     fun getAppVersion(callbackId: String) {
-        respond(callbackId, "1.3.3")
+        respond(callbackId, "1.3.4")
     }
 
     @JavascriptInterface
