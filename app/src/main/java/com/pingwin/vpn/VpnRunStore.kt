@@ -6,7 +6,9 @@ import org.json.JSONObject
 object VpnRunStore {
     private fun prefs(context: Context) = context.getSharedPreferences("viht_vpn_run", Context.MODE_PRIVATE)
     fun desired(context: Context) = prefs(context).getBoolean("desired", false)
-    fun start(context: Context, id: String) { check(prefs(context).edit().putBoolean("desired", true).putString("connection", id).commit()) }
+    fun start(context: Context, id: String) { check(prefs(context).edit().putBoolean("desired", true).putBoolean("verified",false).putString("connection", id).commit()) }
+    fun verified(context: Context) = prefs(context).getBoolean("verified", false)
+    fun markVerified(context: Context) { prefs(context).edit().putBoolean("verified",true).apply() }
     fun stop(context: Context) { prefs(context).edit().putBoolean("desired", false).commit() }
     fun restore(context: Context): Pair<String, String>? {
         if (!desired(context)) return null

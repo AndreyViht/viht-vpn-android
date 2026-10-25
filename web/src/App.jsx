@@ -982,7 +982,7 @@ export default function App() {
                     className="fluent-page-motion-wrap"
                     {...pageVariants}
                   >
-                    <DevicesScreen
+                    <DevicesScreen onBindingChanged={() => synchronizeKeys(true)}
                       token={token}
                       hwid={hwid}
                       limits={user?.limits}

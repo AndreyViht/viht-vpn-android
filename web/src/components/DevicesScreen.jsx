@@ -23,7 +23,7 @@ import vihtLogo from '../assets/viht-logo.png';
 import { t, fixMojibake } from '../utils/i18n';
 import { springs, buttonPress } from '../utils/motion';
 
-function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
+function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBindingChanged }) {
   const [devices, setDevices] = useState([]);
   const [limits, setLimits] = useState(() => propLimits || { total_slots: 0, active_count: 0, slot_price: 0 });
   const [loading, setLoading] = useState(true);
@@ -106,9 +106,15 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
     } catch(error) { showToast(error.message,true); }
     finally { setBindingBusy(false); }
   };
+  const bindCurrentDevice = async device => {
+    if (!window.confirm(`Подтвердите: сейчас Viht открыт на устройстве «${device.custom_name||device.device_model}». Его VPN-приложения должны занимать один слот.`)) return;
+    const result=await deviceAction(token,{command:'bind-current',device_id:device.binding_device_id||device.device_id||device.id});
+    if (!result?.ok) { showToast(result?.error||'Не удалось привязать Viht',true); return; }
+    await loadDevices(true); onBindingChanged?.(); showToast('Viht привязан к этому устройству. Дополнительный слот не занят.');
+  };
   const createBindingLink = async device => {
     try {
-      const result=await deviceAction(token,{command:'pair',device_id:device.device_id||device.id});
+      const result=await deviceAction(token,{command:'pair',device_id:device.binding_device_id||device.device_id||device.id});
       if (!result?.ok) throw new Error(result?.error||'Не удалось создать ссылку');
       if (window.electronAPI?.copyText) { const copied=await window.electronAPI.copyText(result.binding_url); if (!copied?.ok) throw new Error(copied?.error||'Не удалось скопировать ссылку'); }
       else await navigator.clipboard.writeText(result.binding_url);
@@ -343,7 +349,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
       </div>
 
       {unidentified.length > 0 && <div className="fluent-card" style={{padding:12,fontSize:12,color:'var(--text-secondary)'}}>Старые клиенты без идентификатора: {unidentified.length}. Слоты не занимают; определить физическое устройство для них нельзя.</div>}
-      {bindingDevice && <div className="fluent-card" role="dialog" aria-label="Привязка к телефону" style={{padding:18,display:'grid',gap:14}}>
+      {bindingDevice && <div style={{position:'fixed',inset:0,zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(0,0,0,.6)'}} onClick={()=>!bindingBusy&&setBindingDevice(null)}><div className="fluent-card" role="dialog" aria-modal="true" aria-label="Привязка к устройству" style={{padding:18,display:'grid',gap:14,width:'100%',maxWidth:480}} onClick={event=>event.stopPropagation()}>
         <strong>Это то же физическое устройство</strong>
         <span style={{fontSize:13}}>Подтвердите, что приложения «{bindingDevice.custom_name||bindingDevice.device_model}» используются на выбранном ниже устройстве. Они займут один слот.</span>
         <select aria-label="Устройство" value={bindingTarget} onChange={event=>setBindingTarget(event.target.value)} style={{padding:12,borderRadius:12,background:'#101b29',color:'white'}}>
@@ -351,7 +357,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
           {devices.filter(d=>(d.physical_device_id||d.id)!==(bindingDevice.physical_device_id||bindingDevice.id)&&d.hwid).map(d=><option key={d.id} value={d.device_id||d.id}>{d.is_current?'Это устройство · ':''}{d.custom_name||d.device_model} · {d.app_name} · {d.hwid_short}</option>)}
         </select>
         <div style={{display:'flex',gap:10}}><button className="btn btn--primary" disabled={!bindingTarget||bindingBusy} onClick={linkToPhone}>{bindingBusy?'Привязка…':'Подтвердить'}</button><button className="btn btn--secondary" disabled={bindingBusy} onClick={()=>setBindingDevice(null)}>Отмена</button></div>
-      </div>}
+      </div></div>}
 
       {/* Filter Tabs with Sliding Active Indicator */}
       <div className="fluent-devices-toolbar">
@@ -556,6 +562,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
                           <span>{deviceAppLabel(client)} · ID: {client.hwid_short||'нет ID'} · {deviceState(client)==='online'?'В сети':client.last_active||'Нет данных'}</span>
                           {device.client_count>1 && <button className="btn btn--secondary btn--sm" onClick={()=>separateClient(client)}>Это отдельное устройство</button>}
                         </div>)}
+                        {!device.is_current && !device.disabled && device.hwid && <button className="btn btn--secondary btn--sm" onClick={()=>bindCurrentDevice(device)}>Использую Viht на этом устройстве</button>}
                         {!device.disabled && device.hwid && <button className="btn btn--secondary btn--sm" onClick={()=>createBindingLink(device)}>Добавить VPN-приложение на это устройство</button>}
                         {device.hwid && devices.length>1 && <button className="btn btn--secondary btn--sm" onClick={()=>{setBindingTarget(devices.find(d=>d.is_current&&d.id!==device.id)?.device_id||'');setBindingDevice(device);}}>Это другое приложение того же устройства</button>}
                       </div>

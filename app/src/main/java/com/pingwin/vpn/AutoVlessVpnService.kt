@@ -109,6 +109,19 @@ class AutoVlessVpnService :
     private val executor =
         Executors.newSingleThreadExecutor()
 
+    private val recoveryTimer = java.util.concurrent.Executors.newScheduledThreadPool(2)
+    private val recoveryLock = Any()
+    private var healthTask: java.util.concurrent.ScheduledFuture<*>? = null
+    private var recoveryTask: java.util.concurrent.ScheduledFuture<*>? = null
+    private var recoveryPending = false
+    private val coreEpoch = java.util.concurrent.atomic.AtomicLong(0)
+    @Volatile private var everConnected = false
+    @Volatile private var lastSource: String? = null
+    @Volatile private var lastConnection: String? = null
+    private var retryAttempt = 0
+    private var networkSignature: String? = null
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
+
     private val connectivityManager: ConnectivityManager
         get() =
             getSystemService(
@@ -148,6 +161,7 @@ class AutoVlessVpnService :
     override fun onCreate() {
         super.onCreate()
 
+        wakeLock = (getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK,"VihtVPN:connected").apply { setReferenceCounted(false); acquire(600_000L) }
         createNotificationChannel()
 
         startForegroundNotification(
@@ -227,6 +241,7 @@ class AutoVlessVpnService :
         when (intent?.action) {
 
             ACTION_START -> {
+                everConnected = false; retryAttempt = 0
                 DiagnosticLogStore.append(
                     this,
                     getString(R.string.vpn_log_start)
@@ -269,6 +284,7 @@ class AutoVlessVpnService :
             }
 
             ACTION_TILE -> {
+                everConnected = false; retryAttempt = 0
                 val selected = ConnectionStore.selected(this)
                 if (selected == null) { stopSelf(startId); return START_NOT_STICKY }
                 VpnRunStore.start(this, selected.id)
@@ -306,7 +322,7 @@ class AutoVlessVpnService :
             else -> {
                 executor.execute {
                     val restored = runCatching { VpnRunStore.restore(this) }.getOrNull()
-                    if (restored != null && VpnRunStore.desired(this)) startVpn(restored.first, restored.second, startId)
+                    if (restored != null && VpnRunStore.desired(this)) { everConnected = VpnRunStore.verified(this); startVpn(restored.first, restored.second, startId) }
                     else { VpnRunStore.stop(this); stopVpn(startId) }
                 }
             }
@@ -334,6 +350,7 @@ class AutoVlessVpnService :
             }
 
             isStarting = true
+            lastSource = config; lastConnection = connectionId
             currentSessionStartId = startId
 
             VpnStatus.setActiveConnectionId(
@@ -412,6 +429,9 @@ class AutoVlessVpnService :
                 VpnStatus.set(
                     VpnConnectionState.CONNECTED
                 )
+                everConnected = true; retryAttempt = 0
+                VpnRunStore.markVerified(this)
+                startHealthChecks(prepared.second, startId)
                 DevicePresenceReporter.connected(this)
 
                 if (
@@ -440,10 +460,18 @@ class AutoVlessVpnService :
                     getString(R.string.vpn_log_connection_error, e.localizedVpnMessage(this))
                 )
 
-                stopVpn(startId, startId)
-
-                if (latestServiceStartId == startId) VpnRunStore.stop(this)
-                VpnStatus.fail(e.localizedVpnMessage(this), false)
+                if (everConnected && VpnRecoveryPolicy.allowed(VpnRunStore.desired(this), destroyed, startId, latestServiceStartId)) {
+                    releaseVpnResources()
+                    currentSessionStartId = 0
+                    VpnStatus.set(VpnConnectionState.CONNECTING)
+                    DevicePresenceReporter.stopped(this)
+                    updateForegroundNotification("Восстанавливаем соединение…")
+                    requestRecovery(startId)
+                } else {
+                    stopVpn(startId, startId)
+                    if (latestServiceStartId == startId) VpnRunStore.stop(this)
+                    VpnStatus.fail(e.localizedVpnMessage(this), false)
+                }
 
             } finally {
                 isStarting = false
@@ -451,11 +479,69 @@ class AutoVlessVpnService :
         }
     }
 
+    private fun choosePhysicalNetwork(exclude: Network? = null): Network? {
+        val candidates = connectivityManager.allNetworks.filter { network -> network != exclude && connectivityManager.getNetworkCapabilities(network)?.let { it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) } == true }
+        return candidates.firstOrNull { connectivityManager.getNetworkCapabilities(it)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true } ?: candidates.firstOrNull()
+    }
+    private fun startHealthChecks(port: Int, request: Int) {
+        healthTask?.cancel(false)
+        val epoch = coreEpoch.get()
+        var failures = 0
+        healthTask = recoveryTimer.scheduleWithFixedDelay({
+            if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId) || epoch != coreEpoch.get()) return@scheduleWithFixedDelay
+            runCatching { wakeLock?.acquire(600_000L) }
+            val healthy = listOf("https://www.gstatic.com/generate_204","https://cp.cloudflare.com/generate_204").any { url -> runCatching { verifyTunnel(port,url); true }.getOrDefault(false) }
+            if (epoch != coreEpoch.get()) return@scheduleWithFixedDelay
+            failures = if (healthy) 0 else failures + 1
+            if (VpnRecoveryPolicy.failed(failures)) requestRecovery(request)
+        }, 30, 30, java.util.concurrent.TimeUnit.SECONDS)
+    }
+    private fun requestRecovery(request: Int) {
+        if (!everConnected || !VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) return
+        synchronized(recoveryLock) {
+            if (recoveryPending) return
+            recoveryPending = true
+            val delay = VpnRecoveryPolicy.delayMillis(retryAttempt)
+            retryAttempt = minOf(5,retryAttempt+1)
+            recoveryTask = recoveryTimer.schedule({
+                if (!executor.isShutdown) executor.execute {
+                    synchronized(recoveryLock) { recoveryTask = null; recoveryPending = false }
+                    try {
+                    if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) return@execute
+                    val source = lastSource ?: return@execute
+                    val id = lastConnection ?: return@execute
+                    VpnStatus.set(VpnConnectionState.CONNECTING)
+                    DevicePresenceReporter.stopped(this)
+                    updateForegroundNotification("Восстанавливаем соединение…")
+                    synchronized(this) { releaseVpnResources(); currentSessionStartId = 0; isStarting = false }
+                    if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) return@execute
+                    if (choosePhysicalNetwork() == null) { requestRecovery(request); return@execute }
+                    val permitted = kotlinx.coroutines.runBlocking { AndroidCabinetApi.request(this@AutoVlessVpnService,JSONObject().put("action","profile")) }
+                    if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) return@execute
+                    if (!permitted.optBoolean("ok")) {
+                        if (permitted.optBoolean("unauthorized")) { VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Войдите в аккаунт заново",false) }
+                        else requestRecovery(request)
+                        return@execute
+                    }
+                    val data = permitted.optJSONObject("data")
+                    val profile = data?.optJSONObject("profile") ?: data?.optJSONObject("user")
+                    if (profile == null || !SubscriptionPolicy.active(profile)) { VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Подписка не активна",false); return@execute }
+                    val device = kotlinx.coroutines.runBlocking { AndroidCabinetApi.request(this@AutoVlessVpnService,JSONObject().put("action","device-heartbeat").put("method","POST")) }
+                    if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) return@execute
+                    if (device.optBoolean("ok") && device.has("device_allowed") && !device.optBoolean("device_allowed")) { VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Устройство отключено в подписке",false); return@execute }
+                    if (VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) startVpn(source,id,request)
+                    } catch (failure: Exception) {
+                        DiagnosticLogStore.append(this,"Повторное восстановление VPN: " + failure.localizedVpnMessage(this))
+                        if (VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) requestRecovery(request)
+                    }
+                }
+            }, delay, java.util.concurrent.TimeUnit.MILLISECONDS)
+        }
+    }
+
     private fun prepareAndroidConfig(source: String): Pair<String, Int> {
         val root = JSONObject(source)
-        val network = physicalDefaultNetwork ?: connectivityManager.allNetworks.firstOrNull { candidate ->
-            connectivityManager.getNetworkCapabilities(candidate)?.let { it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) } == true
-        } ?: error("Нет физического подключения к сети")
+        val network = physicalDefaultNetwork ?: choosePhysicalNetwork() ?: error("Нет физического подключения к сети")
         physicalDefaultNetwork = network
         val outbounds = root.getJSONArray("outbounds")
         for (index in 0 until outbounds.length()) {
@@ -482,16 +568,19 @@ class AutoVlessVpnService :
         route.put("rules", rules)
         return root.toString() to port
     }
-    private fun verifyTunnel(port: Int) {
-        val connection = URL("https://www.gstatic.com/generate_204").openConnection(Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", port))) as HttpURLConnection
+    private fun verifyTunnel(port: Int, target: String = "https://www.gstatic.com/generate_204") {
+        val connection = URL(target).openConnection(Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", port))) as HttpURLConnection
         try {
             connection.connectTimeout = 8000; connection.readTimeout = 8000
             connection.instanceFollowRedirects = false; connection.useCaches = false
+            connection.setRequestProperty("Connection", "close")
             check(connection.responseCode == 204) { "VPN-ключ не подтвердил передачу трафика" }
         } finally { connection.disconnect() }
     }
 
     private fun releaseVpnResources() {
+        coreEpoch.incrementAndGet()
+        healthTask?.cancel(false); healthTask = null
         // Release the Android-owned interface before waiting for native workers.
         val descriptor = synchronized(tunLock) { tunDescriptor.also { tunDescriptor = null } }
         runCatching { descriptor?.close() }
@@ -594,6 +683,8 @@ class AutoVlessVpnService :
 
     override fun onDestroy() {
         destroyed = true
+        recoveryTimer.shutdownNow()
+        runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }; wakeLock = null
         latestServiceStartId = Int.MAX_VALUE
         val descriptor = synchronized(tunLock) { tunDescriptor.also { tunDescriptor = null } }
         runCatching { descriptor?.close() }
@@ -1223,6 +1314,7 @@ class AutoVlessVpnService :
                 .addCapability(
                     NetworkCapabilities.NET_CAPABILITY_INTERNET
                 )
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
                 .addCapability(
                     NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED
                 )
@@ -1251,8 +1343,8 @@ class AutoVlessVpnService :
                         return
                     }
 
-                    physicalDefaultNetwork =
-                        network
+                    if (physicalNetworkCallback !== this) return
+                    physicalDefaultNetwork = network
 
                     Log.d(
                         TAG,
@@ -1319,16 +1411,14 @@ class AutoVlessVpnService :
                         "Physical network lost: $network"
                     )
 
-                    physicalDefaultNetwork =
-                        null
+                    if (physicalNetworkCallback !== this) return
+                    physicalDefaultNetwork = choosePhysicalNetwork(network)
+                    runCatching { setUnderlyingNetworks(physicalDefaultNetwork?.let { arrayOf(it) }) }
+                    if (everConnected) requestRecovery(latestServiceStartId)
 
-                    interfaceListener
-                        ?.updateDefaultInterface(
-                            "",
-                            -1,
-                            false,
-                            false
-                        )
+                    val replacement = physicalDefaultNetwork
+                    if (replacement != null) notifyDefaultInterface(replacement)
+                    else interfaceListener?.updateDefaultInterface("",-1,false,false)
                 }
             }
 
@@ -1502,6 +1592,11 @@ class AutoVlessVpnService :
                     "$interfaceName index=$interfaceIndex"
         )
 
+        val signature = network.toString() + ":" + interfaceName + ":" + properties.linkAddresses.joinToString() + ":" + properties.dnsServers.joinToString()
+        val changed = networkSignature != null && networkSignature != signature
+        networkSignature = signature
+        runCatching { setUnderlyingNetworks(arrayOf(network)) }
+        if (changed && everConnected && VpnStatus.state.value == VpnConnectionState.CONNECTED) requestRecovery(latestServiceStartId)
         listener.updateDefaultInterface(
             interfaceName,
             interfaceIndex,
@@ -1559,17 +1654,14 @@ class AutoVlessVpnService :
         sessionStartId: Int
     ): CommandServerHandler =
         object : CommandServerHandler {
-
+            private val handlerEpoch = coreEpoch.get()
             override fun serviceStop() {
+                if (handlerEpoch != coreEpoch.get()) return
                 val stopStartId =
                     latestServiceStartId
 
-                executor.execute {
-                    stopVpn(
-                        stopStartId,
-                        sessionStartId
-                    )
-                }
+                if (everConnected && VpnRecoveryPolicy.allowed(VpnRunStore.desired(this@AutoVlessVpnService),destroyed,sessionStartId,latestServiceStartId)) requestRecovery(sessionStartId)
+                else executor.execute { stopVpn(stopStartId, sessionStartId) }
             }
 
             override fun serviceReload() {

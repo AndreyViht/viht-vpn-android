@@ -12,6 +12,8 @@ class VihtVpnConfigTest {
         val tun = config.getJSONArray("inbounds").getJSONObject(0)
         assertTrue(tun.getJSONArray("address").toString().contains("fdfe:"))
         val outbound = config.getJSONArray("outbounds").getJSONObject(1)
+        assertEquals("30s", outbound.getString("tcp_keep_alive"))
+        assertEquals("10s", outbound.getString("tcp_keep_alive_interval"))
         assertEquals("cdn.example.com", outbound.getJSONObject("tls").getString("server_name"))
         assertEquals("ws", outbound.getJSONObject("transport").getString("type"))
         assertEquals("/vpn", outbound.getJSONObject("transport").getString("path"))
