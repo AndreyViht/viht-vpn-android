@@ -26,7 +26,7 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
         return JSONObject().put("available", release?.let(::describe) ?: JSONObject.NULL).put("downloadedVersion", if (ready) release?.version else JSONObject.NULL)
     }
     suspend fun download(request: JSONObject): JSONObject {
-        kotlin.check()
+        check()
         val release = available ?: error("Доступного обновления нет")
         kotlin.check(release.version == request.optString("version")) { "Версия обновления изменилась. Повторите проверку." }
         kotlin.check(release.apkUrl.startsWith("https://github.com/AndreyViht/viht-vpn-android/releases/download/")) { "Недопустимый источник обновления" }

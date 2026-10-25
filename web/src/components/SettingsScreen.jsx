@@ -544,21 +544,21 @@ function SettingsScreen({
                 <div className="fluent-card fluent-about-card">
                   <div className="fluent-about-header">
                     <Info size={16} />
-                    <strong>{currentLang === 'en' ? 'About VihtVPN Desktop' : 'О приложении VihtVPN Desktop'}</strong>
+                    <strong>{currentLang === 'en' ? 'About VihtVPN' : 'О приложении VihtVPN'}</strong>
                   </div>
 
                   <div className="fluent-about-rows">
                     <div className="fluent-about-row">
                       <span>{currentLang === 'en' ? 'Client version:' : 'Версия клиента:'}</span>
-                      <strong>v{clientVersion} (Windows 64-bit)</strong>
+                      <strong>v{clientVersion} (Android 8+)</strong>
                     </div>
                     <div className="fluent-about-row">
                       <span>{currentLang === 'en' ? 'Network driver:' : 'Сетевой драйвер:'}</span>
-                      <strong>WinTUN Kernel Subsystem</strong>
+                      <strong>Android VpnService / sing-box</strong>
                     </div>
                     <div className="fluent-about-row">
                       <span>{currentLang === 'en' ? 'Hardware HWID:' : 'Аппаратный HWID:'}</span>
-                      <code>{hwid ? `${hwid.slice(0, 10)}...${hwid.slice(-6)}` : 'D5276D...D4AD'}</code>
+                      <code>{hwid ? `${hwid.slice(0, 10)}...${hwid.slice(-6)}` : '—'}</code>
                     </div>
                   </div>
 

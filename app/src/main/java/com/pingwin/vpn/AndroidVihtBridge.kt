@@ -142,6 +142,13 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             AutoVlessVpnService.stop(activity)
             VpnStatus.fail("Время подключения истекло. Повторите попытку.", false)
             return error("Время подключения истекло. Повторите попытку.")
+        } catch (failure: CancellationException) {
+            if (epoch == operation.get()) { AutoVlessVpnService.stop(activity); VpnStatus.set(VpnConnectionState.DISCONNECTED) }
+            throw failure
+        } catch (failure: Exception) {
+            AutoVlessVpnService.stop(activity)
+            VpnStatus.fail(failure.message ?: "Не удалось запустить VPN", false)
+            return error(VpnStatus.lastError ?: "Не удалось запустить VPN")
         } finally { permission = null; connectingJob = null; connectLock.unlock() }
     }
     private suspend fun disconnect() {
@@ -169,14 +176,28 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         ConnectionStore.saveAll(activity, saved)
     }
     private suspend fun ping(array: JSONArray): JSONObject = coroutineScope {
+        val manager = activity.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val network = manager.allNetworks.firstOrNull { candidate ->
+            manager.getNetworkCapabilities(candidate)?.let { it.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) && !it.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) } == true
+        }
         val values = (0 until minOf(array.length(), 32)).map { index -> async {
             val server = array.getJSONObject(index)
-            val uri = java.net.URI(server.getString("vless_uri"))
-            val port = if (uri.port < 0) 443 else uri.port
-            val samples = (1..2).mapNotNull {
-                runCatching { val address = InetSocketAddress(uri.host, port); val start = System.nanoTime(); Socket().use { socket -> socket.connect(address, 2500) }; maxOf(1, ((System.nanoTime() - start) / 1_000_000).toInt()) }.getOrNull()
-            }
-            server.getString("id") to samples.minOrNull()
+            val value = runCatching {
+                require(network != null) { "Нет физического подключения" }
+                val uri = java.net.URI(server.getString("vless_uri"))
+                val host = server.optString("host").ifBlank { uri.host }
+                val port = server.optInt("port", if (uri.port < 0) 443 else uri.port)
+                val addresses = network.getAllByName(host)
+                val address = addresses.firstOrNull { it is java.net.Inet4Address } ?: addresses.first()
+                (1..2).mapNotNull {
+                    runCatching {
+                        val start = System.nanoTime()
+                        network.socketFactory.createSocket().use { socket -> socket.connect(InetSocketAddress(address, port), 2500) }
+                        maxOf(1, ((System.nanoTime() - start) / 1_000_000).toInt())
+                    }.getOrNull()
+                }.minOrNull()
+            }.getOrNull()
+            server.getString("id") to value
         } }.awaitAll()
         JSONObject().apply { values.forEach { (id, value) -> put(id, value ?: JSONObject.NULL) } }
     }
