@@ -518,17 +518,21 @@ class AutoVlessVpnService :
                     if (choosePhysicalNetwork() == null) { requestRecovery(request); return@execute }
                     val permitted = kotlinx.coroutines.runBlocking { AndroidCabinetApi.request(this@AutoVlessVpnService,JSONObject().put("action","profile")) }
                     if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) return@execute
-                    if (!permitted.optBoolean("ok")) {
-                        if (permitted.optBoolean("unauthorized")) { VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Войдите в аккаунт заново",false) }
-                        else requestRecovery(request)
+                    if (!permitted.optBoolean("ok") && permitted.optBoolean("unauthorized")) {
+                        VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Войдите в аккаунт заново",false)
                         return@execute
                     }
+                    // An outage of the management portal must not prevent reconnecting
+                    // an already authenticated VPN configuration. The VPN server still
+                    // enforces key revocation and subscription expiry itself.
+                    if (permitted.optBoolean("ok")) {
                     val data = permitted.optJSONObject("data")
                     val profile = data?.optJSONObject("profile") ?: data?.optJSONObject("user")
                     if (profile == null || !SubscriptionPolicy.active(profile)) { VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Подписка не активна",false); return@execute }
                     val device = kotlinx.coroutines.runBlocking { AndroidCabinetApi.request(this@AutoVlessVpnService,JSONObject().put("action","device-heartbeat").put("method","POST")) }
                     if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) return@execute
                     if (device.optBoolean("ok") && device.has("device_allowed") && !device.optBoolean("device_allowed")) { VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Устройство отключено в подписке",false); return@execute }
+                    }
                     if (VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) startVpn(source,id,request)
                     } catch (failure: Exception) {
                         DiagnosticLogStore.append(this,"Повторное восстановление VPN: " + failure.localizedVpnMessage(this))
