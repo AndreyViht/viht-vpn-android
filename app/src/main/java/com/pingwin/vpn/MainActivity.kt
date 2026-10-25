@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33) {
             getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
                 android.content.ComponentName(this, VihtTileService::class.java), "Viht VPN",
-                android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_notification), mainExecutor) { }
+                android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_viht_tile), mainExecutor) { }
         } else android.widget.Toast.makeText(this, "Откройте шторку → Изменить плитки → перетащите Viht VPN", android.widget.Toast.LENGTH_LONG).show()
     }
     fun consumeTileConnect(): Boolean = intent?.getBooleanExtra("viht_tile_connect", false)?.also { intent.removeExtra("viht_tile_connect") } ?: false

@@ -28,8 +28,10 @@ object UpdateChecker {
 
     fun getLatestRelease(): UpdateRelease {
         val connection =
-            (URL(LATEST_RELEASE_URL).openConnection() as HttpURLConnection).apply {
+            (URL(LATEST_RELEASE_URL + "?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
+                useCaches = false
+                setRequestProperty("Cache-Control", "no-cache")
                 connectTimeout = 10_000
                 readTimeout = 15_000
                 setRequestProperty(

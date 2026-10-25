@@ -40,7 +40,14 @@ class VihtTileService : TileService() {
         }
         val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra("viht_tile_connect", true)
         if (Build.VERSION.SDK_INT >= 34) startActivityAndCollapse(PendingIntent.getActivity(this, 11, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
-        else { @Suppress("DEPRECATION") startActivityAndCollapse(intent) }
+        else openLegacy(intent)
+    }
+    // API 24–33 only: the PendingIntent overload does not exist on these versions.
+    @android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
+    @Suppress("DEPRECATION")
+    private fun openLegacy(intent: Intent) {
+        check(Build.VERSION.SDK_INT < 34)
+        startActivityAndCollapse(intent)
     }
     companion object {
         fun refresh(context: Context) { runCatching { requestListeningState(context, ComponentName(context, VihtTileService::class.java)) } }

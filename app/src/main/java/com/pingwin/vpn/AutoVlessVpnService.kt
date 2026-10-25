@@ -82,6 +82,11 @@ class AutoVlessVpnService :
             context.startForegroundService(intent)
         }
 
+        fun resumeAfterUpdate(context: Context) {
+            if (VpnRunStore.desired(context) && VpnService.prepare(context) == null) {
+                context.startForegroundService(Intent(context, AutoVlessVpnService::class.java).setAction("RESTORE"))
+            }
+        }
         fun stop(context: Context) {
             VpnRunStore.stop(context)
             VpnStatus.markManualStop()
@@ -260,6 +265,7 @@ class AutoVlessVpnService :
             }
 
             ACTION_STOP -> {
+                VpnStatus.markManualStop()
                 VpnRunStore.stop(this)
                 executor.execute {
                     stopVpn(startId)
@@ -651,10 +657,10 @@ class AutoVlessVpnService :
                 text
             )
             .setSmallIcon(
-                R.drawable.ic_notification
+                R.drawable.ic_viht_tile
             )
             .setContentIntent(android.app.PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE))
-            .addAction(R.drawable.ic_notification, "Отключить", android.app.PendingIntent.getService(this, 1, Intent(this, AutoVlessVpnService::class.java).setAction(ACTION_STOP), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE))
+            .addAction(R.drawable.ic_viht_tile, "Отключить", android.app.PendingIntent.getService(this, 1, Intent(this, AutoVlessVpnService::class.java).setAction(ACTION_STOP), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE))
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

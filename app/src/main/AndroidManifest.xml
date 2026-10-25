@@ -164,7 +164,7 @@
             </intent-filter>
         </service>
 
-        <service android:name=".VihtTileService" android:label="Viht VPN" android:icon="@drawable/ic_notification" android:exported="true" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+        <service android:name=".VihtTileService" android:label="Viht VPN" android:icon="@drawable/ic_viht_tile" android:exported="true" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
         </service>
     </application>
