@@ -402,7 +402,7 @@ class AutoVlessVpnService :
                 )
 
                 check(tunDescriptor != null) { "VPN interface was not established" }
-                verifyTunnel(prepared.second)
+                check(probeHealthy(prepared.second)) { "VPN не подтвердил передачу трафика" }
                 if (destroyed || latestServiceStartId != startId) {
                     releaseVpnResources()
                     currentSessionStartId = 0
@@ -490,7 +490,7 @@ class AutoVlessVpnService :
         healthTask = recoveryTimer.scheduleWithFixedDelay({
             if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId) || epoch != coreEpoch.get()) return@scheduleWithFixedDelay
             runCatching { wakeLock?.acquire(600_000L) }
-            val healthy = listOf("https://www.gstatic.com/generate_204","https://cp.cloudflare.com/generate_204").any { url -> runCatching { verifyTunnel(port,url); true }.getOrDefault(false) }
+            val healthy = probeHealthy(port)
             if (epoch != coreEpoch.get()) return@scheduleWithFixedDelay
             failures = if (healthy) 0 else failures + 1
             if (VpnRecoveryPolicy.failed(failures)) requestRecovery(request)
@@ -503,7 +503,7 @@ class AutoVlessVpnService :
             recoveryPending = true
             val delay = VpnRecoveryPolicy.delayMillis(retryAttempt)
             retryAttempt = minOf(5,retryAttempt+1)
-            recoveryTask = recoveryTimer.schedule({
+            try { recoveryTask = recoveryTimer.schedule({
                 if (!executor.isShutdown) executor.execute {
                     synchronized(recoveryLock) { recoveryTask = null; recoveryPending = false }
                     try {
@@ -535,7 +535,8 @@ class AutoVlessVpnService :
                         if (VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) requestRecovery(request)
                     }
                 }
-            }, delay, java.util.concurrent.TimeUnit.MILLISECONDS)
+            }, delay, java.util.concurrent.TimeUnit.MILLISECONDS) }
+            catch (_: java.util.concurrent.RejectedExecutionException) { recoveryPending = false }
         }
     }
 
@@ -568,6 +569,7 @@ class AutoVlessVpnService :
         route.put("rules", rules)
         return root.toString() to port
     }
+    private fun probeHealthy(port: Int): Boolean = listOf("https://www.gstatic.com/generate_204","https://cp.cloudflare.com/generate_204").any { url -> runCatching { verifyTunnel(port,url); true }.getOrDefault(false) }
     private fun verifyTunnel(port: Int, target: String = "https://www.gstatic.com/generate_204") {
         val connection = URL(target).openConnection(Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", port))) as HttpURLConnection
         try {
@@ -1592,7 +1594,7 @@ class AutoVlessVpnService :
                     "$interfaceName index=$interfaceIndex"
         )
 
-        val signature = network.toString() + ":" + interfaceName + ":" + properties.linkAddresses.joinToString() + ":" + properties.dnsServers.joinToString()
+        val signature = network.toString() + ":" + interfaceName + ":" + properties.linkAddresses.map { VpnRecoveryPolicy.addressKey(it.address.address) }.distinct().sorted().joinToString() + ":" + properties.dnsServers.mapNotNull { it.hostAddress }.sorted().joinToString()
         val changed = networkSignature != null && networkSignature != signature
         networkSignature = signature
         runCatching { setUnderlyingNetworks(arrayOf(network)) }

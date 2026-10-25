@@ -8,6 +8,13 @@ class VpnRecoveryPolicyTest {
         assertFalse(VpnRecoveryPolicy.allowed(true,true,1,1))
         assertFalse(VpnRecoveryPolicy.allowed(true,false,1,2))
     }
+    @Test fun temporaryIpv6AddressesDoNotForceHealthyTunnelRestarts() {
+        val first=ByteArray(16).apply { this[0]=32; this[7]=5; this[15]=1 }
+        val second=first.clone().apply { this[15]=99 }
+        assertEquals(VpnRecoveryPolicy.addressKey(first),VpnRecoveryPolicy.addressKey(second))
+        second[7]=6
+        assertNotEquals(VpnRecoveryPolicy.addressKey(first),VpnRecoveryPolicy.addressKey(second))
+    }
     @Test fun longSessionsHaveNoFiveMinuteOrFiveAttemptLimit() {
         repeat(100_000) { attempt ->
             assertTrue(VpnRecoveryPolicy.allowed(true,false,1,1))
