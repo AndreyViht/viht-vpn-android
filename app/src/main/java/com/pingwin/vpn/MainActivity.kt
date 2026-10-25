@@ -51,7 +51,16 @@ class MainActivity : ComponentActivity() {
     override fun onStart() { super.onStart(); AppVisibility.setForeground(true); UpdateScheduler.sync(this) }
     override fun onResume() { super.onResume(); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
     override fun onStop() { AppVisibility.setForeground(false); super.onStop() }
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (::bridge.isInitialized) bridge.completeBrowserAuth(intent.data) }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (::bridge.isInitialized) bridge.completeBrowserAuth(intent.data); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
+    fun addQuickTile() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
+                android.content.ComponentName(this, VihtTileService::class.java), "Viht VPN",
+                android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_notification), mainExecutor) { }
+        } else android.widget.Toast.makeText(this, "Откройте шторку → Изменить плитки → перетащите Viht VPN", android.widget.Toast.LENGTH_LONG).show()
+    }
+    fun consumeTileConnect(): Boolean = intent?.getBooleanExtra("viht_tile_connect", false)?.also { intent.removeExtra("viht_tile_connect") } ?: false
+    fun consumeOpenUpdates(): Boolean = intent?.getBooleanExtra(UpdateCheckWorker.EXTRA_OPEN_UPDATES, false)?.also { intent.removeExtra(UpdateCheckWorker.EXTRA_OPEN_UPDATES) } ?: false
     private fun local(url: String): Boolean = runCatching {
         val uri = Uri.parse(url)
         uri.scheme == "https" && uri.host == "appassets.androidplatform.net" && uri.path?.startsWith("/assets/web/") == true

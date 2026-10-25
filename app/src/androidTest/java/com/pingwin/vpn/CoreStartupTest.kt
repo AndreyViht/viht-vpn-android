@@ -30,6 +30,19 @@ class CoreStartupTest {
             }
         }
     }
+    @Test fun backgroundServiceAndQuickTileAreDeclaredCorrectly() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val service = context.packageManager.getServiceInfo(android.content.ComponentName(context, AutoVlessVpnService::class.java), 0)
+        assertEquals(0, service.flags and android.content.pm.ServiceInfo.FLAG_STOP_WITH_TASK)
+        val tile = context.packageManager.getServiceInfo(android.content.ComponentName(context, VihtTileService::class.java), 0)
+        assertEquals("android.permission.BIND_QUICK_SETTINGS_TILE", tile.permission)
+        assertTrue(tile.exported)
+        VpnRunStore.start(context, "fixture-only")
+        assertTrue(VpnRunStore.desired(context))
+        VpnRunStore.stop(context)
+        assertFalse(VpnRunStore.desired(context))
+        assertNull(VpnRunStore.restore(context))
+    }
     @Test fun decryptsBrowserReturnOnAndroid() {
         val context = InstrumentationRegistry.getInstrumentation().context
         val vector = context.assets.open("browser-auth-vector.json").bufferedReader().use { JSONObject(it.readText()) }

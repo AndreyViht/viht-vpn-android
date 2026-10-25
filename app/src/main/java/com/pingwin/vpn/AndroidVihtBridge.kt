@@ -88,6 +88,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "getDesktopPreferences" -> JSONObject().put("notifyUpdate", preferences.getBoolean("notifyUpdate", true))
                     "getLoginItemSettings" -> JSONObject().put("openAtLogin", false).put("startMinimized", false)
                     "setLoginItemSettings" -> error("Автозапуск Windows недоступен на Android")
+                    "addQuickTile" -> { withContext(Dispatchers.Main) { activity.addQuickTile() }; ok() }
                     "openVpnSettings" -> { openIntent(Intent(Settings.ACTION_VPN_SETTINGS)); ok() }
                     "openNotificationSettings" -> { openIntent(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)); ok() }
                     "openExternal" -> {
@@ -111,6 +112,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         if (!connectLock.tryLock()) return error("Подключение уже выполняется")
         val epoch = operation.incrementAndGet()
         connectingJob = currentCoroutineContext()[Job]
+        var serviceDispatched = false
         try {
             if (VpnStatus.state.value == VpnConnectionState.CONNECTED || VpnStatus.state.value == VpnConnectionState.CONNECTING) return error("Сначала отключите текущее VPN-подключение")
             val link = server.optString("vless_uri").ifBlank { server.optString("vlessUri") }
@@ -135,6 +137,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             activity.ensureNotificationPermission()
             VpnStatus.set(VpnConnectionState.CONNECTING)
             AutoVlessVpnService.start(activity, config, id)
+            serviceDispatched = true
             val state = withTimeout(30_000) { VpnStatus.state.first { (it == VpnConnectionState.CONNECTED && VpnStatus.activeConnectionId.value == id) || it == VpnConnectionState.ERROR } }
             return if (state == VpnConnectionState.CONNECTED) ok() else error(VpnStatus.lastError ?: "Не удалось подключиться")
         } catch (failure: TimeoutCancellationException) {
@@ -142,7 +145,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             VpnStatus.fail("Время подключения истекло. Повторите попытку.", false)
             return error("Время подключения истекло. Повторите попытку.")
         } catch (failure: CancellationException) {
-            if (epoch == operation.get()) { AutoVlessVpnService.stop(activity); VpnStatus.set(VpnConnectionState.DISCONNECTED) }
+            if (!serviceDispatched && epoch == operation.get()) { AutoVlessVpnService.stop(activity); VpnStatus.set(VpnConnectionState.DISCONNECTED) }
             throw failure
         } catch (failure: Exception) {
             AutoVlessVpnService.stop(activity)
@@ -211,7 +214,15 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             catch (failure: Exception) { emit("auth-error", error(failure.message ?: "Не удалось завершить вход. Начните вход заново.")) }
         }
     }
+    fun requestQuickConnect() { emit("quick-connect", JSONObject()) }
+    private var lastUpdateCheck = 0L
     fun pageReady() {
+        if (activity.consumeTileConnect()) requestQuickConnect()
+        if (activity.consumeOpenUpdates()) emit("open-updates", JSONObject())
+        if (preferences.getBoolean("notifyUpdate", true) && System.currentTimeMillis() - lastUpdateCheck > 3_600_000) {
+            lastUpdateCheck = System.currentTimeMillis()
+            scope.launch { runCatching { updates.check() }.getOrNull()?.let { if (it.optBoolean("hasUpdate")) emit("update-available", it.getJSONObject("releaseInfo")) } }
+        }
         emit("vpn-state", VpnStatus.snapshot())
         scope.launch {
             runCatching { AndroidSessionStore.getToken(activity) }.getOrNull()?.let { token -> emit("auth-success", JSONObject().put("token", token).put("originalToken", token).put("provider", preferences.getString("provider", "yandex")).put("restore", true)) }

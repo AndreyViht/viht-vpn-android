@@ -51,6 +51,9 @@ export default function App() {
 
   // Connection keys come exclusively from the current subscription.
   const [servers, setServers] = useState([]);
+  const [quickConnectRequested, setQuickConnectRequested] = useState(false);
+  const [availableUpdate, setAvailableUpdate] = useState(null);
+  const [focusUpdates, setFocusUpdates] = useState(false);
   const [currentServer, setCurrentServer] = useState(null);
   const serversRef = useRef(servers);
   serversRef.current = servers;
@@ -477,6 +480,17 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const first = window.electronAPI?.onQuickConnect?.(() => setQuickConnectRequested(true));
+    const second = window.electronAPI?.onOpenUpdates?.(() => { setFocusUpdates(true); setActiveTab('settings'); });
+    return () => { first?.(); second?.(); };
+  }, []);
+  useEffect(() => {
+    if (!quickConnectRequested || loading || !user || !currentServer) return;
+    setQuickConnectRequested(false);
+    if (connectionStateRef.current !== 'connected' && connectionStateRef.current !== 'connecting') handleToggleConnectionRef.current?.();
+  }, [quickConnectRequested, loading, user, currentServer]);
+
   // 4. Background subscription check every 15 minutes (Safe disconnect on expiry, zero disruption if active)
   useEffect(() => {
     if (!token) return;
@@ -827,6 +841,7 @@ export default function App() {
   useEffect(() => {
     window.electronAPI?.setDesktopPreferences?.({ minimizeToTray: settingsRef.current.minimizeToTray !== false, notifyUpdate: settingsRef.current.notifyUpdate !== false }).catch(() => {});
     return window.electronAPI?.onUpdateAvailable?.(release => {
+      setAvailableUpdate(release);
       if (settingsRef.current.notifyUpdate !== false) showToast('Доступна версия ' + release.version + '. Обновление — в настройках.', 'info');
     });
   }, []);
@@ -888,6 +903,11 @@ export default function App() {
       {/* Native Windows 11 TitleBar */}
       <TitleBar title="VihtVPN" isConnected={connectionState === 'connected'} user={user} onOpenHelp={handleOpenHelp} minimizeToTray={settings.minimizeToTray !== false} />
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
+      {availableUpdate && <div className="fluent-card" style={{position:'absolute',top:58,left:16,right:16,zIndex:1000,display:'flex',alignItems:'center',gap:10,padding:14}}>
+        <span style={{flex:1}}>Доступно обновление {availableUpdate.version}</span>
+        <button className="btn btn--primary btn--sm" onClick={() => {setFocusUpdates(true);setActiveTab('settings');setAvailableUpdate(null);}}>Обновить</button>
+        <button className="btn btn--secondary btn--sm" aria-label="Закрыть" onClick={() => setAvailableUpdate(null)}>×</button>
+      </div>}
       <ForeignVpnModal
         detection={foreignVpnWarning}
         onClose={() => setForeignVpnWarning(null)}
@@ -994,7 +1014,7 @@ export default function App() {
                     className="fluent-page-motion-wrap"
                     {...pageVariants}
                   >
-                    <SettingsScreen
+                    <SettingsScreen initialCategory={focusUpdates ? 'advanced' : 'connection'}
                       settings={settings}
                       onUpdateSetting={handleUpdateSetting}
                       clientVersion={appVersion}

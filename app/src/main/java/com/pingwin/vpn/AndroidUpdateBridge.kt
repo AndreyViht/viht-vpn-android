@@ -29,7 +29,7 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
         check()
         val release = available ?: error("Доступного обновления нет")
         kotlin.check(release.version == request.optString("version")) { "Версия обновления изменилась. Повторите проверку." }
-        kotlin.check(release.apkUrl.startsWith("https://github.com/AndreyViht/viht-vpn-android/releases/download/")) { "Недопустимый источник обновления" }
+        kotlin.check((release.apkUrl.startsWith("https://github.com/AndreyViht/viht-vpn-android/releases/download/") || release.apkUrl.startsWith("https://anviht.ru/download/VihtVPN-Android-"))) { "Недопустимый источник обновления" }
         kotlin.check(!release.apkSha256.isNullOrBlank()) { "Сервер не предоставил контрольную сумму APK" }
         UpdateInstaller.startDownload(activity, release.apkUrl, release.apkSha256)
         return withTimeout(5 * 60_000) {

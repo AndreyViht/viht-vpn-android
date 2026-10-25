@@ -26,7 +26,7 @@ object UpdateSettingsStore {
             )
             .getBoolean(
                 KEY_AUTO_CHECK,
-                false
+                true
             )
 
     fun setAutoCheckEnabled(

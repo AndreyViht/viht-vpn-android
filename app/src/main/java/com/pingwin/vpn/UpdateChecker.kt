@@ -17,7 +17,7 @@ data class UpdateRelease(
 object UpdateChecker {
 
     private const val LATEST_RELEASE_URL =
-        "https://api.github.com/repos/AndreyViht/viht-vpn-android/releases/latest"
+        "https://anviht.ru/download/android-test-latest.json"
 
     private data class ApkAsset(
         val name: String,

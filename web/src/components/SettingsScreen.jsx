@@ -53,9 +53,11 @@ function SettingsScreen({
   onUpdateSetting,
   clientVersion = '1.0.0',
   hwid,
+  initialCategory = 'connection',
 }) {
   const currentLang = settings?.language || 'ru';
-  const [activeCategory, setActiveCategory] = useState('connection'); // 'connection' | 'windows' | 'notifications' | 'appearance' | 'advanced'
+  const [activeCategory, setActiveCategory] = useState(initialCategory); // 'connection' | 'windows' | 'notifications' | 'appearance' | 'advanced'
+  useEffect(() => { setActiveCategory(initialCategory); }, [initialCategory]);
   const [logContent, setLogContent] = useState('');
   const [showLogModal, setShowLogModal] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -149,6 +151,8 @@ function SettingsScreen({
     } catch (error) { setUpdateStatus('error'); setUpdateError(error.message || 'Не удалось запустить установщик'); }
     finally { setInstallingUpdate(false); }
   };
+
+  useEffect(() => { if (initialCategory === 'advanced') handleCheckUpdate(); }, [initialCategory]);
 
   return (
     <div className="fluent-page fluent-settings-page">
@@ -268,7 +272,7 @@ function SettingsScreen({
 
             {activeCategory === 'windows' && (
               <motion.div key="cat-android" className="fluent-settings-section" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-4}} transition={springs.natural}>
-                <h3 className="fluent-section-title">Android</h3>
+                <h3 className="fluent-section-title">Android</h3><div className="fluent-card fluent-settings-group"><div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>Viht VPN в шторке</strong><span>Плитка для быстрого подключения и отключения VPN.</span></div><button className="btn btn--secondary btn--sm" onClick={() => window.electronAPI?.addQuickTile?.()}>Добавить</button></div></div>
                 <p className="fluent-section-desc">{currentLang === 'en' ? 'Connection permissions, background operation, and notifications.' : 'Разрешения, фоновая работа и системные уведомления.'}</p>
                 <div className="fluent-card fluent-settings-group">
                   <div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>{currentLang === 'en' ? 'VPN permission' : 'Разрешение на VPN'}</strong><span>{currentLang === 'en' ? 'Confirm Android permission on the first connection.' : 'Android запрашивает разрешение при первом подключении.'}</span></div><button className="btn btn--secondary btn--sm" onClick={() => window.electronAPI?.openVpnSettings?.()}>{currentLang === 'en' ? 'Open' : 'Открыть'}</button></div>

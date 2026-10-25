@@ -83,6 +83,8 @@ class AutoVlessVpnService :
         }
 
         fun stop(context: Context) {
+            VpnRunStore.stop(context)
+            VpnStatus.markManualStop()
             val intent =
                 Intent(
                     context,
@@ -236,6 +238,7 @@ class AutoVlessVpnService :
                     !connectionId.isNullOrBlank()
                 ) {
 
+                    VpnRunStore.start(this, connectionId)
                     executor.execute {
                         startVpn(
                             config,
@@ -257,20 +260,22 @@ class AutoVlessVpnService :
             }
 
             ACTION_STOP -> {
+                VpnRunStore.stop(this)
                 executor.execute {
                     stopVpn(startId)
                 }
             }
 
             else -> {
-                Log.w(
-                    TAG,
-                    "Unknown service action: ${intent?.action}"
-                )
+                executor.execute {
+                    val restored = runCatching { VpnRunStore.restore(this) }.getOrNull()
+                    if (restored != null && VpnRunStore.desired(this)) startVpn(restored.first, restored.second, startId)
+                    else { VpnRunStore.stop(this); stopVpn(startId) }
+                }
             }
         }
 
-        return START_NOT_STICKY
+        return if (intent?.action == ACTION_STOP) START_NOT_STICKY else START_STICKY
     }
 
     private fun startVpn(
@@ -399,6 +404,7 @@ class AutoVlessVpnService :
 
                 stopVpn(startId, startId)
 
+                if (latestServiceStartId == startId) VpnRunStore.stop(this)
                 VpnStatus.fail(e.localizedVpnMessage(this), false)
 
             } finally {
@@ -560,7 +566,12 @@ class AutoVlessVpnService :
         if (VpnStatus.state.value != VpnConnectionState.ERROR) VpnStatus.set(VpnConnectionState.DISCONNECTED)
         super.onDestroy()
     }
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // The started foreground VPN belongs to the service, not the closed UI task.
+        super.onTaskRemoved(rootIntent)
+    }
     override fun onRevoke() {
+        VpnRunStore.stop(this)
         val revokedSession = currentSessionStartId
         val revokedStart = latestServiceStartId
         val descriptor = synchronized(tunLock) { tunDescriptor.also { tunDescriptor = null } }
@@ -589,7 +600,7 @@ class AutoVlessVpnService :
         val channel =
             NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "Pingwin VPN",
+                "Viht VPN",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description =
@@ -642,6 +653,9 @@ class AutoVlessVpnService :
             .setSmallIcon(
                 R.drawable.ic_notification
             )
+            .setContentIntent(android.app.PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE))
+            .addAction(R.drawable.ic_notification, "Отключить", android.app.PendingIntent.getService(this, 1, Intent(this, AutoVlessVpnService::class.java).setAction(ACTION_STOP), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE))
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .build()

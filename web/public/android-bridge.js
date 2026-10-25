@@ -32,7 +32,7 @@
   window.__vihtNativeEvent = function (type, data) {
     if (type === 'auth-success' && data.restore && localStorage.getItem('viht_desktop_token') === data.token) return;
     const targets = listeners.get(type);
-    if (!targets?.size) { if (type === 'auth-success' || type === 'auth-error') queued.set(type, data); return; }
+    if (!targets?.size) { if (type === 'auth-success' || type === 'auth-error' || type === 'quick-connect' || type === 'open-updates') queued.set(type, data); return; }
     for (const callback of [...targets]) callback(data);
   };
   window.electronAPI = Object.freeze({
@@ -51,6 +51,8 @@
     exportDebugLog: () => call('exportDebugLog'),
     getLoginItemSettings: () => call('getLoginItemSettings'), setLoginItemSettings: options => call('setLoginItemSettings', [options]),
     getDesktopPreferences: () => call('getDesktopPreferences'), setDesktopPreferences: options => call('setDesktopPreferences', [options]),
+    addQuickTile: () => call('addQuickTile'),
+    onQuickConnect: callback => subscribe('quick-connect', callback), onOpenUpdates: callback => subscribe('open-updates', callback),
     openVpnSettings: () => call('openVpnSettings'), openNotificationSettings: () => call('openNotificationSettings'),
     checkForUpdates: () => call('checkForUpdates'), getUpdateStatus: () => call('getUpdateStatus'),
     downloadUpdate: release => call('downloadUpdate', [release], 310000), applyUpdateAndRestart: release => call('applyUpdateAndRestart', [release]),
