@@ -6,6 +6,7 @@ import io.nekohasekai.libbox.*
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Test
+import org.junit.Assert.*
 import org.junit.runner.RunWith
 import java.io.File
 import java.lang.reflect.Proxy
@@ -28,6 +29,20 @@ class CoreStartupTest {
                 else -> if (method.returnType.isInterface) stub(method.returnType) else null
             }
         }
+    }
+    @Test fun authValidationAndRefreshUseOwnDomain() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = context.assets.open("auth-config.json").bufferedReader().use { JSONObject(it.readText()) }
+        val base = config.getString("authUrl")
+        assertEquals("https://anviht.ru/auth", base)
+        val headers = mapOf("apikey" to config.getString("anonKey"), "Connection" to "close")
+        val user = VihtHttp.request(base + "/user", headers = headers)
+        assertEquals(401, user.status)
+        assertTrue(JSONObject(user.body).has("error_code"))
+        val refresh = VihtHttp.request(base + "/token?grant_type=refresh_token", "POST", headers,
+            JSONObject().put("refresh_token", "invalid-connectivity-probe").toString())
+        assertEquals(400, refresh.status)
+        assertTrue(JSONObject(refresh.body).has("error_code"))
     }
     @Test fun actualCoreStartsAndroidDnsAndProxyConfiguration() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

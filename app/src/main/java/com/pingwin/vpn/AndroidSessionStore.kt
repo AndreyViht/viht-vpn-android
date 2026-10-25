@@ -9,6 +9,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.IOException
 import java.security.KeyStore
 import java.util.concurrent.atomic.AtomicLong
 import javax.crypto.Cipher
@@ -48,6 +49,10 @@ object AndroidSessionStore {
         check(context.getSharedPreferences(STORE, Context.MODE_PRIVATE).edit().putString(KEY, envelope.toString()).commit()) { "Не удалось сохранить защищённую сессию" }
     }
     private fun config(context: Context) = context.assets.open("auth-config.json").bufferedReader().use { JSONObject(it.readText()) }
+    private fun authRequest(url: String, method: String = "GET", headers: Map<String, String>, body: String? = null): HttpReply {
+        return try { VihtHttp.request(url, method, headers + ("Connection" to "close"), body) }
+        catch (_: IOException) { throw SessionFailure("Сервис входа не ответил. Проверьте интернет и повторите попытку.") }
+    }
     private fun expiry(token: String): Long = runCatching {
         val payload = String(Base64.decode(token.split('.')[1], Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING), Charsets.UTF_8)
         JSONObject(payload).optLong("exp", 0) * 1000
@@ -60,8 +65,9 @@ object AndroidSessionStore {
         val attempt = generation.incrementAndGet()
         if (token.split('.').size != 3) throw SessionFailure("Не получена сессия владельца. Повторите вход.", true)
         val configuration = config(context)
-        val response = VihtHttp.request(configuration.getString("authUrl") + "/user", headers = mapOf("apikey" to configuration.getString("anonKey"), "Authorization" to "Bearer $token"))
-        if (response.status !in 200..299) throw SessionFailure("Сессия входа недействительна. Повторите вход.", true)
+        val response = authRequest(configuration.getString("authUrl") + "/user", headers = mapOf("apikey" to configuration.getString("anonKey"), "Authorization" to "Bearer $token"))
+        if (response.status == 401 || response.status == 403) throw SessionFailure("Сессия входа недействительна. Повторите вход.", true)
+        if (response.status !in 200..299) throw SessionFailure("Сервис входа временно недоступен. Повторите попытку.")
         val owner = JSONObject(response.body).getString("id")
         mutex.withLock {
             if (attempt != generation.get()) throw SessionFailure("Вход отменён", true)
@@ -90,7 +96,7 @@ object AndroidSessionStore {
             }
             val attempt = generation.get()
             val configuration = config(context)
-            val reply = VihtHttp.request(configuration.getString("authUrl") + "/token?grant_type=refresh_token", "POST",
+            val reply = authRequest(configuration.getString("authUrl") + "/token?grant_type=refresh_token", "POST",
                 mapOf("apikey" to configuration.getString("anonKey")), JSONObject().put("refresh_token", refresh).toString())
             if (attempt != generation.get()) throw SessionFailure("Сессия закрыта", true)
             if (reply.status == 400 || reply.status == 401) {

@@ -74,16 +74,16 @@ jobs:
       - name: Prepare universal APK
         run: |
           mkdir -p release-apk
-          cp app/build/outputs/apk/debug/*.apk release-apk/VihtVPN-1.4.1-test-universal.apk
+          cp app/build/outputs/apk/debug/*.apk release-apk/VihtVPN-1.4.2-test-universal.apk
           sha256sum release-apk/*.apk > release-apk/SHA256SUMS.txt
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          "$signer" verify --verbose --print-certs release-apk/VihtVPN-1.4.1-test-universal.apk > release-apk/signature-verification.txt
+          "$signer" verify --verbose --print-certs release-apk/VihtVPN-1.4.2-test-universal.apk > release-apk/signature-verification.txt
           expected=$(keytool -exportcert -keystore "$VIHT_TEST_KEYSTORE" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f1)
-          actual=$(node tools/apk-signer-sha256.mjs release-apk/VihtVPN-1.4.1-test-universal.apk)
+          actual=$(node tools/apk-signer-sha256.mjs release-apk/VihtVPN-1.4.2-test-universal.apk)
           echo "Expected certificate: $expected; APK certificate: $actual"
           test "$expected" = "$actual"
           for abi in arm64-v8a armeabi-v7a x86 x86_64; do
-            unzip -Z1 release-apk/VihtVPN-1.4.1-test-universal.apk | grep "^lib/$abi/.*\.so$" > /dev/null || exit 1
+            unzip -Z1 release-apk/VihtVPN-1.4.2-test-universal.apk | grep "^lib/$abi/.*\.so$" > /dev/null || exit 1
           done
       - uses: actions/upload-artifact@v4
         with:
