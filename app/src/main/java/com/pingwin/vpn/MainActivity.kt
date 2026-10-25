@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun attachBaseContext(newBase: Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
     override fun onStart() { super.onStart(); AppVisibility.setForeground(true); UpdateScheduler.sync(this) }
+    override fun onResume() { super.onResume(); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
     override fun onStop() { AppVisibility.setForeground(false); super.onStop() }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent) /* Deep links never import credentials. */ }
     private fun local(url: String): Boolean = runCatching {

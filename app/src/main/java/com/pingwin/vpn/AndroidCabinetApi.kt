@@ -37,7 +37,14 @@ object AndroidCabinetApi {
                 reply = send()
             }
             if (reply.status == 401) throw SessionFailure("Сессия истекла. Войдите заново.", true)
-            val data = runCatching { JSONObject(reply.body) }.getOrNull()
+            var data = runCatching { JSONObject(reply.body) }.getOrNull()
+            if (action == "profile" && reply.status in 200..299 && data?.optBoolean("linked", true) == false) {
+                val provisionUrl = Uri.parse(url).buildUpon().clearQuery().appendQueryParameter("action", "skip-link").build().toString()
+                val provision = VihtHttp.request(provisionUrl, "POST", mapOf("Authorization" to "Bearer $access"), "{}")
+                if (provision.status !in 200..299) return JSONObject().put("ok", false).put("error", "Не удалось создать профиль. Повторите вход.")
+                reply = send()
+                data = runCatching { JSONObject(reply.body) }.getOrNull()
+            }
             if (reply.status !in 200..299 || data == null) {
                 JSONObject().put("ok", false).put("error", data?.optString("error")?.takeIf(String::isNotBlank) ?: "Ошибка сервиса: HTTP ${reply.status}")
             } else JSONObject().put("ok", data.optBoolean("ok", true)).put("data", data).put("error", data.opt("error") ?: JSONObject.NULL)
