@@ -19,9 +19,12 @@ export default function LoginScreen() {
       } catch {}
 
       if (window.electronAPI?.startAuthServer) {
-        const { port, callbackUrl } = await window.electronAPI.startAuthServer(provider);
+        const result = await window.electronAPI.startAuthServer(provider);
+        const callbackUrl = result?.callbackUrl;
+        if (!callbackUrl) throw new Error(result?.error || "Не удалось подготовить вход");
         const loginUrl = `https://anviht.ru/lk?desktop_callback=${encodeURIComponent(callbackUrl)}&provider=${provider}`;
-        window.electronAPI.openExternal(loginUrl);
+        const opened = await window.electronAPI.openExternal(loginUrl);
+        if (opened?.ok === false) throw new Error(opened.error || "Не удалось открыть браузер");
       } else {
         // Dev fallback in standard browser
         window.open(`https://anviht.ru/lk?provider=${provider}`, '_blank');
@@ -29,7 +32,8 @@ export default function LoginScreen() {
     } catch (err) {
       console.error('Failed to start auth server:', err);
       setWaitingBrowser(false);
-      setError('Не удалось открыть вход в браузере. Повторите попытку.');
+      window.electronAPI?.cancelAuthServer?.();
+      setError(err.message || 'Не удалось открыть вход в браузере. Повторите попытку.');
     }
   };
 
@@ -59,7 +63,7 @@ export default function LoginScreen() {
           <Loader2 className="login-spinner" size={40} />
           <h3 className="login-waiting-title">Авторизация в браузере...</h3>
           <p className="login-waiting-desc">
-            Мы открыли страницу входа в вашем браузере. Завершите авторизацию через Яндекс или ВК, и приложение подключится автоматически.
+            Мы открыли страницу входа в вашем браузере. Завершите авторизацию через Яндекс или ВК, и приложение откроет ваш аккаунт.
           </p>
           <button 
             type="button" 

@@ -10,7 +10,7 @@ class VihtVpnConfigTest {
         val config = JSONObject(VihtVpnConfig.build(ConnectionProfileParser.parse(key), JSONObject()))
         val tun = config.getJSONArray("inbounds").getJSONObject(0)
         assertTrue(tun.getJSONArray("address").toString().contains("fdfe:"))
-        val outbound = config.getJSONArray("outbounds").getJSONObject(0)
+        val outbound = config.getJSONArray("outbounds").getJSONObject(1)
         assertEquals("cdn.example.com", outbound.getJSONObject("tls").getString("server_name"))
         assertEquals("ws", outbound.getJSONObject("transport").getString("type"))
         assertEquals("/vpn", outbound.getJSONObject("transport").getString("path"))
