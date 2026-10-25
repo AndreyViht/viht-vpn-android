@@ -60,6 +60,7 @@ class AutoVlessVpnService :
 
         private const val ACTION_START = "START"
         private const val ACTION_STOP = "STOP"
+        private const val ACTION_TILE = "QUICK_CONNECT"
 
         private const val NOTIFICATION_CHANNEL_ID = "autovless_vpn"
         private const val NOTIFICATION_ID = 1001
@@ -82,6 +83,9 @@ class AutoVlessVpnService :
             context.startForegroundService(intent)
         }
 
+        fun startFromTile(context: Context) {
+            context.startForegroundService(Intent(context, AutoVlessVpnService::class.java).setAction(ACTION_TILE))
+        }
         fun resumeAfterUpdate(context: Context) {
             if (VpnRunStore.desired(context) && VpnService.prepare(context) == null) {
                 context.startForegroundService(Intent(context, AutoVlessVpnService::class.java).setAction("RESTORE"))
@@ -264,6 +268,33 @@ class AutoVlessVpnService :
                 }
             }
 
+            ACTION_TILE -> {
+                val selected = ConnectionStore.selected(this)
+                if (selected == null) { stopSelf(startId); return START_NOT_STICKY }
+                VpnRunStore.start(this, selected.id)
+                VpnStatus.setActiveConnectionId(selected.id)
+                VpnStatus.set(VpnConnectionState.CONNECTING)
+                executor.execute {
+                    try {
+                        val response = kotlinx.coroutines.runBlocking { AndroidCabinetApi.request(this@AutoVlessVpnService, JSONObject().put("action", "profile")) }
+                        check(response.optBoolean("ok")) { response.optString("error", "Не удалось проверить подписку") }
+                        val data = response.getJSONObject("data")
+                        val profile = data.optJSONObject("profile") ?: data.optJSONObject("user") ?: error("Войдите в аккаунт в приложении")
+                        check(SubscriptionPolicy.active(profile)) { "Подписка не активна. Откройте приложение для продления." }
+                        if (destroyed || latestServiceStartId != startId || !VpnRunStore.desired(this)) return@execute
+                        val settings = JSONObject(getSharedPreferences("viht_ui_settings", Context.MODE_PRIVATE).getString("vpnSettings", "{}") ?: "{}")
+                        val config = VihtVpnConfig.build(ConnectionProfileParser.parse(selected.link), settings)
+                        LibboxValidator.validate(config).getOrThrow()
+                        startVpn(config, selected.id, startId)
+                    } catch (failure: Exception) {
+                        if (latestServiceStartId == startId && !destroyed) {
+                            VpnRunStore.stop(this)
+                            stopVpn(startId)
+                            VpnStatus.fail(failure.message ?: "Не удалось подключиться из шторки", false)
+                        }
+                    }
+                }
+            }
             ACTION_STOP -> {
                 VpnStatus.markManualStop()
                 VpnRunStore.stop(this)

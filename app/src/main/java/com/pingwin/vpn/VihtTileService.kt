@@ -38,6 +38,12 @@ class VihtTileService : TileService() {
         if (VpnStatus.state.value in setOf(VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING)) {
             AutoVlessVpnService.stop(this); refresh(); return
         }
+        if (android.net.VpnService.prepare(this) == null && AndroidSessionStore.hasSession(this) && ConnectionStore.selected(this) != null) {
+            try { AutoVlessVpnService.startFromTile(this) }
+            catch (_: Exception) { VpnStatus.fail("Android не разрешил запустить VPN. Откройте приложение и повторите подключение.", false) }
+            refresh()
+            return
+        }
         val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra("viht_tile_connect", true)
         if (Build.VERSION.SDK_INT >= 34) startActivityAndCollapse(PendingIntent.getActivity(this, 11, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         else openLegacy(intent)
