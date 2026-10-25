@@ -20,7 +20,7 @@ object VihtPreferences {
     fun getHwid(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val existing = prefs.getString(KEY_HWID, null)
-        if (!existing.isNullOrBlank()) {
+        if (!existing.isNullOrBlank() && existing.length in 4..256 && existing.all { it.code in 33..126 }) {
             return existing
         }
 
@@ -30,7 +30,7 @@ object VihtPreferences {
         }.getOrNull()
 
         val generated = if (!androidId.isNullOrBlank() && androidId != "9774d56d682e549c") {
-            "an_${androidId}_${Build.MODEL.replace(" ", "_")}"
+            java.security.MessageDigest.getInstance("SHA-256").digest(("VihtAndroid:" + androidId).toByteArray()).joinToString("") { "%02x".format(it) }.take(32)
         } else {
             "an_${UUID.randomUUID().toString().replace("-", "").take(16)}"
         }
@@ -125,7 +125,7 @@ object VihtPreferences {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val token = prefs.getString(KEY_AUTH_TOKEN, null)
         val tgId = prefs.getString(KEY_TELEGRAM_ID, null)
-        return !token.isNullOrBlank() || !tgId.isNullOrBlank()
+        return AndroidSessionStore.hasSession(context)
     }
 
     fun getSavedServers(context: Context): List<VihtServer>? {
@@ -178,6 +178,7 @@ object VihtPreferences {
     }
 
     fun clearAuth(context: Context) {
+        context.getSharedPreferences("viht_credentials", Context.MODE_PRIVATE).edit().clear().apply()
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit()
             .remove(KEY_AUTH_TOKEN)

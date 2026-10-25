@@ -25,11 +25,11 @@
     </queries>
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="${appLabel}"
         android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
@@ -165,6 +165,7 @@
             android:exported="false"
             android:foregroundServiceType="systemExempted"
             tools:ignore="ForegroundServicePermission">
+            <meta-data android:name="android.net.VpnService.SUPPORTS_ALWAYS_ON" android:value="false" />
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>

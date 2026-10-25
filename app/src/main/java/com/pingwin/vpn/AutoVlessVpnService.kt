@@ -39,6 +39,13 @@ import io.nekohasekai.libbox.WIFIState
 import java.io.File
 import java.net.Inet6Address
 import java.net.InetSocketAddress
+import java.net.Inet4Address
+import java.net.ServerSocket
+import java.net.Proxy
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.concurrent.Executors
 import io.nekohasekai.libbox.NetworkInterface as LibboxNetworkInterface
 
@@ -99,7 +106,8 @@ class AutoVlessVpnService :
 
     private var commandServer: CommandServer? = null
     private var singBoxLogClient: SingBoxLogClient? = null
-    private var tunDescriptor: ParcelFileDescriptor? = null
+    @Volatile private var tunDescriptor: ParcelFileDescriptor? = null
+    private val tunLock = Any()
 
     private val mainHandler =
         Handler(Looper.getMainLooper())
@@ -113,6 +121,9 @@ class AutoVlessVpnService :
     @Volatile
     private var interfaceListener:
             InterfaceUpdateListener? = null
+
+    @Volatile
+    private var destroyed = false
 
     @Volatile
     private var isStarting = false
@@ -325,10 +336,21 @@ class AutoVlessVpnService :
                     "Starting sing-box service"
                 )
 
+                val prepared = prepareAndroidConfig(config)
                 server.startOrReloadService(
-                    config,
+                    prepared.first,
                     OverrideOptions()
                 )
+
+                check(tunDescriptor != null) { "VPN interface was not established" }
+                verifyTunnel(prepared.second)
+                if (destroyed || latestServiceStartId != startId) {
+                    releaseVpnResources()
+                    currentSessionStartId = 0
+                    VpnStatus.setActiveConnectionId(null)
+                    VpnStatus.set(VpnConnectionState.DISCONNECTED)
+                    return
+                }
 
                 singBoxLogClient =
                     SingBoxLogClient(this).also {
@@ -377,9 +399,7 @@ class AutoVlessVpnService :
 
                 stopVpn(startId, startId)
 
-                VpnStatus.set(
-                    VpnConnectionState.ERROR
-                )
+                VpnStatus.fail(e.localizedVpnMessage(this), false)
 
             } finally {
                 isStarting = false
@@ -387,7 +407,50 @@ class AutoVlessVpnService :
         }
     }
 
+    private fun prepareAndroidConfig(source: String): Pair<String, Int> {
+        val root = JSONObject(source)
+        val network = physicalDefaultNetwork ?: connectivityManager.allNetworks.firstOrNull { candidate ->
+            connectivityManager.getNetworkCapabilities(candidate)?.let { it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) } == true
+        } ?: error("Нет физического подключения к сети")
+        physicalDefaultNetwork = network
+        val outbounds = root.getJSONArray("outbounds")
+        for (index in 0 until outbounds.length()) {
+            val outbound = outbounds.getJSONObject(index)
+            val host = outbound.optString("server")
+            if (host.isNotBlank() && !host.matches(Regex("[0-9a-fA-F:.]+"))) {
+                val addresses = network.getAllByName(host)
+                val address = addresses.firstOrNull { it is Inet4Address } ?: addresses.firstOrNull() ?: error("Не найден адрес VPN-сервера")
+                outbound.put("server", address.hostAddress)
+            }
+        }
+        val dnsServer = connectivityManager.getLinkProperties(network)?.dnsServers?.firstOrNull()?.hostAddress
+        val dnsServers = root.getJSONObject("dns").getJSONArray("servers")
+        for (index in 0 until dnsServers.length()) {
+            val server = dnsServers.getJSONObject(index)
+            if (server.optString("tag") == "bootstrap" && !dnsServer.isNullOrBlank()) server.put("server", dnsServer)
+        }
+        val port = ServerSocket(0).use { it.localPort }
+        root.getJSONArray("inbounds").put(JSONObject().put("type", "mixed").put("tag", "viht-health").put("listen", "127.0.0.1").put("listen_port", port))
+        val route = root.getJSONObject("route")
+        val previous = route.optJSONArray("rules") ?: JSONArray()
+        val rules = JSONArray().put(JSONObject().put("inbound", JSONArray(listOf("viht-health"))).put("action", "route").put("outbound", "proxy"))
+        for (index in 0 until previous.length()) rules.put(previous.get(index))
+        route.put("rules", rules)
+        return root.toString() to port
+    }
+    private fun verifyTunnel(port: Int) {
+        val connection = URL("https://www.gstatic.com/generate_204").openConnection(Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", port))) as HttpURLConnection
+        try {
+            connection.connectTimeout = 8000; connection.readTimeout = 8000
+            connection.instanceFollowRedirects = false; connection.useCaches = false
+            check(connection.responseCode == 204) { "VPN-ключ не подтвердил передачу трафика" }
+        } finally { connection.disconnect() }
+    }
+
     private fun releaseVpnResources() {
+        // Release the Android-owned interface before waiting for native workers.
+        val descriptor = synchronized(tunLock) { tunDescriptor.also { tunDescriptor = null } }
+        runCatching { descriptor?.close() }
         stopPhysicalNetworkMonitor()
 
         singBoxLogClient
@@ -421,19 +484,7 @@ class AutoVlessVpnService :
         commandServer =
             null
 
-        try {
-            tunDescriptor
-                ?.close()
-        } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "TUN close failed",
-                e
-            )
-        }
 
-        tunDescriptor =
-            null
     }
 
     private fun stopVpn(
@@ -497,43 +548,25 @@ class AutoVlessVpnService :
     }
 
     override fun onDestroy() {
-        synchronized(this) {
-            releaseVpnResources()
-
-            VpnStatus.setActiveConnectionId(
-                null
-            )
-
-            if (
-                VpnStatus.state.value !=
-                VpnConnectionState.ERROR
-            ) {
-                VpnStatus.set(
-                    VpnConnectionState.DISCONNECTED
-                )
-            }
+        destroyed = true
+        latestServiceStartId = Int.MAX_VALUE
+        val descriptor = synchronized(tunLock) { tunDescriptor.also { tunDescriptor = null } }
+        runCatching { descriptor?.close() }
+        if (!executor.isShutdown) {
+            executor.execute { synchronized(this) { releaseVpnResources() } }
+            executor.shutdown()
         }
-
-        executor.shutdownNow()
-
+        VpnStatus.setActiveConnectionId(null)
+        if (VpnStatus.state.value != VpnConnectionState.ERROR) VpnStatus.set(VpnConnectionState.DISCONNECTED)
         super.onDestroy()
     }
     override fun onRevoke() {
-        val sessionStartId =
-            currentSessionStartId
-
-        val stopStartId =
-            latestServiceStartId
-
-        if (sessionStartId != 0) {
-            executor.execute {
-                stopVpn(
-                    stopStartId,
-                    sessionStartId
-                )
-            }
-        }
-
+        val revokedSession = currentSessionStartId
+        val revokedStart = latestServiceStartId
+        val descriptor = synchronized(tunLock) { tunDescriptor.also { tunDescriptor = null } }
+        runCatching { descriptor?.close() }
+        VpnStatus.fail("Разрешение на VPN отозвано Android или включён другой VPN", false)
+        if (!executor.isShutdown) executor.execute { stopVpn(revokedStart, revokedSession) }
         super.onRevoke()
     }
 
@@ -634,19 +667,14 @@ class AutoVlessVpnService :
             "autoDetectInterfaceControl: fd=$fd network=$network"
         )
 
-        if (!protect(fd)) {
-            Log.w(
-                TAG,
-                "protect($fd) returned false"
-            )
-        }
+        check(protect(fd)) { "Android не разрешил исключить исходящий сокет из VPN" }
 
         if (network == null) {
             Log.e(
                 TAG,
                 "autoDetectInterfaceControl: no physical network for fd=$fd"
             )
-            return
+            error("Нет физической сети для подключения VPN")
         }
 
         val duplicate =
@@ -676,7 +704,7 @@ class AutoVlessVpnService :
     override fun openTun(
         options: TunOptions
     ): Int {
-
+        check(!destroyed && latestServiceStartId == currentSessionStartId) { "Запуск VPN отменён" }
         if (
             prepare(this) != null
         ) {
@@ -688,7 +716,7 @@ class AutoVlessVpnService :
         val builder =
             Builder()
                 .setSession(
-                    "Pingwin"
+                    "Viht VPN"
                 )
                 .setMtu(
                     options.mtu
@@ -772,6 +800,9 @@ class AutoVlessVpnService :
             }
         }
 
+        // Capture IPv6 too; a missing IPv6 route must not bypass the VPN.
+        builder.addRoute("::", 0)
+
         builder.addDnsServer(
             "1.1.1.1"
         )
@@ -788,8 +819,10 @@ class AutoVlessVpnService :
                     "Android failed to establish VPN interface"
                 )
 
-        tunDescriptor =
-            descriptor
+        synchronized(tunLock) {
+            if (destroyed || latestServiceStartId != currentSessionStartId) { descriptor.close(); error("Запуск VPN отменён") }
+            tunDescriptor = descriptor
+        }
 
         Log.d(
             TAG,
@@ -824,7 +857,6 @@ class AutoVlessVpnService :
     override fun systemCertificates(): StringIterator? =
         null
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     override fun findConnectionOwner(
         ipProtocol: Int,
         sourceAddress: String,
@@ -832,6 +864,7 @@ class AutoVlessVpnService :
         destinationAddress: String,
         destinationPort: Int
     ): ConnectionOwner {
+        if (Build.VERSION.SDK_INT < 29) return ConnectionOwner().apply { userId = Process.INVALID_UID; userName = ""; setAndroidPackageNames(StringArray(emptyList<String>().iterator())) }
         try {
             val uid =
                 connectivityManager.getConnectionOwnerUid(

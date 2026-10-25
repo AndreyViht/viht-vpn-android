@@ -10,18 +10,20 @@ data class UpdateRelease(
     val apkUrl: String,
     val releaseUrl: String,
     val releaseNotes: String,
-    val apkSha256: String? = null
+    val apkSha256: String? = null,
+    val apkSizeBytes: Long = 0L
 )
 
 object UpdateChecker {
 
     private const val LATEST_RELEASE_URL =
-        "https://api.github.com/repos/scripchenko/pingwin/releases/latest"
+        "https://api.github.com/repos/AndreyViht/viht-vpn-android/releases/latest"
 
     private data class ApkAsset(
         val name: String,
         val url: String,
-        val sha256: String?
+        val sha256: String?,
+        val sizeBytes: Long = 0L
     )
 
     fun getLatestRelease(): UpdateRelease {
@@ -36,7 +38,7 @@ object UpdateChecker {
                 )
                 setRequestProperty(
                     "User-Agent",
-                    "pingwin-android"
+                    "VihtVPN-Android"
                 )
                 setRequestProperty(
                     "X-GitHub-Api-Version",
@@ -93,6 +95,7 @@ object UpdateChecker {
                             add(
                                 ApkAsset(
                                     name = name,
+                                    sizeBytes = asset.optLong("size", 0),
                                     url =
                                         asset.getString(
                                             "browser_download_url"
@@ -142,7 +145,8 @@ object UpdateChecker {
                     json.optString(
                         "body"
                     ),
-                apkSha256 = selectedAsset.sha256
+                apkSha256 = selectedAsset.sha256,
+                apkSizeBytes = selectedAsset.sizeBytes
             )
         } finally {
             connection.disconnect()

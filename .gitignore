@@ -22,3 +22,10 @@ tmp-libbox/
 
 # Android Studio / IntelliJ
 /.idea/
+
+web/node_modules/
+release-apks/
+release-apk/
+app/build/
+push_to_github.js
+tools/repair-baseline.json

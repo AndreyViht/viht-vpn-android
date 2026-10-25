@@ -1,271 +1,135 @@
 package com.pingwin.vpn
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
-import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
-import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.lifecycle.lifecycleScope
-import androidx.webkit.WebViewAssetLoader
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import org.json.JSONObject
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.webkit.WebViewAssetLoader
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-
     private lateinit var webView: WebView
     private lateinit var bridge: AndroidVihtBridge
-
-    private val vpnPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        bridge.onVpnPermissionResult(result.resultCode == RESULT_OK)
+    @Volatile var isTrustedPage: Boolean = false
+        private set
+    private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (::bridge.isInitialized) bridge.onVpnPermissionResult(result.resultCode == RESULT_OK)
     }
-
-    fun launchVpnPermission(intent: Intent) {
-        vpnPermissionLauncher.launch(intent)
-    }
-
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(AppLocale.wrap(newBase))
-    }
-
-    override fun onStart() {
-        super.onStart()
-        AppVisibility.setForeground(true)
-        AutomationService.sync(this)
-        UpdateScheduler.sync(this)
-    }
-
-    override fun onStop() {
-        AppVisibility.setForeground(false)
-        super.onStop()
-        when (VpnStatus.state.value) {
-            VpnConnectionState.CONNECTED -> LauncherIconManager.showGreen(this)
-            else -> LauncherIconManager.showBlue(this)
+    private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    fun launchVpnPermission(intent: Intent) { vpnPermission.launch(intent) }
+    fun ensureNotificationPermission() {
+        runOnUiThread {
+            if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+                notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        handleDeepLink(intent)
-    }
-
-    private fun handleDeepLink(intent: Intent?) {
-        val data: Uri? = intent?.data
-        if (data != null && (data.scheme == "vihtvpn" || data.path?.startsWith("/auth") == true)) {
-            val token = data.getQueryParameter("token") ?: data.getQueryParameter("sub") ?: ""
-            val subToken = data.getQueryParameter("sub_token") ?: ""
-            val tgId = data.getQueryParameter("tg_id") ?: data.getQueryParameter("telegram_id") ?: ""
-            val email = data.getQueryParameter("email") ?: ""
-
-            val payload = JSONObject().apply {
-                put("token", if (subToken.isNotBlank()) subToken else token)
-                put("originalToken", token)
-                put("subToken", subToken)
-                put("tgId", tgId)
-                put("email", email)
-                put("provider", if (tgId.isNotBlank()) "telegram" else "browser")
-                put("daysLeft", 493)
-            }
-
-            webView.post {
-                webView.evaluateJavascript(
-                    "if (window.__onAuthSuccess) window.__onAuthSuccess($payload);",
-                    null
-                )
-            }
-        }
-    }
+    override fun attachBaseContext(newBase: Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
+    override fun onStart() { super.onStart(); AppVisibility.setForeground(true); UpdateScheduler.sync(this) }
+    override fun onStop() { AppVisibility.setForeground(false); super.onStop() }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent) /* Deep links never import credentials. */ }
+    private fun local(url: String): Boolean = runCatching {
+        val uri = Uri.parse(url)
+        uri.scheme == "https" && uri.host == "appassets.androidplatform.net" && uri.path?.startsWith("/assets/web/") == true
+    }.getOrDefault(false)
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Dark background matching Windows theme
-        window.decorView.setBackgroundColor(Color.parseColor("#07090E"))
-        window.statusBarColor = Color.parseColor("#07090E")
-        window.navigationBarColor = Color.parseColor("#07090E")
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            window.decorView.systemUiVisibility =
-                window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        WindowCompat.getInsetsController(window, window.decorView).apply { isAppearanceLightStatusBars = false; isAppearanceLightNavigationBars = false }
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+        val provider = WebView.getCurrentWebViewPackage()
+        if ((provider?.versionName?.substringBefore('.')?.toIntOrNull() ?: 0) < 103) {
+            setContentView(TextView(this).apply {
+                text = "Для Viht VPN обновите Android System WebView или Chrome, затем откройте приложение снова."
+                setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#0a111d")); textSize = 18f
+                setPadding(30, 80, 30, 30)
+                setOnClickListener { runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + (provider?.packageName ?: "com.google.android.webview")))) } }
+            })
+            return
         }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            WebView.setWebContentsDebuggingEnabled(true)
-        }
-
-        // Official Android standard asset loader to avoid CORS and module restrictions
-        val assetLoader = WebViewAssetLoader.Builder()
-            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
-            .addPathHandler("/res/", WebViewAssetLoader.ResourcesPathHandler(this))
-            .build()
-
+        val loader = WebViewAssetLoader.Builder().addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this)).build()
         webView = WebView(this).apply {
-            setBackgroundColor(Color.parseColor("#07090E"))
-
+            setBackgroundColor(Color.parseColor("#0a111d"))
             settings.apply {
-                javaScriptEnabled = true
-                domStorageEnabled = true
-                databaseEnabled = true
-                allowFileAccess = true
-                allowContentAccess = true
-                allowFileAccessFromFileURLs = true
-                allowUniversalAccessFromFileURLs = true
-                cacheMode = WebSettings.LOAD_DEFAULT
-                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                useWideViewPort = true
-                loadWithOverviewMode = true
-                textZoom = 100
+                javaScriptEnabled = true; domStorageEnabled = true
+                allowFileAccess = false; allowContentAccess = false
+                mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                safeBrowsingEnabled = true; textZoom = 100
+                useWideViewPort = true; loadWithOverviewMode = true
+                javaScriptCanOpenWindowsAutomatically = false
             }
-
-            webChromeClient = object : WebChromeClient() {
-                override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                    Log.d(
-                        "VihtWeb",
-                        "[JS ${consoleMessage?.messageLevel()}] ${consoleMessage?.message()} (${consoleMessage?.sourceId()}:${consoleMessage?.lineNumber()})"
-                    )
-                    return true
-                }
-            }
-
+            webChromeClient = WebChromeClient()
             webViewClient = object : WebViewClient() {
-                override fun shouldInterceptRequest(
-                    view: WebView?,
-                    request: WebResourceRequest?
-                ): WebResourceResponse? {
-                    val url = request?.url ?: return null
-                    return assetLoader.shouldInterceptRequest(url)
-                }
-
-                override fun shouldOverrideUrlLoading(
-                    view: WebView?,
-                    request: WebResourceRequest?
-                ): Boolean {
-                    val url = request?.url?.toString() ?: return false
-                    if (url.startsWith("https://appassets.androidplatform.net/") ||
-                        url.startsWith("file:///android_asset/")
-                    ) {
-                        return false
-                    }
-                    // Open external links in device browser
-                    try {
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                    } catch (e: Exception) {
-                        Log.e("VihtWeb", "Failed to open external url: $url", e)
-                    }
+                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest): WebResourceResponse? = loader.shouldInterceptRequest(request.url)
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest): Boolean {
+                    if (local(request.url.toString())) return false
+                    if (request.isForMainFrame && request.url.scheme in setOf("http", "https")) runCatching { startActivity(Intent(Intent.ACTION_VIEW, request.url)) }
                     return true
                 }
-
-                override fun onReceivedError(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                    error: WebResourceError?
-                ) {
-                    super.onReceivedError(view, request, error)
-                    Log.e("VihtWeb", "WebView error: ${error?.description} on ${request?.url}")
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) { isTrustedPage = url?.let(::local) == true }
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    isTrustedPage = url?.let(::local) == true
+                    if (isTrustedPage && ::bridge.isInitialized) bridge.pageReady()
                 }
             }
         }
-
         bridge = AndroidVihtBridge(this, webView)
         webView.addJavascriptInterface(bridge, "VihtNative")
-
-        // Root container to properly honor system status bar insets on all Android devices
-        val rootContainer = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#07090E"))
-            addView(
-                webView,
-                FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            )
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#0a111d"))
+            addView(webView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
-        setContentView(rootContainer)
-
-        var statusBarHeight = 0
-        val statusBarResId = resources.getIdentifier("status_bar_height", "dimen", "android")
-        if (statusBarResId > 0) {
-            statusBarHeight = resources.getDimensionPixelSize(statusBarResId)
+        setContentView(root)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
+            insets
         }
-        if (statusBarHeight <= 0) {
-            statusBarHeight = (28 * resources.displayMetrics.density).toInt()
-        }
-        rootContainer.setPadding(0, statusBarHeight, 0, 0)
-
-        ViewCompat.setOnApplyWindowInsetsListener(rootContainer) { v, windowInsets ->
-            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars())
-            val topInset = if (insets.top > 0) insets.top else statusBarHeight
-            v.setPadding(0, topInset, 0, 0)
-            windowInsets
-        }
-
-        // Load the React app via standard WebViewAssetLoader domain
+        ViewCompat.requestApplyInsets(root)
         webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
-
-        handleDeepLink(intent)
-
-        // Listen for VPN connection state changes and broadcast to React
         lifecycleScope.launch {
-            VpnStatus.state.collectLatest { state ->
-                val stateStr = when (state) {
-                    VpnConnectionState.CONNECTED -> "connected"
-                    VpnConnectionState.CONNECTING -> "connecting"
-                    VpnConnectionState.DISCONNECTED -> "disconnected"
-                    VpnConnectionState.ERROR -> "error"
-                }
-                val msg = if (state == VpnConnectionState.CONNECTED) "'VPN подключен'" else "null"
-                val js = """
-                    if (window.__onVpnStateChanged) {
-                        window.__onVpnStateChanged({
-                            state: '$stateStr',
-                            connectedAt: ${System.currentTimeMillis()},
-                            message: $msg
-                        });
-                    }
-                """.trimIndent()
-                runOnUiThread {
-                    webView.evaluateJavascript(js, null)
-                }
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch { VpnStatus.state.collect { bridge.emit("vpn-state", VpnStatus.snapshot()) } }
+                launch { VpnStatus.traffic.collect { bridge.emit("vpn-traffic", it) } }
             }
         }
-
-        // Handle Back button navigation
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                } else {
-                    moveTaskToBack(true)
-                }
-            }
+            override fun handleOnBackPressed() { moveTaskToBack(true) }
         })
     }
-
     override fun onDestroy() {
-        AuthCallbackServer.stop()
+        isTrustedPage = false
+        if (::bridge.isInitialized) bridge.close()
+        if (::webView.isInitialized) { webView.removeJavascriptInterface("VihtNative"); webView.destroy() }
+        if (isFinishing) AuthCallbackServer.stop()
         super.onDestroy()
     }
 }
