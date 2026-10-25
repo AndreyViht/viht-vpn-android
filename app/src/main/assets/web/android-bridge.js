@@ -42,6 +42,7 @@
     clearOwnerSession: () => { queued.delete('auth-success'); return call('clearOwnerSession'); },
     startAuthServer: provider => call('startAuthServer', [provider]), cancelAuthServer: () => call('cancelAuthServer'),
     onAuthSuccess: callback => subscribe('auth-success', callback), onAuthError: callback => subscribe('auth-error', callback),
+    cabinetRequest: options => call('cabinetRequest', [options], 65000),
     fetchSubscription: token => call('fetchSubscription', [token]), syncServers: servers => call('syncServers', [servers]),
     pingServers: servers => call('pingServers', [servers], 7000),
     vpnConnect: (server, settings) => call('vpnConnect', [server, settings], 95000),

@@ -40,6 +40,11 @@ async function ownerToken(fallbackToken, rejectedToken = '') {
 
 async function cabinetRequest(token, action, { hwid, method = 'GET', body } = {}) {
   try {
+    if (window.electronAPI?.cabinetRequest) {
+      const result = await window.electronAPI.cabinetRequest({ action, hwid, method, body });
+      if (result?.unauthorized) window.dispatchEvent(new CustomEvent('viht-auth-required'));
+      return result;
+    }
     const url = new URL(API_BASE + '/cabinet-api');
     url.searchParams.set('action', action);
     if (method === 'GET') url.searchParams.set('ts', Date.now());

@@ -8,6 +8,7 @@ class VihtVpnConfigTest {
     private val key = "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=tls&sni=cdn.example.com&type=ws&host=cdn.example.com&path=%2Fvpn"
     @Test fun androidConfigPreservesTransportAndRoutesBothAddressFamilies() {
         val config = JSONObject(VihtVpnConfig.build(ConnectionProfileParser.parse(key), JSONObject()))
+        assertFalse(config.getJSONObject("dns").getJSONArray("servers").getJSONObject(0).has("detour"))
         val tun = config.getJSONArray("inbounds").getJSONObject(0)
         assertTrue(tun.getJSONArray("address").toString().contains("fdfe:"))
         val outbound = config.getJSONArray("outbounds").getJSONObject(1)

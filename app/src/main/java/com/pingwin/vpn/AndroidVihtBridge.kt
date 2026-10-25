@@ -67,6 +67,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         JSONObject().put("callbackUrl", callback)
                     }
                     "cancelAuthServer" -> { AuthCallbackServer.stop(); ok() }
+                    "cabinetRequest" -> AndroidCabinetApi.request(activity, args.getJSONObject(0))
                     "fetchSubscription" -> {
                         val token = args.getString(0)
                         require(token.isNotBlank() && token.length < 512) { "Не найдена подписка" }

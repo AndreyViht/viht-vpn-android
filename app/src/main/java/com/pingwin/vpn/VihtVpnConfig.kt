@@ -7,7 +7,7 @@ object VihtVpnConfig {
     fun build(profile: ConnectionProfile, settings: JSONObject): String {
         val routing = RoutingSettings(bypassRussiaSites = settings.optBoolean("bypassRussia", true))
         val config = JSONObject(ConnectionConfigBuilder.build(profile, routing, false))
-        val bootstrap = JSONObject().put("type", "udp").put("tag", "bootstrap").put("server", "1.1.1.1").put("detour", "direct")
+        val bootstrap = JSONObject().put("type", "udp").put("tag", "bootstrap").put("server", "1.1.1.1")
         val remote = JSONObject().put("type", "udp")
             .put("tag", "remote").put("server", if (settings.optBoolean("dnsAdblock", true)) "94.140.14.14" else "1.1.1.1").put("detour", "proxy")
         val dnsRules = JSONArray()
