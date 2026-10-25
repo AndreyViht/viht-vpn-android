@@ -40,6 +40,12 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: viht-android-test-signing-v1
+      - name: Ensure persistent test signing key
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -dname "CN=Viht VPN Test,O=Viht,C=RU" -keyalg RSA -keysize 2048 -validity 10000
+          fi
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
@@ -67,7 +73,10 @@ jobs:
           cp app/build/outputs/apk/debug/*.apk release-apk/VihtVPN-1.4.1-test-universal.apk
           sha256sum release-apk/*.apk > release-apk/SHA256SUMS.txt
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          "$signer" verify --verbose release-apk/VihtVPN-1.4.1-test-universal.apk > release-apk/signature-verification.txt
+          "$signer" verify --verbose --print-certs release-apk/VihtVPN-1.4.1-test-universal.apk > release-apk/signature-verification.txt
+          expected=$(keytool -exportcert -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f1)
+          actual=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' release-apk/signature-verification.txt)
+          test "$expected" = "$actual"
           for abi in arm64-v8a armeabi-v7a x86 x86_64; do
             unzip -Z1 release-apk/VihtVPN-1.4.1-test-universal.apk | grep "^lib/$abi/.*\.so$" > /dev/null || exit 1
           done
