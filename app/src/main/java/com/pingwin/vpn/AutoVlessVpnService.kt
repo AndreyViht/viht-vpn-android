@@ -978,7 +978,7 @@ class AutoVlessVpnService :
                 interfaceIndex
 
             boxInterface.mtu =
-                if (properties.mtu > 0) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && properties.mtu > 0) {
                     properties.mtu
                 } else {
                     1500

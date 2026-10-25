@@ -148,7 +148,7 @@ export default function App() {
 
   // Helper to trigger automated VPN reconnection on unexpected drop
   const triggerAutoReconnect = (sourceState, eventData) => {
-    if (!hadConnectedSessionRef.current || manualDisconnectRef.current || reconnectTimerRef.current) return;
+    if (eventData?.retryable === false || !hadConnectedSessionRef.current || manualDisconnectRef.current || reconnectTimerRef.current) return;
     const s = settingsRef.current;
     if (s.autoReconnect === false) {
       if (s.notifyLost !== false) {

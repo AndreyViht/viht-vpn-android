@@ -2,6 +2,5 @@
 <resources>
     <style name="Theme.Pingwin" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:navigationBarColor">@android:color/white</item>
-        <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>

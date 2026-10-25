@@ -152,6 +152,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         } finally { permission = null; connectingJob = null; connectLock.unlock() }
     }
     private suspend fun disconnect() {
+        VpnStatus.markManualStop()
         operation.incrementAndGet(); permission?.complete(false); permission = null
         connectingJob?.takeIf { it != currentCoroutineContext()[Job] }?.cancel()
         AutoVlessVpnService.stop(activity)

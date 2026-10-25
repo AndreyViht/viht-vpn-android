@@ -41,6 +41,8 @@ jobs:
           path: ~/.android/debug.keystore
           key: viht-android-test-signing-v1
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
       - name: Test, lint and build
         run: |
           chmod +x gradlew

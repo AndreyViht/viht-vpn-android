@@ -241,7 +241,7 @@ function SettingsScreen({
                   <div className="fluent-toggle-row">
                     <div className="fluent-toggle-text">
                       <strong>{currentLang === 'en' ? 'System VPN controls' : 'Системное подключение VPN'}</strong>
-                      <span>{currentLang === 'en' ? 'Android manages the VPN permission. No simulated system blocking.' : 'Разрешением на VPN управляет Android. Приложение не имитирует системную блокировку.'}</span>
+                      <span>{currentLang === 'en' ? 'Manage VPN permissions in Android settings.' : 'Управляйте разрешениями VPN в настройках Android.'}</span>
                     </div>
                     <button className="btn btn--secondary btn--sm" onClick={() => window.electronAPI?.openVpnSettings?.()}>{currentLang === 'en' ? 'Open' : 'Открыть'}</button>
                   </div>

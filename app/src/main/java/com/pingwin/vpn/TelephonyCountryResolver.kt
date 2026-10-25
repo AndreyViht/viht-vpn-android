@@ -62,10 +62,7 @@ object TelephonyCountryResolver {
                 .getDefaultDataSubscriptionId()
 
         return if (
-            SubscriptionManager
-                .isValidSubscriptionId(
-                    subscriptionId
-                )
+            subscriptionId >= 0
         ) {
             runCatching {
                 base.createForSubscriptionId(

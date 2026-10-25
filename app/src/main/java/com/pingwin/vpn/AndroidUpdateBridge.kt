@@ -57,6 +57,7 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
             withContext(Dispatchers.Main) { UpdateInstaller.openInstallPermission(activity) }
             return JSONObject().put("ok", false).put("needsPermission", true).put("error", "Разрешите установку приложений, затем нажмите «Установить» ещё раз")
         }
+        VpnStatus.markManualStop()
         AutoVlessVpnService.stop(activity)
         withTimeout(15000) { VpnStatus.state.first { it == VpnConnectionState.DISCONNECTED || it == VpnConnectionState.ERROR } }
         withContext(Dispatchers.Main) { UpdateInstaller.installApk(activity, apk) }
