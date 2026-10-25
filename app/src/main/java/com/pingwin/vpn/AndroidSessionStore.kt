@@ -35,18 +35,18 @@ object AndroidSessionStore {
                 .setRandomizedEncryptionRequired(true).build())
         }.generateKey()
     }
-    private fun read(context: Context): JSONObject? = runCatching {
-        val envelope = context.getSharedPreferences(STORE, Context.MODE_PRIVATE).getString(KEY, null) ?: return@runCatching null
+    private fun read(context: Context, storageKey: String = KEY): JSONObject? = runCatching {
+        val envelope = context.getSharedPreferences(STORE, Context.MODE_PRIVATE).getString(storageKey, null) ?: return@runCatching null
         val json = JSONObject(envelope)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, Base64.decode(json.getString("iv"), Base64.NO_WRAP)))
         JSONObject(String(cipher.doFinal(Base64.decode(json.getString("data"), Base64.NO_WRAP)), Charsets.UTF_8))
     }.getOrNull()
-    private fun write(context: Context, session: JSONObject) {
+    private fun write(context: Context, session: JSONObject, storageKey: String = KEY) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
         val encrypted = cipher.doFinal(session.toString().toByteArray(Charsets.UTF_8))
         val envelope = JSONObject().put("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP)).put("data", Base64.encodeToString(encrypted, Base64.NO_WRAP))
-        check(context.getSharedPreferences(STORE, Context.MODE_PRIVATE).edit().putString(KEY, envelope.toString()).commit()) { "Не удалось сохранить защищённую сессию" }
+        check(context.getSharedPreferences(STORE, Context.MODE_PRIVATE).edit().putString(storageKey, envelope.toString()).commit()) { "Не удалось сохранить защищённую сессию" }
     }
     private fun config(context: Context) = context.assets.open("auth-config.json").bufferedReader().use { JSONObject(it.readText()) }
     private fun authRequest(url: String, method: String = "GET", headers: Map<String, String>, body: String? = null): HttpReply {
@@ -59,6 +59,14 @@ object AndroidSessionStore {
     }.getOrDefault(0)
     fun hasSession(context: Context): Boolean = read(context) != null
     fun cancelPending() { generation.incrementAndGet() }
+    suspend fun saveBrowserPending(context: Context, value: JSONObject?) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            if (value == null) context.getSharedPreferences(STORE, Context.MODE_PRIVATE).edit().remove("browser_pending").commit()
+            else { write(context, value, "browser_pending"); true }
+        }
+    }
+    suspend fun loadBrowserPending(context: Context): JSONObject? = withContext(Dispatchers.IO) { mutex.withLock { read(context, "browser_pending") } }
+
 
     suspend fun accept(context: Context, token: String, refresh: String?, provider: String): String = withContext(Dispatchers.IO) {
         require(provider == "yandex" || provider == "vk") { "Неподдерживаемый способ входа" }

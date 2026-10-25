@@ -59,14 +59,12 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "clearOwnerSession" -> { AuthCallbackServer.stop(); AndroidSessionStore.clear(activity); ok() }
                     "startAuthServer" -> {
                         val provider = args.getString(0)
-                        val callback = AuthCallbackServer.start(activity.applicationContext, provider, { token ->
-                            emit("auth-success", JSONObject().put("token", token).put("originalToken", token).put("provider", provider))
-                            activity.runOnUiThread { runCatching { activity.startActivity(Intent(activity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)) } }
-                        }, { message -> emit("auth-error", error(message)) })
+                        AuthCallbackServer.stop()
+                        val callback = AndroidBrowserAuth.start(activity.applicationContext, provider)
                         preferences.edit().putString("provider", provider).apply()
                         JSONObject().put("callbackUrl", callback)
                     }
-                    "cancelAuthServer" -> { AuthCallbackServer.stop(); ok() }
+                    "cancelAuthServer" -> { AuthCallbackServer.stop(); AndroidBrowserAuth.cancel(activity); ok() }
                     "cabinetRequest" -> AndroidCabinetApi.request(activity, args.getJSONObject(0))
                     "fetchSubscription" -> {
                         val token = args.getString(0)
@@ -202,6 +200,16 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             server.getString("id") to value
         } }.awaitAll()
         JSONObject().apply { values.forEach { (id, value) -> put(id, value ?: JSONObject.NULL) } }
+    }
+    fun completeBrowserAuth(uri: Uri?) {
+        if (uri?.scheme != "vihtvpn" || uri.host != "auth" || uri.path != "/callback") return
+        scope.launch {
+            try {
+                val (token, provider) = AndroidBrowserAuth.complete(activity.applicationContext, uri)
+                emit("auth-success", JSONObject().put("token", token).put("originalToken", token).put("provider", provider))
+            } catch (_: CancellationException) { }
+            catch (failure: Exception) { emit("auth-error", error(failure.message ?: "Не удалось завершить вход. Начните вход заново.")) }
+        }
     }
     fun pageReady() {
         emit("vpn-state", VpnStatus.snapshot())

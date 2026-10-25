@@ -30,6 +30,14 @@ class CoreStartupTest {
             }
         }
     }
+    @Test fun decryptsBrowserReturnOnAndroid() {
+        val context = InstrumentationRegistry.getInstrumentation().context
+        val vector = context.assets.open("browser-auth-vector.json").bufferedReader().use { JSONObject(it.readText()) }
+        fun decode(name: String) = android.util.Base64.decode(vector.getString(name), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+        val privateKey = android.util.Base64.decode(vector.getString("privateKey"), android.util.Base64.DEFAULT)
+        val result = JSONObject(BrowserAuthCrypto.decrypt(privateKey, decode("key"), decode("iv"), decode("payload"), vector.getString("state")))
+        assertEquals("fixture.access.token", result.getString("token"))
+    }
     @Test fun authValidationAndRefreshUseOwnDomain() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val config = context.assets.open("auth-config.json").bufferedReader().use { JSONObject(it.readText()) }

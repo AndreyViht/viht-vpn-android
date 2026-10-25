@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() { super.onStart(); AppVisibility.setForeground(true); UpdateScheduler.sync(this) }
     override fun onResume() { super.onResume(); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
     override fun onStop() { AppVisibility.setForeground(false); super.onStop() }
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent) /* Deep links never import credentials. */ }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (::bridge.isInitialized) bridge.completeBrowserAuth(intent.data) }
     private fun local(url: String): Boolean = runCatching {
         val uri = Uri.parse(url)
         uri.scheme == "https" && uri.host == "appassets.androidplatform.net" && uri.path?.startsWith("/assets/web/") == true
@@ -102,6 +102,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         bridge = AndroidVihtBridge(this, webView)
+        bridge.completeBrowserAuth(intent?.data)
         webView.addJavascriptInterface(bridge, "VihtNative")
         val root = FrameLayout(this).apply {
             setBackgroundColor(Color.parseColor("#0a111d"))
