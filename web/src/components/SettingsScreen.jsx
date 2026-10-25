@@ -279,7 +279,7 @@ function SettingsScreen({
                   <div className="fluent-toggle-divider" />
                   <div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>{currentLang === 'en' ? 'Notifications' : 'Уведомления'}</strong><span>{currentLang === 'en' ? 'Android displays an ongoing VPN notification while connected.' : 'Во время работы Android показывает постоянное уведомление VPN.'}</span></div><button className="btn btn--secondary btn--sm" onClick={() => window.electronAPI?.openNotificationSettings?.()}>{currentLang === 'en' ? 'Open' : 'Открыть'}</button></div>
                   <div className="fluent-toggle-divider" />
-                  <div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>{currentLang === 'en' ? 'Background connection' : 'Фоновое подключение'}</strong><span>{currentLang === 'en' ? 'Closing this screen keeps the active VPN running. Use Disconnect to stop it.' : 'Закрытие экрана сохраняет активное подключение. Для остановки нажмите «Отключить».'}</span></div></div>
+                  <div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>{currentLang === 'en' ? 'Background connection' : 'Фоновое подключение'}</strong><span>{currentLang === 'en' ? 'Closing this screen keeps the active VPN running. Use Disconnect to stop it.' : 'Закрытие экрана сохраняет активное подключение. Если Android ограничивает фон, разрешите приложению работу без ограничений в настройках батареи.'}</span></div><button className="btn btn--secondary btn--sm" onClick={() => window.electronAPI?.openBatterySettings?.()}>{currentLang === 'en' ? 'Settings' : 'Настройки'}</button></div>
                 </div>
               </motion.div>
             )}

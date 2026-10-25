@@ -95,6 +95,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         (activity.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(clip)
                     }; ok() }
                     "addQuickTile" -> { withContext(Dispatchers.Main) { activity.addQuickTile() }; ok() }
+                    "openBatterySettings" -> { openIntent(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + activity.packageName))); ok() }
                     "openVpnSettings" -> { openIntent(Intent(Settings.ACTION_VPN_SETTINGS)); ok() }
                     "openNotificationSettings" -> { openIntent(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)); ok() }
                     "openExternal" -> {

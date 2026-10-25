@@ -54,6 +54,7 @@
     copyText: text => call('copyText', [text]),
     addQuickTile: () => call('addQuickTile'),
     onQuickConnect: callback => subscribe('quick-connect', callback), onOpenUpdates: callback => subscribe('open-updates', callback),
+    openBatterySettings: () => call('openBatterySettings'),
     openVpnSettings: () => call('openVpnSettings'), openNotificationSettings: () => call('openNotificationSettings'),
     checkForUpdates: () => call('checkForUpdates'), getUpdateStatus: () => call('getUpdateStatus'),
     downloadUpdate: release => call('downloadUpdate', [release], 310000), applyUpdateAndRestart: release => call('applyUpdateAndRestart', [release]),
