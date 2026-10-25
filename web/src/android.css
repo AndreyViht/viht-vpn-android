@@ -29,3 +29,5 @@ body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
   .liquid-window.is-android .fluent-page, .liquid-window.is-android .fluent-main-content { padding-left: 12px; padding-right: 12px; }
   .liquid-window.is-android .fluent-settings-tab-btn { font-size: 7.5px; }
 }
+
+.liquid-window.is-android .fluent-devices-toolbar .fluent-filter-pills { flex-wrap: wrap; }

@@ -9,7 +9,7 @@ import java.io.IOException
 /** Fixed service endpoint: WebView cannot turn this into a general HTTP proxy. */
 object AndroidCabinetApi {
     private val readActions = setOf("profile", "active-devices", "payments")
-    private val writeActions = setOf("device-action", "reset-keys")
+    private val writeActions = setOf("device-action", "reset-keys", "device-heartbeat")
     suspend fun request(context: Context, options: JSONObject): JSONObject {
         return try {
             val action = options.getString("action")
@@ -23,7 +23,10 @@ object AndroidCabinetApi {
             var access = AndroidSessionStore.getToken(context)
             val body = if (method == "POST") options.optJSONObject("body")?.toString() ?: "{}" else null
             suspend fun send(): HttpReply {
-                val headers = mapOf("Authorization" to "Bearer $access", "Accept" to "application/json", "User-Agent" to "VihtVPN-Android/" + BuildConfig.VERSION_NAME)
+                val headers = mapOf("Authorization" to "Bearer $access", "Accept" to "application/json", "User-Agent" to "VihtVPN-Android/" + BuildConfig.VERSION_NAME,
+                    "x-hwid" to VihtPreferences.getHwid(context), "x-app-name" to "Viht Android", "x-app-version" to BuildConfig.VERSION_NAME,
+                    "x-device-os" to "Android", "x-device-model" to VihtPreferences.getDeviceModel(),
+                    "x-client-vpn-state" to if (VpnStatus.state.value == VpnConnectionState.CONNECTED) "connected" else "disconnected")
                 return try { VihtHttp.request(url, method, headers, body) }
                 catch (failure: IOException) {
                     if (method != "GET") throw failure

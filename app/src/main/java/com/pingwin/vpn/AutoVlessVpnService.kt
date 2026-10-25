@@ -412,6 +412,7 @@ class AutoVlessVpnService :
                 VpnStatus.set(
                     VpnConnectionState.CONNECTED
                 )
+                DevicePresenceReporter.connected(this)
 
                 if (
                     !AppVisibility.isForeground()
@@ -574,6 +575,7 @@ class AutoVlessVpnService :
             VpnStatus.set(
                 VpnConnectionState.DISCONNECTED
             )
+            DevicePresenceReporter.stopped(this)
 
             if (
                 !AppVisibility.isForeground()
@@ -601,6 +603,7 @@ class AutoVlessVpnService :
         }
         VpnStatus.setActiveConnectionId(null)
         if (VpnStatus.state.value != VpnConnectionState.ERROR) VpnStatus.set(VpnConnectionState.DISCONNECTED)
+        DevicePresenceReporter.stopped(this)
         super.onDestroy()
     }
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -614,6 +617,7 @@ class AutoVlessVpnService :
         val descriptor = synchronized(tunLock) { tunDescriptor.also { tunDescriptor = null } }
         runCatching { descriptor?.close() }
         VpnStatus.fail("Разрешение на VPN отозвано Android или включён другой VPN", false)
+        DevicePresenceReporter.stopped(this)
         if (!executor.isShutdown) executor.execute { stopVpn(revokedStart, revokedSession) }
         super.onRevoke()
     }

@@ -18,6 +18,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { fetchActiveDevices, deviceAction } from '../services/api';
+import { slotUsage, deviceState, deviceAppLabel } from '../services/devices';
 import vihtLogo from '../assets/viht-logo.png';
 import { t, fixMojibake } from '../utils/i18n';
 import { springs, buttonPress } from '../utils/motion';
@@ -26,6 +27,10 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
   const [devices, setDevices] = useState([]);
   const [limits, setLimits] = useState(() => propLimits || { total_slots: 0, active_count: 0, slot_price: 0 });
   const [loading, setLoading] = useState(true);
+  const [unidentified, setUnidentified] = useState([]);
+  const [bindingDevice, setBindingDevice] = useState(null);
+  const [bindingTarget, setBindingTarget] = useState('');
+  const [bindingBusy, setBindingBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all' | 'online' | 'offline'
 
@@ -42,19 +47,23 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
     setTimeout(() => setToast(null), 3500);
   };
 
+  const responseEpoch = useRef(0);
   const devicesCountRef = useRef(devices.length);
   devicesCountRef.current = devices.length;
 
   const loadDevices = useCallback(async (silent = false) => {
     if (!token) return;
+    const epoch = ++responseEpoch.current;
     if (!silent && devicesCountRef.current === 0) setLoading(true);
     else setRefreshing(true);
 
     try {
       const res = await fetchActiveDevices(token, hwid);
+      if (epoch !== responseEpoch.current) return;
       if (res && res.ok) {
         const devList = res.devices || [];
         setDevices(devList);
+        setUnidentified(res.unidentified_devices || []);
 
         if (res.limits) setLimits(res.limits);
       } else {
@@ -62,22 +71,60 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
       }
     } catch (err) {
       console.error('Failed to load devices:', err);
-      if (!silent) showToast('Ошибка сети при загрузке устройств', true);
+      if (epoch === responseEpoch.current && !silent) showToast('Ошибка сети при загрузке устройств', true);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (epoch === responseEpoch.current) { setLoading(false); setRefreshing(false); }
     }
   }, [token, hwid]);
 
   useEffect(() => {
-    loadDevices();
-    const interval = setInterval(() => loadDevices(true), 15000);
-    return () => clearInterval(interval);
+    let disposed = false;
+    let inFlight = false;
+    let timer;
+    const poll = async (initial = false) => {
+      if (disposed || inFlight) return;
+      inFlight = true;
+      try { if (document.visibilityState !== 'hidden') await loadDevices(!initial); }
+      finally {
+        inFlight = false;
+        if (!disposed) { clearTimeout(timer); timer = setTimeout(() => poll(), 5000); }
+      }
+    };
+    poll(true);
+    const resume = () => { if (document.visibilityState === 'visible') { clearTimeout(timer); poll(); } };
+    document.addEventListener('visibilitychange', resume);
+    return () => { disposed = true; responseEpoch.current += 1; clearTimeout(timer); document.removeEventListener('visibilitychange', resume); };
   }, [loadDevices]);
+
+  const linkToPhone = async () => {
+    if (!bindingDevice || !bindingTarget) return;
+    setBindingBusy(true);
+    try {
+      const result=await deviceAction(token,{command:'link',device_id:bindingDevice.device_id||bindingDevice.id,target_device_id:bindingTarget});
+      if (!result?.ok) throw new Error(result?.error||'Не удалось привязать приложения');
+      setBindingDevice(null); await loadDevices(true); showToast('Приложения привязаны к одному телефону. Занят один слот.');
+    } catch(error) { showToast(error.message,true); }
+    finally { setBindingBusy(false); }
+  };
+  const createBindingLink = async device => {
+    try {
+      const result=await deviceAction(token,{command:'pair',device_id:device.device_id||device.id});
+      if (!result?.ok) throw new Error(result?.error||'Не удалось создать ссылку');
+      if (window.electronAPI?.copyText) { const copied=await window.electronAPI.copyText(result.binding_url); if (!copied?.ok) throw new Error(copied?.error||'Не удалось скопировать ссылку'); }
+      else await navigator.clipboard.writeText(result.binding_url);
+      showToast('Ссылка скопирована. Импортируйте её в другое VPN-приложение на этом телефоне в течение 10 минут.');
+    } catch(error) { showToast(error.message,true); }
+  };
+  const separateClient = async client => {
+    if (!window.confirm('Считать этот клиент отдельным телефоном? Потребуется отдельный свободный слот.')) return;
+    const result=await deviceAction(token,{command:'unlink',device_id:client.device_id||client.id});
+    if (!result?.ok) showToast(result?.error||'Не удалось отделить клиент',true);
+    await loadDevices(true);
+  };
 
   // Rename handler
   const handleStartRename = (device) => {
-    setEditingId(device.id || device.device_id);
+    setEditingId(device.physical_device_id || device.id || device.device_id);
     setEditingName(device.custom_name || device.device_model || device.name || '');
   };
 
@@ -129,7 +176,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
     setDevices((prev) =>
       prev.map((d) =>
         (d.id === device.id || (d.hwid && d.hwid === device.hwid))
-          ? { ...d, disabled: newDisabled, online: !newDisabled }
+          ? { ...d, disabled: newDisabled, online: false, online_known: newDisabled }
           : d
       )
     );
@@ -157,7 +204,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
   // Delete / revoke device with shrink animation
   const handleDeleteDevice = async (device) => {
     const devName = device.custom_name || device.device_model || 'устройство';
-    if (!window.confirm(`Вы уверены, что хотите отвязать «${devName}» от подписки?`)) {
+    if (!window.confirm(`Отвязать «${devName}» от подписки${device.client_count > 1 ? ` вместе со всеми ${device.client_count} VPN-приложениями` : ''}?`)) {
       return;
     }
 
@@ -194,8 +241,9 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
   };
 
   const filteredDevices = devices.filter((d) => {
-    if (filter === 'online') return d.online && !d.disabled;
-    if (filter === 'offline') return !d.online || d.disabled;
+    if (filter === 'online') return deviceState(d) === 'online';
+    if (filter === 'offline') return deviceState(d) === 'offline';
+    if (filter === 'unknown') return deviceState(d) === 'unknown';
     return true;
   });
 
@@ -217,16 +265,8 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
     return 'fluent-chip--app';
   };
 
-  const getAppChipLabel = (device) => {
-    const a = String(device.app_name || '').toLowerCase();
-    const ver = device.app_version ? ` v${device.app_version}` : '';
-    if (a.includes('viht')) return `💠 Viht Android${ver}`;
-    if (a.includes('happ')) return `🟣 Happ${ver}`;
-    if (a.includes('incy')) return `🍏 Incy${ver}`;
-    if (a.includes('v2rayng')) return `🚀 v2rayNG${ver}`;
-    if (a.includes('v2raytun')) return `⚡ V2RayTun${ver}`;
-    return device.app_name ? `${device.app_name}${ver}` : 'VPN Клиент';
-  };
+  const getAppChipLabel = deviceAppLabel;
+  const usage = slotUsage(devices, limits);
 
   const openAddSlot = () => {
     const url = 'https://anviht.ru/lk?modal=slot';
@@ -272,7 +312,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
           <div className="fluent-slot-card__label-box">
             <span className="fluent-slot-title">{t('devices_slots_used', lang)}</span>
             <strong className="fluent-slot-counter">
-              {devices.length} {t('devices_slots_of', lang)} {limits.total_slots || 16}
+              {usage.used} {t('devices_slots_of', lang)} {usage.total ?? '—'}
             </strong>
           </div>
 
@@ -295,20 +335,32 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
             className="fluent-slot-progress-fill"
             initial={{ width: 0 }}
             animate={{
-              width: `${Math.min(100, Math.round((devices.length / (limits.total_slots || 4)) * 100))}%`,
+              width: `${usage.percent}%`,
             }}
             transition={springs.natural}
           />
         </div>
       </div>
 
+      {unidentified.length > 0 && <div className="fluent-card" style={{padding:12,fontSize:12,color:'var(--text-secondary)'}}>Старые клиенты без идентификатора: {unidentified.length}. Слоты не занимают; определить физическое устройство для них нельзя.</div>}
+      {bindingDevice && <div className="fluent-card" role="dialog" aria-label="Привязка к телефону" style={{padding:18,display:'grid',gap:14}}>
+        <strong>Это то же физическое устройство</strong>
+        <span style={{fontSize:13}}>Подтвердите, что приложения «{bindingDevice.custom_name||bindingDevice.device_model}» используются на выбранном ниже устройстве. Они займут один слот.</span>
+        <select aria-label="Устройство" value={bindingTarget} onChange={event=>setBindingTarget(event.target.value)} style={{padding:12,borderRadius:12,background:'#101b29',color:'white'}}>
+          <option value="">Выберите устройство</option>
+          {devices.filter(d=>(d.physical_device_id||d.id)!==(bindingDevice.physical_device_id||bindingDevice.id)&&d.hwid).map(d=><option key={d.id} value={d.device_id||d.id}>{d.is_current?'Это устройство · ':''}{d.custom_name||d.device_model} · {d.app_name} · {d.hwid_short}</option>)}
+        </select>
+        <div style={{display:'flex',gap:10}}><button className="btn btn--primary" disabled={!bindingTarget||bindingBusy} onClick={linkToPhone}>{bindingBusy?'Привязка…':'Подтвердить'}</button><button className="btn btn--secondary" disabled={bindingBusy} onClick={()=>setBindingDevice(null)}>Отмена</button></div>
+      </div>}
+
       {/* Filter Tabs with Sliding Active Indicator */}
       <div className="fluent-devices-toolbar">
         <div className="fluent-filter-pills">
           {[
             { id: 'all', label: `${t('devices_all', lang)} (${devices.length})` },
-            { id: 'online', label: `${t('devices_online', lang)} (${devices.filter(d => d.online && !d.disabled).length})` },
-            { id: 'offline', label: `${t('devices_offline', lang)} (${devices.filter(d => !d.online || d.disabled).length})` },
+            { id: 'online', label: `${t('devices_online', lang)} (${devices.filter(d => deviceState(d) === 'online').length})` },
+            { id: 'offline', label: `${t('devices_offline', lang)} (${devices.filter(d => deviceState(d) === 'offline').length})` },
+            { id: 'unknown', label: `${lang === 'en' ? 'Unknown' : 'Нет данных'} (${devices.filter(d => deviceState(d) === 'unknown').length})` },
           ].map((pill) => {
             const isActive = filter === pill.id;
             return (
@@ -351,7 +403,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
         ) : (
           <AnimatePresence initial={false}>
             {filteredDevices.map((device) => {
-              const isEditing = editingId === (device.id || device.device_id);
+              const isEditing = editingId === (device.physical_device_id || device.id || device.device_id);
               const isCurrent = isCurrentDevice(device);
               const isOnline = device.online && !device.disabled;
               const rawName = device.custom_name || device.device_model || device.name || t('device_fallback_name', lang);
@@ -360,7 +412,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
 
               return (
                 <motion.div
-                  key={device.id || device.device_id || device.hwid}
+                  key={device.physical_device_id || device.id || device.device_id || device.hwid}
                   layout="position"
                   className={`fluent-device-row ${device.disabled ? 'fluent-device-row--disabled' : ''}`}
                   initial={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -492,11 +544,22 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru' }) {
                           </span>
                         ) : (
                           <span className="status-text status-text--offline">
-                            <span className="ping-status-dot gray" /> {t('device_status_was', lang)} {device.last_active || t('device_status_recently', lang)}
+                            <span className="ping-status-dot gray" /> {deviceState(device) === 'unknown' ? (device.last_active || 'Нет данных о подключении') : (device.last_active || t('devices_offline', lang))}
                           </span>
                         )}
                       </span>
                     </div>
+                    <details style={{marginTop:10,fontSize:12}}>
+                      <summary>VPN-приложения: {device.client_count || 1}</summary>
+                      <div style={{display:'grid',gap:9,marginTop:10}}>
+                        {(device.clients || [device]).map(client=><div key={client.device_id||client.id} style={{display:'grid',gap:5}}>
+                          <span>{deviceAppLabel(client)} · ID: {client.hwid_short||'нет ID'} · {deviceState(client)==='online'?'В сети':client.last_active||'Нет данных'}</span>
+                          {device.client_count>1 && <button className="btn btn--secondary btn--sm" onClick={()=>separateClient(client)}>Это отдельное устройство</button>}
+                        </div>)}
+                        {!device.disabled && device.hwid && <button className="btn btn--secondary btn--sm" onClick={()=>createBindingLink(device)}>Добавить VPN-приложение на это устройство</button>}
+                        {device.hwid && devices.length>1 && <button className="btn btn--secondary btn--sm" onClick={()=>{setBindingTarget(devices.find(d=>d.is_current&&d.id!==device.id)?.device_id||'');setBindingDevice(device);}}>Это другое приложение того же устройства</button>}
+                      </div>
+                    </details>
                   </div>
 
                   <div className="fluent-device-actions">

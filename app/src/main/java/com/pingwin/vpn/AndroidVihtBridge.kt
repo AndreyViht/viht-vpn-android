@@ -88,6 +88,12 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "getDesktopPreferences" -> JSONObject().put("notifyUpdate", preferences.getBoolean("notifyUpdate", true))
                     "getLoginItemSettings" -> JSONObject().put("openAtLogin", false).put("startMinimized", false)
                     "setLoginItemSettings" -> error("Автозапуск Windows недоступен на Android")
+                    "copyText" -> { withContext(Dispatchers.Main) {
+                        val value=args.getString(0); require(value.length <= 8192)
+                        val clip=android.content.ClipData.newPlainText("Viht VPN",value)
+                        if (Build.VERSION.SDK_INT >= 33) clip.description.extras=android.os.PersistableBundle().apply { putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE,true) }
+                        (activity.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(clip)
+                    }; ok() }
                     "addQuickTile" -> { withContext(Dispatchers.Main) { activity.addQuickTile() }; ok() }
                     "openVpnSettings" -> { openIntent(Intent(Settings.ACTION_VPN_SETTINGS)); ok() }
                     "openNotificationSettings" -> { openIntent(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)); ok() }

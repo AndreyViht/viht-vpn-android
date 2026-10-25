@@ -51,6 +51,7 @@
     exportDebugLog: () => call('exportDebugLog'),
     getLoginItemSettings: () => call('getLoginItemSettings'), setLoginItemSettings: options => call('setLoginItemSettings', [options]),
     getDesktopPreferences: () => call('getDesktopPreferences'), setDesktopPreferences: options => call('setDesktopPreferences', [options]),
+    copyText: text => call('copyText', [text]),
     addQuickTile: () => call('addQuickTile'),
     onQuickConnect: callback => subscribe('quick-connect', callback), onOpenUpdates: callback => subscribe('open-updates', callback),
     openVpnSettings: () => call('openVpnSettings'), openNotificationSettings: () => call('openNotificationSettings'),
