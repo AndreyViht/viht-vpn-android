@@ -62,12 +62,12 @@ object AndroidSessionStore {
         mutex.withLock { val session=read(context) ?: return@withLock; write(context,JSONObject().put("owner",session.getString("ownerId")).put("savedAt",System.currentTimeMillis()).put("data",value),"ui_snapshot") }
     }
     suspend fun uiSnapshot(context: Context): JSONObject? = withContext(Dispatchers.IO) {
-        mutex.withLock {
-            val owner=read(context)?.optString("ownerId") ?: return@withLock null
-            val cached=read(context,"ui_snapshot") ?: return@withLock null
-            if(cached.optString("owner")!=owner || System.currentTimeMillis()-cached.optLong("savedAt")>604800000L) return@withLock null
-            cached.optJSONObject("data")
-        }
+        // Reading the encrypted snapshot must not wait for network token refresh.
+        val epoch=generation.get()
+        val owner=read(context)?.optString("ownerId") ?: return@withContext null
+        val cached=read(context,"ui_snapshot") ?: return@withContext null
+        if(cached.optString("owner")!=owner || System.currentTimeMillis()-cached.optLong("savedAt")>604800000L || generation.get()!=epoch || read(context)?.optString("ownerId")!=owner) return@withContext null
+        cached.optJSONObject("data")?.put("_owner",owner)
     }
     fun cancelPending() { generation.incrementAndGet() }
     suspend fun saveBrowserPending(context: Context, value: JSONObject?) = withContext(Dispatchers.IO) {

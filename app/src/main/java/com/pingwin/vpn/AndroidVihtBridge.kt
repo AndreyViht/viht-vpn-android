@@ -180,12 +180,20 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         VpnBypassSettings.domains(settings); VpnBypassSettings.packages(settings)
         val previous = JSONObject(preferences.getString("vpnSettings", "{}") ?: "{}")
         val changed = listOf("bypassRussia", "dnsAdblock", "allowLan").any { previous.optBoolean(it, true) != settings.optBoolean(it, true) } || VpnBypassSettings.domains(previous)!=VpnBypassSettings.domains(settings) || VpnBypassSettings.packages(previous)!=VpnBypassSettings.packages(settings)
-        preferences.edit().putString("vpnSettings", settings.toString()).apply()
-        if (!changed || VpnStatus.state.value == VpnConnectionState.DISCONNECTED) return ok()
-        if (VpnStatus.state.value != VpnConnectionState.CONNECTED) return error("Дождитесь завершения текущей VPN-операции")
-        val selected = ConnectionStore.selected(activity) ?: return error("Не найден текущий ключ")
+        val state=VpnStatus.state.value
+        if(changed && state==VpnConnectionState.CONNECTING) return error("Дождитесь завершения подключения")
+        if(!changed || state in setOf(VpnConnectionState.DISCONNECTED,VpnConnectionState.ERROR)) {
+            preferences.edit().putString("vpnSettings",settings.toString()).apply();return ok()
+        }
+        val selected=ConnectionStore.selected(activity) ?: return error("Не найден текущий ключ")
+        val server=JSONObject().put("id",selected.id).put("name",selected.name).put("vless_uri",selected.link)
         disconnect()
-        return connect(JSONObject().put("id", selected.id).put("name", selected.name).put("vless_uri", selected.link), settings)
+        val result=connect(server,settings)
+        if(!result.optBoolean("ok")) {
+            preferences.edit().putString("vpnSettings",previous.toString()).apply()
+            runCatching { connect(server,previous) }
+        }
+        return result
     }
     private fun syncServers(array: JSONArray) {
         val saved = (0 until array.length()).mapNotNull { index ->

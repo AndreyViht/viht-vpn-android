@@ -17,13 +17,13 @@ object VpnBypassSettings {
         return normalized
     }
     fun domains(settings: JSONObject): List<String> {
-        val array=settings.optJSONArray("excludedDomains") ?: return emptyList()
+        val array=(settings.optJSONObject("bypassRules")?.optJSONArray("domains") ?: settings.optJSONArray("excludedDomains")) ?: return emptyList()
         require(array.length()<=200) { "Не более 200 сайтов" }
-        return (0 until array.length()).map { domain(array.getString(it)) }.distinct()
+        return (0 until array.length()).map { domain(array.getString(it)) }.distinct().sorted()
     }
     fun packages(settings: JSONObject): List<String> {
-        val array=settings.optJSONArray("excludedApps") ?: return emptyList()
+        val array=(settings.optJSONObject("bypassRules")?.optJSONArray("apps") ?: settings.optJSONArray("excludedApps")) ?: return emptyList()
         require(array.length()<=300) { "Слишком много приложений" }
-        return (0 until array.length()).map { array.getString(it).also { pkg -> require(pkg.length<=255 && pkg.matches(Regex("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+"))) { "Некорректное приложение" } } }.distinct()
+        return (0 until array.length()).map { array.getString(it).also { pkg -> require(pkg.length<=255 && pkg.matches(Regex("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+"))) { "Некорректное приложение" } } }.distinct().sorted()
     }
 }

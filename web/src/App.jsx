@@ -69,6 +69,7 @@ export default function App() {
     window.electronAPI?.getUiSnapshot?.().then(result=>{
       if(!active || !result?.snapshot?.user) return;
       const cached=result.snapshot;
+      if (!tokenRef.current || (cached._owner && cached._owner!==decodeJwt(tokenRef.current)?.sub)) return;
       setUser(previous=>previous||cached.user);
       if(Array.isArray(cached.servers) && cached.servers.length) {
         setServers(previous=>previous.length?previous:cached.servers);
@@ -824,7 +825,7 @@ export default function App() {
   }, [token]);
 
   const handleUpdateSetting = useCallback(async (key, value) => {
-    const networkChange = ['killSwitch', 'allowLan', 'bypassRussia', 'dnsAdblock', 'excludedApps', 'excludedDomains'].includes(key);
+    const networkChange = ['killSwitch', 'allowLan', 'bypassRussia', 'dnsAdblock', 'excludedApps', 'excludedDomains', 'bypassRules'].includes(key);
     if (networkChange && settingsChangeRef.current) {
       showToast('Дождитесь применения предыдущей сетевой настройки', 'info');
       return;
@@ -848,6 +849,7 @@ export default function App() {
         result = await window.electronAPI?.vpnUpdateSettings?.(next);
       }
       if (!result?.ok) throw new Error(result?.error || 'Перезапустите приложение, чтобы применить настройку');
+      return result;
     } catch (error) {
       if (settingsRef.current[key] === value) {
         const restored = { ...settingsRef.current, [key]: previous[key] };
@@ -856,6 +858,7 @@ export default function App() {
         try { localStorage.setItem('viht_settings', JSON.stringify(restored)); } catch {}
       }
       showToast(error.message || 'Не удалось применить настройку', 'error');
+      return {ok:false,error:error.message};
     } finally {
       if (networkChange) settingsChangeRef.current = false;
       if (networkChange) manualDisconnectRef.current = tokenRef.current ? wasManual : true;

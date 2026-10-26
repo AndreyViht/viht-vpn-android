@@ -170,7 +170,7 @@ class AutoVlessVpnService :
             getString(R.string.vpn_service_starting)
         )
 
-        notificationTask = recoveryTimer.scheduleWithFixedDelay({ if(!destroyed) runCatching { updateForegroundNotification("VPN работает") } },3,3,java.util.concurrent.TimeUnit.SECONDS)
+        notificationTask = recoveryTimer.scheduleWithFixedDelay({ if(!destroyed && VpnRunStore.desired(this) && VpnStatus.state.value in setOf(VpnConnectionState.CONNECTED,VpnConnectionState.CONNECTING)) runCatching { updateForegroundNotification("VPN работает") } },3,3,java.util.concurrent.TimeUnit.SECONDS)
         try {
             setupLibbox()
         } catch (e: Exception) {

@@ -27,7 +27,7 @@ object VpnNotification {
         val id=VpnStatus.activeConnectionId.value
         val name=VpnStatus.activeConnectionName ?: id?.let { ConnectionStore.findById(context,it)?.name }
         val traffic=VpnStatus.traffic.value
-        val details=if(connected) "↓ ${rate(traffic.optDouble("speedDown",0.0))}   ↑ ${rate(traffic.optDouble("speedUp",0.0))}" else if(VpnStatus.state.value==VpnConnectionState.CONNECTING) "Подключение к VPN…" else text
+        val details=if(connected) "↓ ${rate(traffic.optDouble("speedDown",0.0))}   ↑ ${rate(traffic.optDouble("speedUp",0.0))}" else if(VpnStatus.state.value==VpnConnectionState.CONNECTING) "Подключение к VPN…" else if(VpnStatus.state.value==VpnConnectionState.ERROR) "Ошибка подключения" else "Подготовка VPN…"
         return NotificationCompat.Builder(context,CHANNEL)
             .setSmallIcon(R.drawable.ic_viht_tile)
             .setContentTitle(if(!name.isNullOrBlank()) "Viht VPN · $name" else "Viht VPN")
