@@ -50,6 +50,15 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                 val result: Any = when(method) {
                     "getSystemInfo" -> JSONObject().put("platform", "android").put("deviceModel", VihtPreferences.getDeviceModel()).put("hwid", VihtPreferences.getHwid(activity)).put("manualConnectOnly", false)
                     "getAppVersion" -> BuildConfig.VERSION_NAME
+                    "getUiSnapshot" -> ok().put("snapshot",AndroidSessionStore.uiSnapshot(activity) ?: JSONObject.NULL).put("vpn",VpnStatus.snapshot())
+                    "cacheUiSnapshot" -> { AndroidSessionStore.cacheUi(activity,args.getJSONObject(0)); ok() }
+                    "getInstalledApps" -> {
+                        val intent=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                        val apps=activity.packageManager.queryIntentActivities(intent,0).map { info -> info.activityInfo.packageName to info.loadLabel(activity.packageManager).toString() }.distinctBy { it.first }.filter { it.first!=activity.packageName }.sortedBy { it.second.lowercase() }
+                        JSONArray().apply { apps.forEach { (pkg,label) -> put(JSONObject().put("packageName",pkg).put("label",label)) } }
+                    }
+                    "getVpnNotificationSettings" -> ok().put("enabled",VpnNotification.enabled(activity)).put("tileAdded",preferences.getBoolean("tileAdded",false))
+                    "openVpnNotificationSettings" -> { openIntent(Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,activity.packageName).putExtra(Settings.EXTRA_CHANNEL_ID,VpnNotification.CHANNEL)); ok() }
                     "getVpnStatus" -> VpnStatus.snapshot()
                     "getOwnerSession" -> {
                         val options = args.optJSONObject(0) ?: JSONObject()
@@ -94,7 +103,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         if (Build.VERSION.SDK_INT >= 33) clip.description.extras=android.os.PersistableBundle().apply { putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE,true) }
                         (activity.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(clip)
                     }; ok() }
-                    "addQuickTile" -> { withContext(Dispatchers.Main) { activity.addQuickTile() }; ok() }
+                    "addQuickTile" -> withContext(Dispatchers.Main) { activity.addQuickTile() }
                     "openBatterySettings" -> { openIntent(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + activity.packageName))); ok() }
                     "openVpnSettings" -> { openIntent(Intent(Settings.ACTION_VPN_SETTINGS)); ok() }
                     "openNotificationSettings" -> { openIntent(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)); ok() }
@@ -168,8 +177,9 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         withTimeout(15_000) { VpnStatus.state.first { it == VpnConnectionState.DISCONNECTED || it == VpnConnectionState.ERROR } }
     }
     private suspend fun applySettings(settings: JSONObject): JSONObject {
+        VpnBypassSettings.domains(settings); VpnBypassSettings.packages(settings)
         val previous = JSONObject(preferences.getString("vpnSettings", "{}") ?: "{}")
-        val changed = listOf("bypassRussia", "dnsAdblock", "allowLan").any { previous.optBoolean(it, true) != settings.optBoolean(it, true) }
+        val changed = listOf("bypassRussia", "dnsAdblock", "allowLan").any { previous.optBoolean(it, true) != settings.optBoolean(it, true) } || VpnBypassSettings.domains(previous)!=VpnBypassSettings.domains(settings) || VpnBypassSettings.packages(previous)!=VpnBypassSettings.packages(settings)
         preferences.edit().putString("vpnSettings", settings.toString()).apply()
         if (!changed || VpnStatus.state.value == VpnConnectionState.DISCONNECTED) return ok()
         if (VpnStatus.state.value != VpnConnectionState.CONNECTED) return error("Дождитесь завершения текущей VPN-операции")
@@ -230,7 +240,8 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             lastUpdateCheck = System.currentTimeMillis()
             scope.launch { runCatching { updates.check() }.getOrNull()?.let { if (it.optBoolean("hasUpdate")) emit("update-available", it.getJSONObject("releaseInfo")) } }
         }
-        emit("vpn-state", VpnStatus.snapshot())
+        emit("app-resumed",JSONObject())
+        emit("vpn-state", VpnStatus.snapshot().put("snapshot",true))
         scope.launch {
             runCatching { AndroidSessionStore.getToken(activity) }.getOrNull()?.let { token -> emit("auth-success", JSONObject().put("token", token).put("originalToken", token).put("provider", preferences.getString("provider", "yandex")).put("restore", true)) }
         }

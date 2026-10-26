@@ -12,6 +12,8 @@ enum class VpnConnectionState {
 }
 
 object VpnStatus {
+    @Volatile var activeConnectionName: String? = null
+        private set
     @Volatile var connectedAt: Long = 0L
         private set
     @Volatile var lastError: String? = null
@@ -28,7 +30,7 @@ object VpnStatus {
     fun snapshot(): org.json.JSONObject = org.json.JSONObject().put("ok", true)
         .put("state", state.value.name.lowercase()).put("connectedAt", connectedAt)
         .put("error", lastError ?: org.json.JSONObject.NULL).put("retryable", retryable)
-        .put("connectionId", activeConnectionId.value ?: org.json.JSONObject.NULL)
+        .put("connectionId", activeConnectionId.value ?: org.json.JSONObject.NULL).put("serverName",activeConnectionName ?: org.json.JSONObject.NULL)
 
     private val _state =
         MutableStateFlow(
@@ -54,8 +56,9 @@ object VpnStatus {
     }
 
     fun setActiveConnectionId(
-        connectionId: String?
+        connectionId: String?, name: String? = null
     ) {
         _activeConnectionId.value = connectionId
+        activeConnectionName = if(connectionId == null) null else name ?: activeConnectionName
     }
 }

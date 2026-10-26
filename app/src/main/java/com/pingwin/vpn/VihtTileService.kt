@@ -14,10 +14,13 @@ class VihtTileService : TileService() {
     private var scope: CoroutineScope? = null
     override fun onStartListening() {
         super.onStartListening()
+        getSharedPreferences("viht_ui_settings",Context.MODE_PRIVATE).edit().putBoolean("tileAdded",true).apply()
         scope?.cancel()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main).also { owner -> owner.launch { VpnStatus.state.collect { refresh() } } }
         refresh()
     }
+    override fun onTileAdded() { super.onTileAdded(); getSharedPreferences("viht_ui_settings",Context.MODE_PRIVATE).edit().putBoolean("tileAdded",true).apply() }
+    override fun onTileRemoved() { getSharedPreferences("viht_ui_settings",Context.MODE_PRIVATE).edit().putBoolean("tileAdded",false).apply(); super.onTileRemoved() }
     override fun onStopListening() { scope?.cancel(); scope = null; super.onStopListening() }
     override fun onDestroy() { scope?.cancel(); super.onDestroy() }
     private fun refresh() {
@@ -25,7 +28,7 @@ class VihtTileService : TileService() {
         qsTile?.apply {
             label = "Viht VPN"
             state = if (current == VpnConnectionState.CONNECTED || current == VpnConnectionState.CONNECTING) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-            if (Build.VERSION.SDK_INT >= 29) subtitle = when(current) { VpnConnectionState.CONNECTED -> "Подключено"; VpnConnectionState.CONNECTING -> "Подключение…"; else -> "Отключено" }
+            if (Build.VERSION.SDK_INT >= 29) subtitle = when(current) { VpnConnectionState.CONNECTED -> "Подключено"; VpnConnectionState.CONNECTING -> "Подключение…"; VpnConnectionState.ERROR -> "Ошибка — откройте Viht VPN"; else -> "Отключено" }
             updateTile()
         }
     }
@@ -39,8 +42,12 @@ class VihtTileService : TileService() {
             AutoVlessVpnService.stop(this); refresh(); return
         }
         if (android.net.VpnService.prepare(this) == null && AndroidSessionStore.hasSession(this) && ConnectionStore.selected(this) != null) {
+            VpnStatus.set(VpnConnectionState.CONNECTING)
             try { AutoVlessVpnService.startFromTile(this) }
-            catch (_: Exception) { VpnStatus.fail("Android не разрешил запустить VPN. Откройте приложение и повторите подключение.", false) }
+            catch (failure: Exception) {
+                DiagnosticLogStore.append(this,"Плитка VPN: " + (failure.message ?: "запуск запрещён"))
+                VpnStatus.fail("Android не разрешил запустить VPN. Откройте приложение и повторите подключение.", false)
+            }
             refresh()
             return
         }

@@ -58,6 +58,17 @@ object AndroidSessionStore {
         JSONObject(payload).optLong("exp", 0) * 1000
     }.getOrDefault(0)
     fun hasSession(context: Context): Boolean = read(context) != null
+    suspend fun cacheUi(context: Context, value: JSONObject) = withContext(Dispatchers.IO) {
+        mutex.withLock { val session=read(context) ?: return@withLock; write(context,JSONObject().put("owner",session.getString("ownerId")).put("savedAt",System.currentTimeMillis()).put("data",value),"ui_snapshot") }
+    }
+    suspend fun uiSnapshot(context: Context): JSONObject? = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner=read(context)?.optString("ownerId") ?: return@withLock null
+            val cached=read(context,"ui_snapshot") ?: return@withLock null
+            if(cached.optString("owner")!=owner || System.currentTimeMillis()-cached.optLong("savedAt")>604800000L) return@withLock null
+            cached.optJSONObject("data")
+        }
+    }
     fun cancelPending() { generation.incrementAndGet() }
     suspend fun saveBrowserPending(context: Context, value: JSONObject?) = withContext(Dispatchers.IO) {
         mutex.withLock {

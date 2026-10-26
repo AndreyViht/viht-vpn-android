@@ -43,8 +43,9 @@ class MainActivity : ComponentActivity() {
     fun launchVpnPermission(intent: Intent) { vpnPermission.launch(intent) }
     fun ensureNotificationPermission() {
         runOnUiThread {
-            if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
-                notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            val prefs=getSharedPreferences("viht_ui_settings",Context.MODE_PRIVATE)
+            if (Build.VERSION.SDK_INT >= 33 && !prefs.getBoolean("notificationPermissionAsked",false) && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+                { prefs.edit().putBoolean("notificationPermissionAsked",true).apply(); notifications.launch(Manifest.permission.POST_NOTIFICATIONS) }
         }
     }
     override fun attachBaseContext(newBase: Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
@@ -52,12 +53,21 @@ class MainActivity : ComponentActivity() {
     override fun onResume() { super.onResume(); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
     override fun onStop() { AppVisibility.setForeground(false); super.onStop() }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (::bridge.isInitialized) bridge.completeBrowserAuth(intent.data); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
-    fun addQuickTile() {
-        if (Build.VERSION.SDK_INT >= 33) {
-            getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
-                android.content.ComponentName(this, VihtTileService::class.java), "Viht VPN",
-                android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_viht_tile), mainExecutor) { }
-        } else android.widget.Toast.makeText(this, "Откройте шторку → Изменить плитки → перетащите Viht VPN", android.widget.Toast.LENGTH_LONG).show()
+    suspend fun addQuickTile(): org.json.JSONObject {
+        if (Build.VERSION.SDK_INT < 33) {
+            val message="Откройте шторку → Изменить плитки → перетащите Viht VPN"
+            android.widget.Toast.makeText(this,message,android.widget.Toast.LENGTH_LONG).show()
+            return org.json.JSONObject().put("ok",true).put("manual",true).put("message",message)
+        }
+        val result=kotlinx.coroutines.CompletableDeferred<Int>()
+        getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
+            android.content.ComponentName(this,VihtTileService::class.java),"Viht VPN",
+            android.graphics.drawable.Icon.createWithResource(this,R.drawable.ic_viht_tile),mainExecutor) { code -> result.complete(code) }
+        val code=kotlinx.coroutines.withTimeoutOrNull(20000) { result.await() }
+        val added=code==1 || code==2
+        if(added) getSharedPreferences("viht_ui_settings",Context.MODE_PRIVATE).edit().putBoolean("tileAdded",true).apply()
+        val message=when(code) { 1 -> "Плитка уже добавлена в шторку";2 -> "Плитка добавлена";else -> "Android не добавил плитку. Откройте шторку → Изменить плитки → Viht VPN." }
+        return org.json.JSONObject().put("ok",added).put("added",added).put("message",message).put("error",if(added) org.json.JSONObject.NULL else message)
     }
     fun consumeTileConnect(): Boolean = intent?.getBooleanExtra("viht_tile_connect", false)?.also { intent.removeExtra("viht_tile_connect") } ?: false
     fun consumeOpenUpdates(): Boolean = intent?.getBooleanExtra(UpdateCheckWorker.EXTRA_OPEN_UPDATES, false)?.also { intent.removeExtra(UpdateCheckWorker.EXTRA_OPEN_UPDATES) } ?: false
@@ -128,7 +138,7 @@ class MainActivity : ComponentActivity() {
         webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch { VpnStatus.state.collect { bridge.emit("vpn-state", VpnStatus.snapshot()) } }
+                launch { var initial=true; VpnStatus.state.collect { bridge.emit("vpn-state", VpnStatus.snapshot().put("snapshot",initial)); initial=false } }
                 launch { VpnStatus.traffic.collect { bridge.emit("vpn-traffic", it) } }
             }
         }

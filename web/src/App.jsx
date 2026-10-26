@@ -64,6 +64,24 @@ export default function App() {
   const settingsChangeRef = useRef(false);
   const lastKeySyncAtRef = useRef(0);
 
+  useEffect(() => {
+    let active=true;
+    window.electronAPI?.getUiSnapshot?.().then(result=>{
+      if(!active || !result?.snapshot?.user) return;
+      const cached=result.snapshot;
+      setUser(previous=>previous||cached.user);
+      if(Array.isArray(cached.servers) && cached.servers.length) {
+        setServers(previous=>previous.length?previous:cached.servers);
+        setCurrentServer(previous=>previous||cached.servers.find(server=>server.id===result.vpn?.connectionId)||cached.servers.find(server=>server.id===cached.currentServerId)||cached.servers[0]);
+      }
+      setLoading(false);
+    }).catch(()=>{});
+    return ()=>{active=false};
+  },[]);
+  useEffect(()=>{
+    if(user && token) void window.electronAPI?.cacheUiSnapshot?.({user,servers,currentServerId:currentServer?.id}).catch(()=>{});
+  },[user,servers,currentServer,token]);
+
   // Loading states for actions
   const [refreshingKeys, setRefreshingKeys] = useState(false);
   const [refreshingPing, setRefreshingPing] = useState(false);
@@ -321,7 +339,8 @@ export default function App() {
     const authUnsubscribe = window.electronAPI?.onAuthSuccess?.((data) => {
       const resolvedToken = data?.originalToken || data?.token;
       if (!resolvedToken) { showToast('Не удалось получить сессию. Повторите вход.', 'error'); return; }
-      if (resolvedToken === tokenRef.current) { setProfileRetry(value => value + 1); return; }
+      if (resolvedToken === tokenRef.current) { if (!data?.restore) setProfileRetry(value => value + 1); return; }
+      if (decodeJwt(resolvedToken)?.sub && decodeJwt(resolvedToken)?.sub === decodeJwt(tokenRef.current)?.sub) { localStorage.setItem('viht_desktop_token',resolvedToken); setToken(resolvedToken); return; }
       clearAccountStorage();
       applyServerList([]);
       localStorage.setItem('viht_desktop_token', resolvedToken);
@@ -338,6 +357,7 @@ export default function App() {
         window.electronAPI.onVpnStateChanged((data) => {
           console.log('[VihtVPN] VPN state changed:', data);
           if (data?.state) {
+            const previousState=connectionStateRef.current;
             setConnectionState(data.state);
             try { localStorage.setItem('viht_vpn_state', data.state); } catch {}
             if (data.state === 'connected') {
@@ -351,8 +371,9 @@ export default function App() {
                 clearTimeout(reconnectTimerRef.current);
                 reconnectTimerRef.current = null;
               }
-              if (settingsRef.current.notifyConnected !== false) {
-                showToast(data.message || `VPN подключен (${currentServerRef.current?.name})`, 'success');
+              if (!data.snapshot && previousState !== 'connected' && settingsRef.current.notifyConnected !== false) {
+                const name=data.serverName||currentServerRef.current?.name;
+                showToast(data.message || (name ? `VPN подключён · ${name}` : 'VPN подключён'), 'success');
               }
             } else if (data.state === 'disconnected') {
               clearTimeout(stableConnectionTimerRef.current);
@@ -419,12 +440,12 @@ export default function App() {
     let mounted = true;
     async function loadProfile() {
       if (!token) { setLoading(false); return; }
-      setLoading(true);
+      setLoading(!userRef.current);
       try {
-        const result = await fetchCabinetProfile(token, hwid);
+        const result = await fetchCabinetProfile(token, hwid, {includeKeys:false});
         if (!mounted) return;
         if (!result.ok) {
-          if (!result.unauthorized) setProfileError(result.error || 'Не удалось загрузить профиль. Повторите попытку.');
+          if (!result.unauthorized) { if (userRef.current) showToast('Не удалось обновить данные. Показана сохранённая информация.', 'info'); else setProfileError(result.error || 'Не удалось загрузить профиль. Повторите попытку.'); }
           return;
         }
         const profile = result.data.profile || result.data.user;
@@ -432,8 +453,11 @@ export default function App() {
         setUser({ ...normalizeProfile(profile), auth_provider: chosen, chosen_provider: chosen });
         if (profile.subscription_token) localStorage.setItem('viht_subscription_token', profile.subscription_token);
         else localStorage.removeItem('viht_subscription_token');
-        if (Array.isArray(result.data.clients)) applyServerList(result.data.clients);
-        if (result.keysError) showToast(result.keysError, 'error');
+        if (profile.subscription_token && subscriptionIsActive(profile)) {
+          void fetchSubscriptionClients(profile.subscription_token).then(keys=>{
+            if(mounted && tokenRef.current===token && keys.ok) applyServerList(keys.clients);
+          });
+        } else applyServerList([]);
         setProfileError('');
       } finally { if (mounted) setLoading(false); }
     }
@@ -800,7 +824,7 @@ export default function App() {
   }, [token]);
 
   const handleUpdateSetting = useCallback(async (key, value) => {
-    const networkChange = ['killSwitch', 'allowLan', 'bypassRussia', 'dnsAdblock'].includes(key);
+    const networkChange = ['killSwitch', 'allowLan', 'bypassRussia', 'dnsAdblock', 'excludedApps', 'excludedDomains'].includes(key);
     if (networkChange && settingsChangeRef.current) {
       showToast('Дождитесь применения предыдущей сетевой настройки', 'info');
       return;

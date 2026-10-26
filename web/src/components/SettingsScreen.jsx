@@ -21,6 +21,7 @@ import {
 import { THEMES, t } from '../utils/i18n';
 import { springs, buttonPress } from '../utils/motion';
 import { isAndroid } from '../utils/platform';
+import BypassEditor from './BypassEditor';
 
 function FluentSwitch({ checked, onChange, label }) {
   return (
@@ -56,6 +57,17 @@ function SettingsScreen({
   initialCategory = 'connection',
 }) {
   const currentLang = settings?.language || 'ru';
+  const [vpnNotification,setVpnNotification]=useState(true);
+  const [tileAdded,setTileAdded]=useState(false);
+  const [tileMessage,setTileMessage]=useState('');
+  const [addingTile,setAddingTile]=useState(false);
+  useEffect(()=>{
+    const refresh=()=>window.electronAPI?.getVpnNotificationSettings?.().then(value=>{if(value?.ok){setVpnNotification(value.enabled);setTileAdded(value.tileAdded)}}).catch(()=>{});
+    refresh();const unsubscribe=window.electronAPI?.onAppResumed?.(refresh);window.addEventListener('focus',refresh);
+    return()=>{unsubscribe?.();window.removeEventListener('focus',refresh)};
+  },[]);
+  const addTile=async()=>{setAddingTile(true);try{const result=await window.electronAPI?.addQuickTile?.();setTileAdded(!!result?.added||tileAdded);setTileMessage(result?.message||result?.error||'Откройте шторку → Изменить плитки → Viht VPN');}catch(error){setTileMessage(error.message)}finally{setAddingTile(false)}};
+
   const [activeCategory, setActiveCategory] = useState(initialCategory); // 'connection' | 'windows' | 'notifications' | 'appearance' | 'advanced'
   useEffect(() => { setActiveCategory(initialCategory); }, [initialCategory]);
   const [logContent, setLogContent] = useState('');
@@ -272,7 +284,7 @@ function SettingsScreen({
 
             {activeCategory === 'windows' && (
               <motion.div key="cat-android" className="fluent-settings-section" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-4}} transition={springs.natural}>
-                <h3 className="fluent-section-title">Android</h3><div className="fluent-card fluent-settings-group"><div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>Viht VPN в шторке</strong><span>Плитка для быстрого подключения и отключения VPN.</span></div><button className="btn btn--secondary btn--sm" onClick={() => window.electronAPI?.addQuickTile?.()}>Добавить</button></div></div>
+                <h3 className="fluent-section-title">Android</h3>{tileMessage&&<p role="status" style={{fontSize:12,color:'var(--text-secondary)'}}>{tileMessage}</p>}<div className="fluent-card fluent-settings-group"><div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>Viht VPN в шторке</strong><span>Плитка для быстрого подключения и отключения VPN.</span></div><button className="btn btn--secondary btn--sm" disabled={addingTile} onClick={addTile}>{addingTile?'Ожидание…':tileAdded?'Уже добавлена':'Добавить'}</button></div></div>
                 <p className="fluent-section-desc">{currentLang === 'en' ? 'Connection permissions, background operation, and notifications.' : 'Разрешения, фоновая работа и системные уведомления.'}</p>
                 <div className="fluent-card fluent-settings-group">
                   <div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>{currentLang === 'en' ? 'VPN permission' : 'Разрешение на VPN'}</strong><span>{currentLang === 'en' ? 'Confirm Android permission on the first connection.' : 'Android запрашивает разрешение при первом подключении.'}</span></div><button className="btn btn--secondary btn--sm" onClick={() => window.electronAPI?.openVpnSettings?.()}>{currentLang === 'en' ? 'Open' : 'Открыть'}</button></div>
@@ -300,6 +312,8 @@ function SettingsScreen({
                 </p>
 
                 <div className="fluent-card fluent-settings-group">
+                  {isAndroid && <div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>Уведомление VPN</strong><span>Сервер и скорость загрузки/отдачи. Показ включается и выключается в настройках этого уведомления Android.</span></div><FluentSwitch checked={vpnNotification} label="Уведомление VPN" onChange={()=>window.electronAPI?.openVpnNotificationSettings?.()}/></div>}
+
                   {/* О подключении */}
                   <div
                     className="fluent-toggle-row"
@@ -544,6 +558,7 @@ function SettingsScreen({
                   </div>
                 </div>
 
+                {isAndroid && <BypassEditor settings={settings} onUpdateSetting={onUpdateSetting}/>}
                 {/* О программе & проверка обновлений */}
                 <div className="fluent-card fluent-about-card">
                   <div className="fluent-about-header">

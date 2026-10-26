@@ -37,6 +37,9 @@
   };
   window.electronAPI = Object.freeze({
     openExternal: url => call('openExternal', [url]),
+    getUiSnapshot: () => call('getUiSnapshot'), cacheUiSnapshot: value => call('cacheUiSnapshot',[value]),
+    getInstalledApps: () => call('getInstalledApps'), getVpnNotificationSettings: () => call('getVpnNotificationSettings'),
+    openVpnNotificationSettings: () => call('openVpnNotificationSettings'), onAppResumed: callback => subscribe('app-resumed',callback),
     getSystemInfo: () => call('getSystemInfo'), getAppVersion: () => call('getAppVersion'),
     getOwnerSession: options => call('getOwnerSession', [options || {}]),
     clearOwnerSession: () => { queued.delete('auth-success'); return call('clearOwnerSession'); },
@@ -54,6 +57,7 @@
     copyText: text => call('copyText', [text]),
     addQuickTile: () => call('addQuickTile'),
     onQuickConnect: callback => subscribe('quick-connect', callback), onOpenUpdates: callback => subscribe('open-updates', callback),
+    openBatterySettings: () => call('openBatterySettings'),
     openVpnSettings: () => call('openVpnSettings'), openNotificationSettings: () => call('openNotificationSettings'),
     checkForUpdates: () => call('checkForUpdates'), getUpdateStatus: () => call('getUpdateStatus'),
     downloadUpdate: release => call('downloadUpdate', [release], 310000), applyUpdateAndRestart: release => call('applyUpdateAndRestart', [release]),

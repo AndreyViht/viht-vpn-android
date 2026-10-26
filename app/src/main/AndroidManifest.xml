@@ -43,6 +43,7 @@
             android:label="${appLabel}"
             android:theme="@style/Theme.Pingwin"
             android:windowSoftInputMode="adjustResize">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" /><category android:name="android.intent.category.DEFAULT" /></intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

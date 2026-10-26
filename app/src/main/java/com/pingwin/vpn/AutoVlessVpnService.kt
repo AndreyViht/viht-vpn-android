@@ -84,7 +84,8 @@ class AutoVlessVpnService :
         }
 
         fun startFromTile(context: Context) {
-            context.startForegroundService(Intent(context, AutoVlessVpnService::class.java).setAction(ACTION_TILE))
+            val intent=Intent(context, AutoVlessVpnService::class.java).setAction(ACTION_TILE)
+            android.app.PendingIntent.getForegroundService(context,23,intent,android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE).send()
         }
         fun resumeAfterUpdate(context: Context) {
             if (VpnRunStore.desired(context) && VpnService.prepare(context) == null) {
@@ -111,6 +112,7 @@ class AutoVlessVpnService :
 
     private val recoveryTimer = java.util.concurrent.Executors.newScheduledThreadPool(2)
     private val recoveryLock = Any()
+    private var notificationTask: java.util.concurrent.ScheduledFuture<*>? = null
     private var healthTask: java.util.concurrent.ScheduledFuture<*>? = null
     private var recoveryTask: java.util.concurrent.ScheduledFuture<*>? = null
     private var recoveryPending = false
@@ -168,6 +170,7 @@ class AutoVlessVpnService :
             getString(R.string.vpn_service_starting)
         )
 
+        notificationTask = recoveryTimer.scheduleWithFixedDelay({ if(!destroyed) runCatching { updateForegroundNotification("VPN работает") } },3,3,java.util.concurrent.TimeUnit.SECONDS)
         try {
             setupLibbox()
         } catch (e: Exception) {
@@ -288,15 +291,12 @@ class AutoVlessVpnService :
                 val selected = ConnectionStore.selected(this)
                 if (selected == null) { stopSelf(startId); return START_NOT_STICKY }
                 VpnRunStore.start(this, selected.id)
-                VpnStatus.setActiveConnectionId(selected.id)
+                VpnStatus.setActiveConnectionId(selected.id,selected.name)
                 VpnStatus.set(VpnConnectionState.CONNECTING)
                 executor.execute {
                     try {
-                        val response = kotlinx.coroutines.runBlocking { AndroidCabinetApi.request(this@AutoVlessVpnService, JSONObject().put("action", "profile")) }
-                        check(response.optBoolean("ok")) { response.optString("error", "Не удалось проверить подписку") }
-                        val data = response.getJSONObject("data")
-                        val profile = data.optJSONObject("profile") ?: data.optJSONObject("user") ?: error("Войдите в аккаунт в приложении")
-                        check(SubscriptionPolicy.active(profile)) { "Подписка не активна. Откройте приложение для продления." }
+                        // Reuse the authenticated saved configuration, as the normal VPN client does.
+                        // The VPN server validates its expiry and credentials; the portal is not a startup dependency.
                         if (destroyed || latestServiceStartId != startId || !VpnRunStore.desired(this)) return@execute
                         val settings = JSONObject(getSharedPreferences("viht_ui_settings", Context.MODE_PRIVATE).getString("vpnSettings", "{}") ?: "{}")
                         val config = VihtVpnConfig.build(ConnectionProfileParser.parse(selected.link), settings)
@@ -354,7 +354,7 @@ class AutoVlessVpnService :
             currentSessionStartId = startId
 
             VpnStatus.setActiveConnectionId(
-                connectionId
+                connectionId, ConnectionStore.findById(this,connectionId)?.name
             )
 
             VpnStatus.set(
@@ -729,26 +729,7 @@ class AutoVlessVpnService :
     // Foreground notification
     // ------------------------------------------------------------
 
-    private fun createNotificationChannel() {
-        val manager =
-            getSystemService(
-                NotificationManager::class.java
-            )
-
-        val channel =
-            NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Viht VPN",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description =
-                    getString(R.string.vpn_notification_channel_description)
-            }
-
-        manager.createNotificationChannel(
-            channel
-        )
-    }
+    private fun createNotificationChannel() { VpnNotification.ensureChannel(this) }
 
     private fun startForegroundNotification(
         text: String
@@ -773,31 +754,7 @@ class AutoVlessVpnService :
         )
     }
 
-    private fun buildNotification(
-        text: String
-    ): android.app.Notification {
-
-        return NotificationCompat
-            .Builder(
-                this,
-                NOTIFICATION_CHANNEL_ID
-            )
-            .setContentTitle(
-                "Viht VPN"
-            )
-            .setContentText(
-                text
-            )
-            .setSmallIcon(
-                R.drawable.ic_viht_tile
-            )
-            .setContentIntent(android.app.PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE))
-            .addAction(R.drawable.ic_viht_tile, "Отключить", android.app.PendingIntent.getService(this, 1, Intent(this, AutoVlessVpnService::class.java).setAction(ACTION_STOP), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE))
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .build()
-    }
+    private fun buildNotification(text: String): android.app.Notification = VpnNotification.build(this,text)
 
     // ------------------------------------------------------------
     // PlatformInterface
