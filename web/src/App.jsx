@@ -91,6 +91,7 @@ export default function App() {
   const [connectionState, setConnectionState] = useState('disconnected'); // 'disconnected' | 'connecting' | 'connected' | 'disconnecting' | 'error'
   const connectionStateRef = useRef(connectionState);
   connectionStateRef.current = connectionState;
+  const [nativeServerName,setNativeServerName] = useState('');
   const [trafficStats, setTrafficStats] = useState(null);
   const [connectedAt, setConnectedAt] = useState(null);
 
@@ -360,6 +361,8 @@ export default function App() {
           if (data?.state) {
             const previousState=connectionStateRef.current;
             setConnectionState(data.state);
+            if(data.serverName) setNativeServerName(data.serverName);
+            if(data.state==='disconnected') setNativeServerName('');
             try { localStorage.setItem('viht_vpn_state', data.state); } catch {}
             if (data.state === 'connected') {
               setConnectedAt(data?.connectedAt || Date.now());
@@ -423,6 +426,7 @@ export default function App() {
       window.electronAPI.getVpnStatus().then((status) => {
         if (status?.state) {
           setConnectionState(status.state);
+          if(status.serverName) setNativeServerName(status.serverName);
           hadConnectedSessionRef.current = status.state === 'connected';
           if (status.state === 'error' && status.lastError) showToast(status.lastError, 'error');
         }
@@ -972,7 +976,7 @@ export default function App() {
                   >
                     <MainVpnScreen
                       user={user}
-                      currentServer={currentServer}
+                      currentServer={connectionState === 'connected' && nativeServerName ? {...currentServer,name:nativeServerName} : currentServer}
                       connectionState={connectionState}
                       trafficStats={trafficStats}
                       connectedAt={connectedAt}
@@ -991,7 +995,7 @@ export default function App() {
                   >
                     <ServersScreen
                       servers={servers}
-                      currentServer={currentServer}
+                      currentServer={connectionState === 'connected' && nativeServerName ? {...currentServer,name:nativeServerName} : currentServer}
                       connectionState={connectionState}
                       onSelectServer={handleSelectServer}
                       onRefreshKeys={handleRefreshKeys}

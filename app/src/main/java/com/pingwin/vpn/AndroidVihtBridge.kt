@@ -58,7 +58,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         JSONArray().apply { apps.forEach { (pkg,label) -> put(JSONObject().put("packageName",pkg).put("label",label)) } }
                     }
                     "getVpnNotificationSettings" -> ok().put("enabled",VpnNotification.enabled(activity)).put("tileAdded",preferences.getBoolean("tileAdded",false))
-                    "openVpnNotificationSettings" -> { openIntent(Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,activity.packageName).putExtra(Settings.EXTRA_CHANNEL_ID,VpnNotification.CHANNEL)); ok() }
+                    "openVpnNotificationSettings" -> { val manager=activity.getSystemService(android.app.NotificationManager::class.java); val intent=Intent(if(manager.areNotificationsEnabled()) Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS else Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,activity.packageName).putExtra(Settings.EXTRA_CHANNEL_ID,VpnNotification.CHANNEL); openIntent(intent); ok() }
                     "getVpnStatus" -> VpnStatus.snapshot()
                     "getOwnerSession" -> {
                         val options = args.optJSONObject(0) ?: JSONObject()

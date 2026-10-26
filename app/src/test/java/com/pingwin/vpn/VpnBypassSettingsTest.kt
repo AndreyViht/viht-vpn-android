@@ -20,6 +20,13 @@ class VpnBypassSettingsTest {
         assertEquals("direct",rules.getJSONObject(2).getString("outbound"))
         assertTrue(rules.getJSONObject(2).getJSONArray("domain_suffix").toString().contains("example.org"))
     }
+    @Test fun persistedRulesUseOneAtomicSettingsObject() {
+        val rules=JSONObject().put("domains",JSONArray(listOf("example.org"))).put("apps",JSONArray(listOf("com.example.app")))
+        val settings=JSONObject().put("bypassRules",rules)
+        assertEquals(listOf("example.org"),VpnBypassSettings.domains(settings))
+        assertEquals(listOf("com.example.app"),VpnBypassSettings.packages(settings))
+        assertThrows(IllegalArgumentException::class.java) { VpnBypassSettings.domain("999.2.3.4") }
+    }
     @Test fun validatesAndroidPackageNames() {
         assertEquals(listOf("com.example.app"),VpnBypassSettings.packages(JSONObject().put("excludedApps",JSONArray(listOf("com.example.app","com.example.app")))))
         assertThrows(IllegalArgumentException::class.java) { VpnBypassSettings.packages(JSONObject().put("excludedApps",JSONArray(listOf("../app")))) }

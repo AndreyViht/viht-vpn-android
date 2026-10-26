@@ -17,7 +17,8 @@ object VihtVpnConfig {
         val remote = JSONObject().put("type", "udp")
             .put("tag", "remote").put("server", if (settings.optBoolean("dnsAdblock", true)) "94.140.14.14" else "1.1.1.1").put("detour", "proxy")
         val dnsRules = JSONArray()
-        val directDomains = (excluded + if(routing.bypassRussiaSites) VpnBypassSettings.russianDomains else emptyList()).distinct()
+        val directIps = excluded.filter { it.matches(Regex("[0-9]+(\\.[0-9]+){3}")) }
+        val directDomains = (excluded.filterNot { it in directIps } + if(routing.bypassRussiaSites) VpnBypassSettings.russianDomains else emptyList()).distinct()
         if(directDomains.isNotEmpty()) dnsRules.put(JSONObject().put("domain_suffix",JSONArray(directDomains)).put("server","bootstrap"))
         config.put("dns", JSONObject().put("servers", JSONArray().put(bootstrap).put(remote)).put("rules", dnsRules).put("final", "remote").put("strategy", "prefer_ipv4").put("reverse_mapping",true))
         val tun = config.getJSONArray("inbounds").getJSONObject(0)
@@ -26,6 +27,7 @@ object VihtVpnConfig {
         route.put("default_domain_resolver", "bootstrap")
         val previous = route.optJSONArray("rules") ?: JSONArray()
         val rules = JSONArray().put(JSONObject().put("protocol", "dns").put("action", "hijack-dns")).put(JSONObject().put("action","sniff"))
+        if(directIps.isNotEmpty()) rules.put(JSONObject().put("ip_cidr",JSONArray(directIps.map { "$it/32" })).put("action","route").put("outbound","direct"))
         if(directDomains.isNotEmpty()) rules.put(JSONObject().put("domain_suffix",JSONArray(directDomains)).put("action","route").put("outbound","direct"))
         rules.put(JSONObject().put("ip_is_private", true).put("action", if (settings.optBoolean("allowLan", true)) "route" else "reject").apply {
             if (settings.optBoolean("allowLan", true)) put("outbound", "direct")

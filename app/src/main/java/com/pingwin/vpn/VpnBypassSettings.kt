@@ -14,6 +14,7 @@ object VpnBypassSettings {
         val host = uri.host ?: uri.rawAuthority?.takeUnless { it.contains(':') || it.contains('@') } ?: error("Некорректный адрес сайта")
         val normalized = IDN.toASCII(host.trimEnd('.'), IDN.USE_STD3_ASCII_RULES).lowercase()
         require(normalized.length in 1..253 && normalized.contains('.') && normalized.split('.').all { it.length in 1..63 }) { "Некорректный домен" }
+        if (normalized.matches(Regex("[0-9]+(\\.[0-9]+){3}"))) require(normalized.split('.').all { it.toIntOrNull()?.let { number -> number in 0..255 } == true }) { "Некорректный IP-адрес" }
         return normalized
     }
     fun domains(settings: JSONObject): List<String> {

@@ -2,7 +2,7 @@ import React,{useEffect,useState} from 'react';
 
 export default function BypassEditor({settings,onUpdateSetting}) {
   const [site,setSite]=useState(''),[error,setError]=useState(''),[apps,setApps]=useState([]),[search,setSearch]=useState(''),[showApps,setShowApps]=useState(false),[loading,setLoading]=useState(false);
-  const persisted=settings.bypassRules || {domains:settings.excludedDomains||[],apps:settings.excludedApps||[]};
+  const persisted={domains:settings.bypassRules?.domains||settings.excludedDomains||[],apps:settings.bypassRules?.apps||settings.excludedApps||[]};
   const [domains,setDomains]=useState(persisted.domains),[excluded,setExcluded]=useState(persisted.apps),[saving,setSaving]=useState(false);
   const dirty=JSON.stringify(domains)!==JSON.stringify(persisted.domains)||JSON.stringify(excluded)!==JSON.stringify(persisted.apps);
   const apply=async()=>{setSaving(true);try{const result=await onUpdateSetting('bypassRules',{domains,apps:excluded});setError(result?.ok===false?result.error:'');}finally{setSaving(false)}};

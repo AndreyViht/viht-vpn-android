@@ -30,6 +30,11 @@ class CoreStartupTest {
             }
         }
     }
+    @Test fun quickTileLongPressResolvesToMainActivity() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val intent=android.content.Intent("android.service.quicksettings.action.QS_TILE_PREFERENCES").setPackage(context.packageName)
+        assertEquals(MainActivity::class.java.name,context.packageManager.resolveActivity(intent,0)?.activityInfo?.name)
+    }
     @Test fun backgroundServiceAndQuickTileAreDeclaredCorrectly() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val service = context.packageManager.getServiceInfo(android.content.ComponentName(context, AutoVlessVpnService::class.java), 0)
