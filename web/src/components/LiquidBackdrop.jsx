@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 // A delegated listener follows the pointer without React rerenders.
 export function useGlassPointer() {
@@ -32,7 +32,7 @@ export function useGlassPointer() {
   return ref;
 }
 
-export default function LiquidBackdrop() {
+function LiquidBackdrop() {
   return (
     <div className="liquid-backdrop" aria-hidden="true">
       <div className="liquid-orb liquid-orb--mint" />
@@ -42,3 +42,5 @@ export default function LiquidBackdrop() {
     </div>
   );
 }
+
+export default React.memo(LiquidBackdrop);

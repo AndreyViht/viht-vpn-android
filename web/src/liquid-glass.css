@@ -43,7 +43,11 @@ html, body, #root {
   transition: background-color .25s, border-color .25s, box-shadow .3s, color .25s,
     scale .35s cubic-bezier(.2, 1.6, .3, 1);
 }
-.liquid-window button:not(:disabled):active { scale: .96; }
+.liquid-window button:not([data-motion-press]):not(:disabled):active { scale: .96; }
+/* Motion owns these transforms; CSS must not interpolate them a second time. */
+.liquid-window [data-motion-press] { scale: 1 !important; transition-property: background-color, border-color, box-shadow, color !important; }
+.liquid-window .fluent-page-motion-wrap { backface-visibility: hidden; }
+.liquid-window :is(.timer-digits,.fluent-telemetry-val) { font-variant-numeric: tabular-nums; }
 .liquid-window button:disabled { cursor: default; }
 .liquid-window :is(button, input, [tabindex]):focus-visible {
   outline: 2px solid var(--neon-green);

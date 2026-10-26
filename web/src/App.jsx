@@ -20,10 +20,15 @@ import './liquid-glass.css';
 import './android.css';
 import ProfileErrorScreen from './components/ProfileErrorScreen';
 import { clearAccountStorage, normalizeProfile, subscriptionIsActive } from './services/account';
+import { publishTelemetry } from './services/telemetry';
 import LiquidBackdrop, { useGlassPointer } from './components/LiquidBackdrop';
 
 export default function App() {
   const glassRef = useGlassPointer();
+  const pageMotionRef=useRef(null);
+  const preparePageMotion=useCallback(()=>{if(pageMotionRef.current)pageMotionRef.current.style.willChange='transform, opacity, filter'},[]);
+  const releasePageMotion=useCallback(()=>{if(pageMotionRef.current)pageMotionRef.current.style.willChange='auto'},[]);
+
   const [isWindowDragging, setIsWindowDragging] = useState(false);
   useEffect(() => window.electronAPI?.onWindowDragState?.(setIsWindowDragging), []);
   const [token, setToken] = useState(() => {
@@ -93,7 +98,6 @@ export default function App() {
   const connectionStateRef = useRef(connectionState);
   connectionStateRef.current = connectionState;
   const [nativeServerName,setNativeServerName] = useState('');
-  const [trafficStats, setTrafficStats] = useState(null);
   const [connectedAt, setConnectedAt] = useState(null);
 
   // Settings
@@ -383,7 +387,7 @@ export default function App() {
             } else if (data.state === 'disconnected') {
               clearTimeout(stableConnectionTimerRef.current);
               setConnectedAt(null);
-              setTrafficStats(null);
+              publishTelemetry(null);
               if (manualDisconnectRef.current) {
                 if (settingsRef.current.notifyDisconnected !== false) {
                   showToast('VPN отключен', 'default');
@@ -395,7 +399,7 @@ export default function App() {
             } else if (data.state === 'error') {
               clearTimeout(stableConnectionTimerRef.current);
               setConnectedAt(null);
-              setTrafficStats(null);
+              publishTelemetry(null);
               if (manualDisconnectRef.current || !hadConnectedSessionRef.current || data.retryable === false) {
                 if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
                 reconnectTimerRef.current = null;
@@ -417,7 +421,7 @@ export default function App() {
     if (window.electronAPI?.onVpnTrafficStats) {
       unsubs.push(
         window.electronAPI.onVpnTrafficStats((stats) => {
-          setTrafficStats(stats);
+          publishTelemetry(stats);
         })
       );
     }
@@ -432,7 +436,7 @@ export default function App() {
           if (status.state === 'error' && status.lastError) showToast(status.lastError, 'error');
         }
         if (status?.connectedAt) setConnectedAt(status.connectedAt);
-        if (status?.stats) setTrafficStats(status.stats);
+        if (status?.stats) publishTelemetry(status.stats);
       }).catch(console.error);
     }
 
@@ -973,13 +977,15 @@ export default function App() {
                   <motion.div
                     key="page-home"
                     className="fluent-page-motion-wrap"
+                    ref={pageMotionRef}
+                    onAnimationStart={preparePageMotion}
+                    onAnimationComplete={releasePageMotion}
                     {...pageVariants}
                   >
                     <MainVpnScreen
                       user={user}
                       currentServer={connectionState === 'connected' && nativeServerName ? {...currentServer,name:nativeServerName} : currentServer}
                       connectionState={connectionState}
-                      trafficStats={trafficStats}
                       connectedAt={connectedAt}
                       onToggleConnection={handleToggleConnection}
                       onOpenServerSelector={() => setActiveTab('servers')}
@@ -992,6 +998,9 @@ export default function App() {
                   <motion.div
                     key="page-servers"
                     className="fluent-page-motion-wrap"
+                    ref={pageMotionRef}
+                    onAnimationStart={preparePageMotion}
+                    onAnimationComplete={releasePageMotion}
                     {...pageVariants}
                   >
                     <ServersScreen
@@ -1012,6 +1021,9 @@ export default function App() {
                   <motion.div
                     key="page-devices"
                     className="fluent-page-motion-wrap"
+                    ref={pageMotionRef}
+                    onAnimationStart={preparePageMotion}
+                    onAnimationComplete={releasePageMotion}
                     {...pageVariants}
                   >
                     <DevicesScreen onBindingChanged={() => synchronizeKeys(true)}
@@ -1027,6 +1039,9 @@ export default function App() {
                   <motion.div
                     key="page-profile"
                     className="fluent-page-motion-wrap"
+                    ref={pageMotionRef}
+                    onAnimationStart={preparePageMotion}
+                    onAnimationComplete={releasePageMotion}
                     {...pageVariants}
                   >
                     <ProfileScreen
@@ -1044,6 +1059,9 @@ export default function App() {
                   <motion.div
                     key="page-settings"
                     className="fluent-page-motion-wrap"
+                    ref={pageMotionRef}
+                    onAnimationStart={preparePageMotion}
+                    onAnimationComplete={releasePageMotion}
                     {...pageVariants}
                   >
                     <SettingsScreen initialCategory={focusUpdates ? 'advanced' : 'connection'}

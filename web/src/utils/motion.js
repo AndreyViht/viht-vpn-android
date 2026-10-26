@@ -51,6 +51,7 @@ export const pageVariants = {
     scale: 1,
     filter: 'blur(0px)',
     transition: springs.natural,
+    transitionEnd: { filter: 'none' },
   },
   exit: {
     opacity: 0,

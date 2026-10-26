@@ -109,7 +109,7 @@ export function getAuthProviderInfo(user, preferredProvider = null) {
   };
 }
 
-export default function TitleBar({ title = "VihtVPN", isConnected = false, user = null, onOpenHelp, minimizeToTray = true }) {
+function TitleBar({ title = "VihtVPN", isConnected = false, user = null, onOpenHelp, minimizeToTray = true }) {
   const handleMinimize = () => {
     if (window.electronAPI?.minimizeWindow) {
       window.electronAPI.minimizeWindow();
@@ -170,3 +170,5 @@ export default function TitleBar({ title = "VihtVPN", isConnected = false, user 
     </div>
   );
 }
+
+export default React.memo(TitleBar);

@@ -10,7 +10,7 @@ import {
 import { t } from '../utils/i18n';
 import { springs } from '../utils/motion';
 
-export default function IosBottomNav({
+function IosBottomNav({
   activeTab,
   onTabChange,
   lang = 'ru',
@@ -40,7 +40,7 @@ export default function IosBottomNav({
           const isActive = activeTab === tab.id;
 
           return (
-            <motion.button
+            <motion.button data-motion-press="true"
               ref={element => { buttons.current[index] = element; }}
               key={tab.id}
               type="button"
@@ -71,3 +71,5 @@ export default function IosBottomNav({
     </nav>
   );
 }
+
+export default React.memo(IosBottomNav);

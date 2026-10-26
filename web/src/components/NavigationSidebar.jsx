@@ -69,7 +69,7 @@ export default function NavigationSidebar({
           )}
         </div>
 
-        <motion.button
+        <motion.button data-motion-press="true"
           type="button"
           className="fluent-sidebar-toggle-btn"
           onClick={onToggleCollapse}
@@ -89,7 +89,7 @@ export default function NavigationSidebar({
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           return (
-            <motion.button
+            <motion.button data-motion-press="true"
               key={item.id}
               type="button"
               className={`fluent-nav-item ${isActive ? 'fluent-nav-item--active' : ''} ${isCollapsed ? 'fluent-nav-item--collapsed' : ''}`}
@@ -119,7 +119,7 @@ export default function NavigationSidebar({
       {/* Sidebar Footer */}
       <div className="fluent-sidebar__footer">
         {/* Help button */}
-        <motion.button
+        <motion.button data-motion-press="true"
           type="button"
           className={`fluent-nav-item fluent-nav-item--help ${isCollapsed ? 'fluent-nav-item--collapsed' : ''}`}
           onClick={onOpenHelp}

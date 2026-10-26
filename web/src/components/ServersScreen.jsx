@@ -48,7 +48,7 @@ function ServersScreen({
       {/* Header */}
       <div className="fluent-page-header">
         <div className="fluent-page-header__actions">
-          <motion.button
+          <motion.button data-motion-press="true"
             type="button"
             className="btn btn--secondary btn--sm"
             onClick={onRefreshPing}
@@ -60,7 +60,7 @@ function ServersScreen({
             <span>{refreshingPing ? t('btn_pinging', lang) : (lang === 'en' ? 'TCP ping' : 'TCP-пинг')}</span>
           </motion.button>
 
-          <motion.button
+          <motion.button data-motion-press="true"
             type="button"
             className="btn btn--secondary btn--sm"
             onClick={onRefreshKeys}
@@ -88,7 +88,7 @@ function ServersScreen({
             const pingClass = getPingColorClass(server.ping);
 
             return (
-              <motion.button
+              <motion.button data-motion-press="true"
                 type="button"
                 aria-pressed={isSelected}
                 key={server.id}

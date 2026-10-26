@@ -299,7 +299,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
 
       {/* Page Header */}
       <div className="fluent-page-header">
-        <motion.button
+        <motion.button data-motion-press="true"
           type="button"
           className="btn btn--secondary btn--sm"
           onClick={() => loadDevices(true)}
@@ -322,7 +322,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
             </strong>
           </div>
 
-          <motion.button
+          <motion.button data-motion-press="true"
             type="button"
             className="btn btn--secondary btn--sm fluent-btn-add-slot"
             onClick={openAddSlot}
@@ -370,7 +370,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
           ].map((pill) => {
             const isActive = filter === pill.id;
             return (
-              <motion.button
+              <motion.button data-motion-press="true"
                 key={pill.id}
                 type="button"
                 className={`fluent-pill ${isActive ? 'active' : ''}`}
@@ -471,7 +471,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                                 if (e.key === 'Escape') setEditingId(null);
                               }}
                             />
-                            <motion.button
+                            <motion.button data-motion-press="true"
                               type="button"
                               className="fluent-btn-icon fluent-btn-icon--save"
                               onClick={() => handleSaveRename(device)}
@@ -481,7 +481,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                             >
                               <Check size={14} />
                             </motion.button>
-                            <motion.button
+                            <motion.button data-motion-press="true"
                               type="button"
                               className="fluent-btn-icon fluent-btn-icon--cancel"
                               onClick={() => setEditingId(null)}
@@ -500,7 +500,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                             exit={{ opacity: 0 }}
                           >
                             <strong className="fluent-device-name">{displayName}</strong>
-                            <motion.button
+                            <motion.button data-motion-press="true"
                               type="button"
                               className="fluent-btn-icon fluent-btn-icon--edit"
                               onClick={() => handleStartRename(device)}
@@ -570,7 +570,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                   </div>
 
                   <div className="fluent-device-actions">
-                    <motion.button
+                    <motion.button data-motion-press="true"
                       type="button"
                       className={`btn btn--icon btn--sm ${device.disabled ? 'btn--activate' : 'btn--pause'}`}
                       onClick={() => handleToggleDevice(device)}
@@ -581,7 +581,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                       <Power size={14} />
                     </motion.button>
 
-                    <motion.button
+                    <motion.button data-motion-press="true"
                       type="button"
                       className="btn btn--icon btn--sm btn--delete"
                       onClick={() => handleDeleteDevice(device)}

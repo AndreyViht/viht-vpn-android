@@ -145,7 +145,7 @@ function ProfileScreen({
 
       {/* Page Header */}
       <div className="fluent-page-header">
-        <motion.button
+        <motion.button data-motion-press="true"
           type="button"
           className="btn btn--secondary btn--sm"
           onClick={openCabinet}
@@ -251,7 +251,7 @@ function ProfileScreen({
                     {t('linked_auth_desc', lang)} ({Array.isArray(user?.authorizations) ? user.authorizations.length : 0} {t('accounts_word', lang)}).
                   </p>
                 </div>
-                <motion.button
+                <motion.button data-motion-press="true"
                   type="button"
                   className="btn btn--secondary btn--xs"
                   onClick={openCabinet}
@@ -378,7 +378,7 @@ function ProfileScreen({
                       const isCur = auth.provider === currentProvider;
                       const cleanName = fixMojibake(auth.name || auth.identifier);
                       return (
-                        <motion.button
+                        <motion.button data-motion-press="true"
                           key={idx}
                           type="button"
                           className={`fluent-switcher-chip ${isCur ? 'active' : ''}`}
@@ -412,7 +412,7 @@ function ProfileScreen({
                       {t('sec_reset_keys_desc', lang)}
                     </span>
                   </div>
-                  <motion.button
+                  <motion.button data-motion-press="true"
                     type="button"
                     className="btn btn--secondary btn--sm"
                     onClick={handleResetKeys}
@@ -433,7 +433,7 @@ function ProfileScreen({
                       {t('sec_logout_desc', lang)}
                     </span>
                   </div>
-                  <motion.button
+                  <motion.button data-motion-press="true"
                     type="button"
                     className="btn btn--secondary btn--sm btn--danger"
                     onClick={onLogout}
@@ -487,7 +487,7 @@ function ProfileScreen({
             <div className="fluent-card fluent-payments-list-card">
               <div className="fluent-payments-header-row">
                 <h3 className="fluent-section-title">{t('tx_history_title', lang)}</h3>
-                <motion.button
+                <motion.button data-motion-press="true"
                   type="button"
                   className="btn btn--secondary btn--sm"
                   onClick={loadPayments}

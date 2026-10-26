@@ -17,87 +17,27 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import CountryFlag from './CountryFlag';
+import {SessionTimer,TransferValue} from './LiveVpnValues';
 import { t } from '../utils/i18n';
 import { springs, buttonPress, cardPress } from '../utils/motion';
 import { isAndroid } from '../utils/platform';
 import { formatServerPing, getServerCountry } from '../services/servers';
 
-export default function MainVpnScreen({
+function MainVpnScreen({
   user,
   currentServer,
   connectionState, // 'disconnected' | 'connecting' | 'connected' | 'disconnecting' | 'error'
-  trafficStats,
   connectedAt,
   onToggleConnection,
   onOpenServerSelector,
   lang = 'ru',
 }) {
-  const [now, setNow] = useState(() => Date.now());
-
   const isConnected = connectionState === 'connected';
   const isConnecting = connectionState === 'connecting';
   const isDisconnecting = connectionState === 'disconnecting';
   const isError = connectionState === 'error';
-
-  // Reliable 1-second interval for clock calculation
-  useEffect(() => {
-    if (!isConnected) return;
-    const interval = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isConnected]);
-
-  // Accurate session duration: uses tunnel telemetry duration if present, or delta from connectedAt
-  const getElapsedSeconds = () => {
-    if (!isConnected) return 0;
-    if (trafficStats?.duration != null && trafficStats.duration > 0) {
-      return trafficStats.duration;
-    }
-    if (connectedAt) {
-      return Math.max(0, Math.floor((now - connectedAt) / 1000));
-    }
-    return 0;
-  };
-
-  const elapsedSeconds = getElapsedSeconds();
-
-  const formatTimer = (totalSec) => {
-    const hrs = Math.floor(totalSec / 3600);
-    const mins = Math.floor((totalSec % 3600) / 60);
-    const secs = totalSec % 60;
-    if (hrs > 0) {
-      return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    }
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
-
-  // Speed & traffic formatting
-  const formatSpeed = (val) => {
-    const num = Number(val) || 0;
-    if (num <= 0) return '0.0 MB/s';
-    if (num < 0.05) {
-      const kb = Math.round(num * 1024);
-      return `${kb} KB/s`;
-    }
-    return `${num.toFixed(1)} MB/s`;
-  };
-
-  const formatBytes = (bytes) => {
-    const b = Number(bytes) || 0;
-    if (b <= 0) return '0 MB';
-    if (b < 1024 * 1024) {
-      return `${(b / 1024).toFixed(1)} KB`;
-    }
-    if (b < 1024 * 1024 * 1024) {
-      return `${(b / (1024 * 1024)).toFixed(1)} MB`;
-    }
-    return `${(b / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  };
-
-  const totalTransferred = (trafficStats?.bytesReceived || 0) + (trafficStats?.bytesSent || 0);
-  const downloadSpeed = trafficStats?.speedDown || 0;
-  const uploadSpeed = trafficStats?.speedUp || 0;
+  const [,refreshSubscriptionTime]=useState(0);
+  useEffect(()=>{const timer=setInterval(()=>{if(!document.hidden)refreshSubscriptionTime(value=>value+1)},60000);return()=>clearInterval(timer)},[]);
 
   // Subscription calculation
   const getDaysLeft = (u) => {
@@ -258,7 +198,7 @@ export default function MainVpnScreen({
             </div>
           </div>
 
-          <motion.button
+          <motion.button data-motion-press="true"
             type="button"
             className={`fluent-renew-btn ${renewConfig.className} ${renewConfig.showShine ? 'fluent-renew-btn--pulse' : ''}`}
             onClick={handleOpenRenew}
@@ -277,13 +217,14 @@ export default function MainVpnScreen({
         <motion.div
           className={`fluent-hero-morph-surface state-${connectionState}`}
           layout
+          layoutDependency={connectionState}
           transition={springs.natural}
         >
           {/* Ambient organic glow within the surface */}
           <div className={`fluent-morph-aura state-${connectionState}`} />
 
           {/* Morphing Top Header Status Pill */}
-          <motion.div className="fluent-morph-header" layout>
+          <motion.div className="fluent-morph-header" layout layoutDependency={connectionState}>
             <div className={`fluent-status-badge-pill state-${connectionState}`}>
               <span className="fluent-status-dot" />
               <span className="fluent-status-text">
@@ -302,7 +243,7 @@ export default function MainVpnScreen({
               <div className="fluent-ring-ambient" />
               {isConnecting && <div className="fluent-ring-spinner" />}
 
-              <motion.button
+              <motion.button data-motion-press="true"
                 type="button"
                 className={`fluent-power-btn state-${connectionState}`}
                 onClick={onToggleConnection}
@@ -362,7 +303,7 @@ export default function MainVpnScreen({
             </div>
 
             {/* Status title & timer */}
-            <motion.div className="fluent-hero-status" layout>
+            <motion.div className="fluent-hero-status" layout layoutDependency={connectionState}>
               <h2 className="fluent-hero-title">
                 {isConnected
                   ? t('status_connected_title', lang)
@@ -383,7 +324,7 @@ export default function MainVpnScreen({
                   >
                     <Clock size={13} className="timer-icon" />
                     <span className="timer-label">{t('session_label', lang)}:</span>
-                    <strong className="timer-digits">{formatTimer(elapsedSeconds)}</strong>
+                    <strong className="timer-digits"><SessionTimer connectedAt={connectedAt}/></strong>
                   </motion.div>
                 ) : isError ? (
                   <span className="fluent-error-prompt">
@@ -416,7 +357,7 @@ export default function MainVpnScreen({
                     </div>
                     <div className="fluent-telemetry-data">
                       <span className="fluent-telemetry-label">{t('telemetry_download', lang)}</span>
-                      <strong className="fluent-telemetry-val">{formatSpeed(downloadSpeed)}</strong>
+                      <strong className="fluent-telemetry-val"><TransferValue field="speedDown"/></strong>
                     </div>
                   </div>
 
@@ -429,7 +370,7 @@ export default function MainVpnScreen({
                     </div>
                     <div className="fluent-telemetry-data">
                       <span className="fluent-telemetry-label">{t('telemetry_upload', lang)}</span>
-                      <strong className="fluent-telemetry-val">{formatSpeed(uploadSpeed)}</strong>
+                      <strong className="fluent-telemetry-val"><TransferValue field="speedUp"/></strong>
                     </div>
                   </div>
 
@@ -442,7 +383,7 @@ export default function MainVpnScreen({
                     </div>
                     <div className="fluent-telemetry-data">
                       <span className="fluent-telemetry-label">{lang === 'en' ? 'Transferred' : 'Трафик'}</span>
-                      <strong className="fluent-telemetry-val">{formatBytes(totalTransferred)}</strong>
+                      <strong className="fluent-telemetry-val"><TransferValue field="total"/></strong>
                     </div>
                   </div>
 
@@ -490,3 +431,5 @@ export default function MainVpnScreen({
     </div>
   );
 }
+
+export default React.memo(MainVpnScreen);

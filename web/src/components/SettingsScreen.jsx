@@ -25,7 +25,7 @@ import BypassEditor from './BypassEditor';
 
 function FluentSwitch({ checked, onChange, label }) {
   return (
-    <motion.button
+    <motion.button data-motion-press="true"
       type="button"
       className={`fluent-switch ${checked ? 'active' : ''}`}
       role="switch"
@@ -175,7 +175,7 @@ function SettingsScreen({
             const Icon = cat.icon;
             const isActive = activeCategory === cat.id;
             return (
-              <motion.button
+              <motion.button data-motion-press="true"
                 key={cat.id}
                 type="button"
                 className={`fluent-settings-tab-btn ${isActive ? 'active' : ''}`}
@@ -398,7 +398,7 @@ function SettingsScreen({
                       <span>{t('setting_lang_desc', currentLang)}</span>
                     </div>
                     <div className="fluent-lang-toggle-group">
-                      <motion.button
+                      <motion.button data-motion-press="true"
                         type="button"
                         className={`fluent-lang-btn ${currentLang === 'ru' ? 'active' : ''}`}
                         aria-pressed={currentLang === 'ru'}
@@ -410,7 +410,7 @@ function SettingsScreen({
                         <span>🇷🇺</span>
                         <span>Русский</span>
                       </motion.button>
-                      <motion.button
+                      <motion.button data-motion-press="true"
                         type="button"
                         className={`fluent-lang-btn ${currentLang === 'en' ? 'active' : ''}`}
                         aria-pressed={currentLang === 'en'}
@@ -438,7 +438,7 @@ function SettingsScreen({
                       const isSelected = (settings.theme || 'emerald') === th.id;
                       const themeName = currentLang === 'en' ? th.nameEn : th.nameRu;
                       return (
-                        <motion.button
+                        <motion.button data-motion-press="true"
                           type="button"
                           aria-pressed={isSelected}
                           key={th.id}
@@ -546,7 +546,7 @@ function SettingsScreen({
                       <strong>{t('setting_export_logs', currentLang)}</strong>
                       <span>{t('setting_export_logs_desc', currentLang)}</span>
                     </div>
-                    <motion.button
+                    <motion.button data-motion-press="true"
                       type="button"
                       className="btn btn--secondary btn--sm"
                       onClick={handleExportLog}
@@ -583,7 +583,7 @@ function SettingsScreen({
 
                   <div className="fluent-about-update-action">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <motion.button
+                      <motion.button data-motion-press="true"
                         type="button"
                         className="btn btn--secondary btn--sm"
                         onClick={handleCheckUpdate}
@@ -644,7 +644,7 @@ function SettingsScreen({
                           </div>
                         )}
 
-                        <motion.button
+                        <motion.button data-motion-press="true"
                           type="button"
                           className="btn btn--primary btn--glow settings-update-action-btn"
                           onClick={handleDownloadUpdate}
@@ -692,7 +692,7 @@ function SettingsScreen({
                             ? `Version v${updateInfo?.version} is downloaded. Click the button to restart and apply.`
                             : `Файл v${updateInfo?.version} скачан. Нажмите кнопку для перезапуска и обновления.`}
                         </p>
-                        <motion.button
+                        <motion.button data-motion-press="true"
                           type="button"
                           className="btn btn--primary btn--glow settings-update-apply-btn"
                           disabled={installingUpdate}
@@ -737,7 +737,7 @@ function SettingsScreen({
             >
               <div className="fluent-modal-header">
                 <h3 className="fluent-modal-title">Системный журнал (electron-debug.log)</h3>
-                <motion.button
+                <motion.button data-motion-press="true"
                   type="button"
                   className="fluent-modal-close"
                   onClick={() => setShowLogModal(false)}
@@ -750,7 +750,7 @@ function SettingsScreen({
                 <pre className="fluent-log-pre">{logContent}</pre>
               </div>
               <div className="fluent-modal-footer">
-                <motion.button
+                <motion.button data-motion-press="true"
                   type="button"
                   className="btn btn--secondary btn--sm"
                   onClick={() => {
@@ -761,7 +761,7 @@ function SettingsScreen({
                 >
                   Копировать в буфер
                 </motion.button>
-                <motion.button
+                <motion.button data-motion-press="true"
                   type="button"
                   className="btn btn--primary btn--sm"
                   onClick={() => setShowLogModal(false)}
