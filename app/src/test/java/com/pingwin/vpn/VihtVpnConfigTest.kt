@@ -17,7 +17,7 @@ class VihtVpnConfigTest {
         assertEquals("cdn.example.com", outbound.getJSONObject("tls").getString("server_name"))
         assertEquals("ws", outbound.getJSONObject("transport").getString("type"))
         assertEquals("/vpn", outbound.getJSONObject("transport").getString("path"))
-        assertEquals("hijack-dns", config.getJSONObject("route").getJSONArray("rules").getJSONObject(0).getString("action"))
+        assertEquals("hijack-dns", config.getJSONObject("route").getJSONArray("rules").getJSONObject(1).getString("action"))
     }
     @Test fun settingsChangeDnsAndLanPolicy() {
         val config = JSONObject(VihtVpnConfig.build(ConnectionProfileParser.parse(key), JSONObject().put("allowLan",false).put("bypassRussia",false).put("dnsAdblock",false)))

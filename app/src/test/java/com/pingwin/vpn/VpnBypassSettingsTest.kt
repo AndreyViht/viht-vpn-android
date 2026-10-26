@@ -16,7 +16,8 @@ class VpnBypassSettingsTest {
         val config=JSONObject(VihtVpnConfig.build(profile,JSONObject().put("bypassRussia",false).put("excludedDomains",JSONArray(listOf("example.org")))))
         assertTrue(config.getJSONObject("dns").getJSONArray("rules").toString().contains("example.org"))
         val rules=config.getJSONObject("route").getJSONArray("rules")
-        assertEquals("sniff",rules.getJSONObject(1).getString("action"))
+        assertEquals("sniff",rules.getJSONObject(0).getString("action"))
+        assertEquals("hijack-dns",rules.getJSONObject(1).getString("action"))
         assertEquals("direct",rules.getJSONObject(2).getString("outbound"))
         assertTrue(rules.getJSONObject(2).getJSONArray("domain_suffix").toString().contains("example.org"))
     }

@@ -26,7 +26,7 @@ object VihtVpnConfig {
         val route = config.getJSONObject("route")
         route.put("default_domain_resolver", "bootstrap")
         val previous = route.optJSONArray("rules") ?: JSONArray()
-        val rules = JSONArray().put(JSONObject().put("protocol", "dns").put("action", "hijack-dns")).put(JSONObject().put("action","sniff"))
+        val rules = JSONArray().put(JSONObject().put("action","sniff")).put(JSONObject().put("protocol", "dns").put("action", "hijack-dns"))
         if(directIps.isNotEmpty()) rules.put(JSONObject().put("ip_cidr",JSONArray(directIps.map { "$it/32" })).put("action","route").put("outbound","direct"))
         if(directDomains.isNotEmpty()) rules.put(JSONObject().put("domain_suffix",JSONArray(directDomains)).put("action","route").put("outbound","direct"))
         rules.put(JSONObject().put("ip_is_private", true).put("action", if (settings.optBoolean("allowLan", true)) "route" else "reject").apply {
