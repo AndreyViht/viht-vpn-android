@@ -71,6 +71,7 @@ export default function App() {
       const cached=result.snapshot;
       if (!tokenRef.current || (cached._owner && cached._owner!==decodeJwt(tokenRef.current)?.sub)) return;
       setUser(previous=>previous||cached.user);
+      setProfileError('');
       if(Array.isArray(cached.servers) && cached.servers.length) {
         setServers(previous=>previous.length?previous:cached.servers);
         setCurrentServer(previous=>previous||cached.servers.find(server=>server.id===result.vpn?.connectionId)||cached.servers.find(server=>server.id===cached.currentServerId)||cached.servers[0]);
