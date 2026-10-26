@@ -81,7 +81,7 @@ export default function App() {
     return ()=>{active=false};
   },[]);
   useEffect(()=>{
-    if(user && token) void window.electronAPI?.cacheUiSnapshot?.({user,servers,currentServerId:currentServer?.id}).catch(()=>{});
+    if(user && token) void window.electronAPI?.cacheUiSnapshot?.({_owner:decodeJwt(token)?.sub,user,servers,currentServerId:currentServer?.id}).catch(()=>{});
   },[user,servers,currentServer,token]);
 
   // Loading states for actions

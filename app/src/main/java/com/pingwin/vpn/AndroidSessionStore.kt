@@ -59,7 +59,7 @@ object AndroidSessionStore {
     }.getOrDefault(0)
     fun hasSession(context: Context): Boolean = read(context) != null
     suspend fun cacheUi(context: Context, value: JSONObject) = withContext(Dispatchers.IO) {
-        mutex.withLock { val session=read(context) ?: return@withLock; write(context,JSONObject().put("owner",session.getString("ownerId")).put("savedAt",System.currentTimeMillis()).put("data",value),"ui_snapshot") }
+        mutex.withLock { val session=read(context) ?: return@withLock; if(value.optString("_owner")!=session.getString("ownerId")) return@withLock; write(context,JSONObject().put("owner",session.getString("ownerId")).put("savedAt",System.currentTimeMillis()).put("data",value),"ui_snapshot") }
     }
     suspend fun uiSnapshot(context: Context): JSONObject? = withContext(Dispatchers.IO) {
         // Reading the encrypted snapshot must not wait for network token refresh.
