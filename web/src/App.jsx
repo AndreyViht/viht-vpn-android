@@ -1,3 +1,4 @@
+import AppAnnouncements from './components/AppAnnouncements';
 import SubscriptionBilling from './components/SubscriptionBilling';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import TitleBar from './components/TitleBar';
@@ -45,6 +46,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const [profileRetry, setProfileRetry] = useState(0);
+  const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
   const [hwid, setHwid] = useState('');
   const [appVersion, setAppVersion] = useState('1.0.0');
@@ -121,6 +123,7 @@ export default function App() {
       notifyDisconnected: true,
       notifyLost: true,
       notifyUpdate: true,
+      notifyNews: true,
       killSwitch: true,
       allowLan: true,
       bypassRussia: true,
@@ -853,7 +856,7 @@ export default function App() {
       let result = { ok: true };
       if (['autoLaunch', 'startMinimized'].includes(key)) {
         result = await window.electronAPI?.setLoginItemSettings?.({ openAtLogin: Boolean(next.autoLaunch), startMinimized: Boolean(next.startMinimized) });
-      } else if (['minimizeToTray', 'notifyUpdate'].includes(key)) {
+      } else if (['minimizeToTray', 'notifyUpdate', 'notifyNews', 'autoReconnect'].includes(key)) {
         result = await window.electronAPI?.setDesktopPreferences?.({ [key]: value });
       } else if (networkChange) {
         // Reconfiguring the current tunnel is deliberate, not an unexpected drop.
@@ -878,7 +881,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    window.electronAPI?.setDesktopPreferences?.({ minimizeToTray: settingsRef.current.minimizeToTray !== false, notifyUpdate: settingsRef.current.notifyUpdate !== false }).catch(() => {});
+    window.electronAPI?.setDesktopPreferences?.({ minimizeToTray: settingsRef.current.minimizeToTray !== false, notifyUpdate: settingsRef.current.notifyUpdate !== false, notifyNews:settingsRef.current.notifyNews!==false, autoReconnect:settingsRef.current.autoReconnect!==false }).catch(() => {});
     return window.electronAPI?.onUpdateAvailable?.(release => {
       setAvailableUpdate(release);
       if (settingsRef.current.notifyUpdate !== false) showToast('Доступна версия ' + release.version + '. Обновление — в настройках.', 'info');
@@ -897,7 +900,7 @@ export default function App() {
     keySyncInFlightRef.current = null;
     clearAccountStorage();
     applyServerList([]);
-    setToken(''); setUser(null); setProfileError(''); setLoading(false);
+    setToken(''); setUser(null); setNewsUnread(0); setProfileError(''); setLoading(false);
     setConnectionState('disconnected'); setActiveTab('home');
     await Promise.allSettled([
       window.electronAPI?.clearOwnerSession?.(),
@@ -940,8 +943,9 @@ export default function App() {
       <LiquidBackdrop />
 
       {/* Native Windows 11 TitleBar */}
-      <TitleBar title="VihtVPN" isConnected={connectionState === 'connected'} user={user} onOpenHelp={handleOpenHelp} minimizeToTray={settings.minimizeToTray !== false} />
+      <TitleBar title="VihtVPN" isConnected={connectionState === 'connected'} user={user} onOpenHelp={handleOpenHelp} onOpenNews={()=>window.dispatchEvent(new Event('viht-open-news'))} newsUnread={newsUnread} minimizeToTray={settings.minimizeToTray !== false} />
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
+      {token&&user&&<AppAnnouncements key={'news:'+String(user.id||user.telegram_id||user.yandex_email)} accountId={String(user.id||user.telegram_id||user.yandex_email)} enabled={settings.notifyNews!==false} onUnreadChange={setNewsUnread}/>}
       {token && user && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
       {token && user && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
       {availableUpdate && <div className="fluent-card" style={{position:'absolute',top:58,left:16,right:16,zIndex:1000,display:'flex',alignItems:'center',gap:10,padding:14}}>

@@ -96,6 +96,7 @@ object AndroidSessionStore {
         token
     }
     suspend fun clear(context: Context) = withContext(Dispatchers.IO) {
+        AppAnnouncements.cancelNotification(context)
         generation.incrementAndGet()
         mutex.withLock {
             check(context.getSharedPreferences(STORE, Context.MODE_PRIVATE).edit().clear().commit()) { "Не удалось закрыть сессию" }

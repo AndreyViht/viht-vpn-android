@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, X, Shield, HelpCircle } from 'lucide-react';
+import { Minus, X, Shield, HelpCircle, Bell } from 'lucide-react';
 import SocialIcon from './SocialIcon';
 import { isMobile } from '../utils/platform';
 
@@ -109,7 +109,7 @@ export function getAuthProviderInfo(user, preferredProvider = null) {
   };
 }
 
-function TitleBar({ title = "VihtVPN", isConnected = false, user = null, onOpenHelp, minimizeToTray = true }) {
+function TitleBar({ title = "VihtVPN", isConnected = false, user = null, onOpenHelp, onOpenNews, newsUnread = 0, minimizeToTray = true }) {
   const handleMinimize = () => {
     if (window.electronAPI?.minimizeWindow) {
       window.electronAPI.minimizeWindow();
@@ -146,6 +146,7 @@ function TitleBar({ title = "VihtVPN", isConnected = false, user = null, onOpenH
         </div>
       </div>
 
+      {user && onOpenNews && <button className="titlebar-news" onClick={onOpenNews} aria-label={newsUnread?'Новости: непрочитанных '+newsUnread:'Новости'}><Bell size={16}/>{newsUnread>0&&<span>{newsUnread>99?'99+':newsUnread}</span>}</button>}
       {!isMobile && (
         <div className="titlebar-controls">
           <button className="titlebar-btn" onClick={onOpenHelp} title="Помощь" aria-label="Помощь">

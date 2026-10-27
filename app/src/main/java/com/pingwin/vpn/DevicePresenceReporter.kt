@@ -17,6 +17,7 @@ object DevicePresenceReporter {
             try {
                 val reply=AndroidCabinetApi.request(context, JSONObject().put("action", "device-heartbeat").put("method", "POST"))
                 if (DeviceAccessPolicy.denied(reply) && VpnRunStore.desired(context)) AutoVlessVpnService.stop(context,"Устройство отключено в подписке")
+                if(VpnRunStore.desired(context))AppAnnouncements.whileConnected(context)
             }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { /* A temporary network failure is represented by heartbeat expiry. */ }

@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     override fun attachBaseContext(newBase: Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
-    override fun onStart() { super.onStart(); AppVisibility.setForeground(true); UpdateScheduler.sync(this) }
+    override fun onStart() { super.onStart(); AppVisibility.setForeground(true); UpdateScheduler.sync(this); AppAnnouncements.schedule(this) }
     override fun onResume() { super.onResume(); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
     override fun onStop() { AppVisibility.setForeground(false); super.onStop() }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (::bridge.isInitialized) bridge.completeBrowserAuth(intent.data); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
         return org.json.JSONObject().put("ok",added).put("added",added).put("message",message).put("error",if(added) org.json.JSONObject.NULL else message)
     }
     fun consumeTileConnect(): Boolean = intent?.getBooleanExtra("viht_tile_connect", false)?.also { intent.removeExtra("viht_tile_connect") } ?: false
+    fun consumeOpenAnnouncement(): String? = intent?.getStringExtra(AppAnnouncements.EXTRA_OPEN)?.also { intent.removeExtra(AppAnnouncements.EXTRA_OPEN) }
     fun consumeOpenUpdates(): Boolean = intent?.getBooleanExtra(UpdateCheckWorker.EXTRA_OPEN_UPDATES, false)?.also { intent.removeExtra(UpdateCheckWorker.EXTRA_OPEN_UPDATES) } ?: false
     private fun local(url: String): Boolean = runCatching {
         val uri = Uri.parse(url)

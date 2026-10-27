@@ -387,6 +387,11 @@ function SettingsScreen({
                     />
                   </div>
                   <div className="fluent-toggle-divider" />
+                  <div className="fluent-toggle-row" onClick={() => onUpdateSetting('notifyNews', settings.notifyNews === false)}>
+                    <div className="fluent-toggle-text"><strong>Объявления Viht</strong><span>Уведомления о важных новостях сервиса. Все объявления доступны по кнопке колокольчика.</span></div>
+                    <FluentSwitch checked={settings.notifyNews !== false} label="Объявления Viht" onChange={() => onUpdateSetting('notifyNews', settings.notifyNews === false)} />
+                  </div>
+                  <div className="fluent-toggle-divider" />
                   <div className="fluent-toggle-row" onClick={() => onUpdateSetting('notifyUpdate', settings.notifyUpdate === false)}>
                     <div className="fluent-toggle-text">
                       <strong>{currentLang === 'en' ? 'Available updates' : 'Доступные обновления'}</strong>

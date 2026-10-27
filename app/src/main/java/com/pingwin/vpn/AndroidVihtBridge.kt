@@ -50,6 +50,8 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                 val result: Any = when(method) {
                     "getSystemInfo" -> JSONObject().put("platform", "android").put("deviceModel", VihtPreferences.getDeviceModel()).put("hwid", VihtPreferences.getHwid(activity)).put("manualConnectOnly", false)
                     "getAppVersion" -> BuildConfig.VERSION_NAME
+                    "getAnnouncements" -> AppAnnouncements.refresh(activity,false)
+                    "readAnnouncement" -> AppAnnouncements.read(activity,args.getString(0),args.getString(1))
                     "getUiSnapshot" -> ok().put("snapshot",AndroidSessionStore.uiSnapshot(activity) ?: JSONObject.NULL).put("vpn",VpnStatus.snapshot())
                     "cacheUiSnapshot" -> { AndroidSessionStore.cacheUi(activity,args.getJSONObject(0)); ok() }
                     "getInstalledApps" -> {
@@ -91,6 +93,12 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "exportDebugLog" -> DiagnosticLogStore.entries(activity).joinToString("\n")
                     "setDesktopPreferences" -> {
                         val value = args.getJSONObject(0)
+                        if(value.has("notifyNews")||value.has("autoReconnect")) {
+                            val settings=JSONObject(preferences.getString("vpnSettings","{}") ?: "{}")
+                            for(key in listOf("notifyNews","autoReconnect"))if(value.has(key))settings.put(key,value.getBoolean(key))
+                            check(preferences.edit().putString("vpnSettings",settings.toString()).commit())
+                            AppAnnouncements.schedule(activity)
+                        }
                         if (value.has("notifyUpdate")) { preferences.edit().putBoolean("notifyUpdate", value.getBoolean("notifyUpdate")).apply(); UpdateSettingsStore.setAutoCheckEnabled(activity, value.getBoolean("notifyUpdate")); UpdateScheduler.sync(activity) }
                         ok()
                     }
@@ -188,7 +196,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         val state=VpnStatus.state.value
         if(changed && state==VpnConnectionState.CONNECTING) return error("Дождитесь завершения подключения")
         if(!changed || state in setOf(VpnConnectionState.DISCONNECTED,VpnConnectionState.ERROR)) {
-            preferences.edit().putString("vpnSettings",settings.toString()).apply();return ok()
+            preferences.edit().putString("vpnSettings",settings.toString()).apply();AppAnnouncements.schedule(activity);return ok()
         }
         val selected=ConnectionStore.selected(activity) ?: return error("Не найден текущий ключ")
         val server=JSONObject().put("id",selected.id).put("name",selected.name).put("vless_uri",selected.link)
@@ -249,6 +257,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     fun pageReady() {
         if (activity.consumeTileConnect()) requestQuickConnect()
         if (activity.consumeOpenUpdates()) emit("open-updates", JSONObject())
+        activity.consumeOpenAnnouncement()?.let { emit("announcement-open",JSONObject().put("id",it)) }
         if (preferences.getBoolean("notifyUpdate", true) && System.currentTimeMillis() - lastUpdateCheck > 3_600_000) {
             lastUpdateCheck = System.currentTimeMillis()
             scope.launch { runCatching { updates.check() }.getOrNull()?.let { if (it.optBoolean("hasUpdate")) emit("update-available", it.getJSONObject("releaseInfo")) } }

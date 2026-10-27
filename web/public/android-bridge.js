@@ -32,12 +32,14 @@
   window.__vihtNativeEvent = function (type, data) {
     if (type === 'auth-success' && data.restore && localStorage.getItem('viht_desktop_token') === data.token) return;
     const targets = listeners.get(type);
-    if (!targets?.size) { if (type === 'auth-success' || type === 'auth-error' || type === 'quick-connect' || type === 'open-updates') queued.set(type, data); return; }
+    if (!targets?.size) { if (type === 'auth-success' || type === 'auth-error' || type === 'quick-connect' || type === 'open-updates' || type === 'announcement-open') queued.set(type, data); return; }
     for (const callback of [...targets]) callback(data);
   };
   window.electronAPI = Object.freeze({
     openExternal: url => call('openExternal', [url]),
     openPayment: url => call('openPayment', [url]),
+    getAnnouncements: () => call('getAnnouncements'), readAnnouncement: (id,revision) => call('readAnnouncement',[id,revision]),
+    onAnnouncementOpen: callback => subscribe('announcement-open',callback),
     getUiSnapshot: () => call('getUiSnapshot'), cacheUiSnapshot: value => call('cacheUiSnapshot',[value]),
     getInstalledApps: () => call('getInstalledApps'), getVpnNotificationSettings: () => call('getVpnNotificationSettings'),
     openVpnNotificationSettings: () => call('openVpnNotificationSettings'), onAppResumed: callback => subscribe('app-resumed',callback),
