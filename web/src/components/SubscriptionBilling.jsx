@@ -18,6 +18,8 @@ export default function SubscriptionBilling({ token, accountId, onPaid }) {
   const [error, setError] = useState('');
   const [paid, setPaid] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const inFlight = useRef(false);
   const payLock = useRef(false);
   const onPaidRef = useRef(onPaid);
@@ -97,11 +99,13 @@ export default function SubscriptionBilling({ token, accountId, onPaid }) {
         if (draft?.days !== selected || !draft?.requestId) draft = { days: selected, requestId: crypto.randomUUID() };
         localStorage.setItem(draftKey, JSON.stringify(draft));
         const result = await createAppCheckout(token, draft.days, draft.requestId);
+        if (!mounted.current) return;
         if (!result.ok || !result.data?.checkout?.label) throw Error(result.error || 'Не удалось создать оплату');
         checkout = result.data.checkout;
         localStorage.setItem(storageKey, JSON.stringify(checkout));
         setOrder(checkout); setPaid(false);
       }
+      if (!mounted.current) return;
       const result = await window.electronAPI.openPayment(checkout.paymentUrl);
       if (!result?.ok) throw Error(result?.error || 'Не удалось открыть оплату');
     } catch (e) { setError(e.message || 'Не удалось открыть оплату'); }
