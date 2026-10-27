@@ -22,6 +22,13 @@ data class UpdateDownloadState(
 )
 
 object UpdateInstaller {
+    fun prepareDirectDownload(context:Context,sha:String,keepPartial:Boolean) {
+        val id=getDownloadId(context)
+        if(id!=NO_DOWNLOAD)context.getSystemService(DownloadManager::class.java).remove(id)
+        prefs(context).edit().remove(KEY_DOWNLOAD_ID).putString(KEY_EXPECTED_SHA256,sha.lowercase()).commit()
+        val file=getDownloadFile(context);file.parentFile?.mkdirs()
+        if(!keepPartial)file.delete()
+    }
 
     private const val PREFS_NAME =
         "pingwin_update_download"
@@ -521,7 +528,7 @@ object UpdateInstaller {
         )
     }
 
-    private fun getDownloadFile(
+    fun getDownloadFile(
         context: Context
     ): File =
         File(

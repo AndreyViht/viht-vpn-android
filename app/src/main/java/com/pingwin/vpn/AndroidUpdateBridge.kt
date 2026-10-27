@@ -27,7 +27,7 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
     }
     @Synchronized fun status(): JSONObject {
         val release=available
-        val state=UpdateInstaller.getDownloadState(activity)
+        val state=DirectUpdateDownload.state(activity,release) ?: UpdateInstaller.getDownloadState(activity)
         val matches=release!=null && state!=null && UpdateInstaller.getExpectedSha256(activity).equals(release.apkSha256,ignoreCase=true)
         val complete=matches && state?.status==DownloadManager.STATUS_SUCCESSFUL
         val file=state?.apkFile
@@ -35,7 +35,8 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
         if(stamp!=verifiedStamp){verifiedStamp=stamp;verifiedResult=complete && file!=null && UpdateInstaller.verifyDownloadedApk(activity,file)}
         val ready=complete && verifiedResult
         val downloading=matches && state?.status in setOf(DownloadManager.STATUS_PENDING,DownloadManager.STATUS_RUNNING,DownloadManager.STATUS_PAUSED)
-        val error=when { matches && state?.status==DownloadManager.STATUS_FAILED -> "Android не смог скачать обновление. Повторите загрузку."
+        val error=when { matches && state?.status==DownloadManager.STATUS_FAILED -> "Загрузка прервалась. Нажмите «Повторить загрузку»."
+            matches && state?.status==DownloadManager.STATUS_PAUSED -> "Загрузка приостановлена. Нажмите «Повторить загрузку» для продолжения."
             complete && !ready -> "APK не прошёл проверку подписи, версии или контрольной суммы"
             else -> null }
         val snapshot=JSONObject().put("percent",state?.progress ?: 0).put("downloadedMb","%.1f".format((state?.downloadedBytes ?: 0).coerceAtLeast(0)/1048576.0))
@@ -50,8 +51,8 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
         kotlin.check(UpdateReleaseCache.trusted(release)) { "Недопустимый источник обновления" }
         val existing=status()
         if(existing.optString("downloadedVersion")==release.version)return@withLock JSONObject().put("ok",true).put("ready",true)
-        if(existing.optBoolean("downloading"))return@withLock JSONObject().put("ok",true).put("downloading",true)
-        UpdateInstaller.startDownload(activity,release.apkUrl,release.apkSha256)
+        if(existing.optBoolean("downloading")&&!request.optBoolean("restart"))return@withLock JSONObject().put("ok",true).put("downloading",true)
+        DirectUpdateDownload.start(activity,release,request.optBoolean("restart"))
         verifiedStamp=null
         return@withLock JSONObject().put("ok",true).put("downloading",true)
     }

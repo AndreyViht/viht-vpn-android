@@ -162,13 +162,13 @@ function SettingsScreen({
       setUpdateError(error.message || 'Не удалось связаться с сервером обновлений');
     } finally { setCheckingUpdate(false); }
   };
-  const handleDownloadUpdate = async () => {
+  const handleDownloadUpdate = async (restart = false) => {
     if (!updateInfo) return;
     setUpdateStatus('downloading'); setUpdateError('');
     setUpdateProgress({ percent: 0, downloadedMb: '0.0', totalMb: (updateInfo.sizeBytes / 1048576).toFixed(1), speedMb: '0.0' });
     try {
       if (!window.electronAPI?.downloadUpdate) throw new Error('Загрузка обновлений недоступна');
-      const result = await window.electronAPI.downloadUpdate(updateInfo);
+      const result = await window.electronAPI.downloadUpdate({...updateInfo,restart:restart===true});
       if (!result?.ok) throw new Error(result?.error || 'Ошибка загрузки обновления');
       setUpdateStatus(result.downloading ? 'downloading' : 'ready');
     } catch (error) { setUpdateStatus('error'); setUpdateError(error.message || 'Ошибка загрузки обновления'); }
@@ -729,6 +729,7 @@ function SettingsScreen({
                       </div>
                     )}
 
+                    {updateInfo && ['downloading','error'].includes(updateStatus) && <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:12}}><button type="button" className="btn btn--secondary btn--sm" onClick={()=>handleDownloadUpdate(true)}>Повторить загрузку</button><button type="button" className="btn btn--secondary btn--sm" onClick={()=>window.electronAPI?.openExternal?.(updateInfo.downloadUrl)}>Скачать APK вручную</button></div>}
                     {updateError && (
                       <p className="settings-update-error" style={{ marginTop: '8px' }}>{updateError}</p>
                     )}
