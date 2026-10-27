@@ -54,6 +54,7 @@ export default function App() {
 
   // Navigation tab: 'home' | 'servers' | 'devices' | 'profile' | 'settings'
   const [activeTab, setActiveTab] = useState('home');
+  useEffect(() => { const back=e=>{ if(!e.defaultPrevented&&!e.detail?.modal&&activeTab!=='home'){e.preventDefault();setActiveTab('home');} };window.addEventListener('viht-back',back);return()=>window.removeEventListener('viht-back',back); },[activeTab]);
 
   // Connection keys come exclusively from the current subscription.
   const [servers, setServers] = useState([]);
@@ -177,6 +178,7 @@ export default function App() {
 
   // Helper to trigger automated VPN reconnection on unexpected drop
   const triggerAutoReconnect = (sourceState, eventData) => {
+    if (isAndroid) return; // Android foreground service owns recovery, including while UI is closed.
     if (eventData?.retryable === false || !hadConnectedSessionRef.current || manualDisconnectRef.current || reconnectTimerRef.current) return;
     const s = settingsRef.current;
     if (s.autoReconnect === false) {

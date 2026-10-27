@@ -14,6 +14,32 @@ import java.lang.reflect.Proxy
 /** Starts the actual packaged core with local-only inbounds. Never creates a VPN/TUN. */
 @RunWith(AndroidJUnit4::class)
 class CoreStartupTest {
+    @Test fun systemBackClosesWebDialogInsteadOfMinimizingTheApplication() {
+        val instrumentation=InstrumentationRegistry.getInstrumentation()
+        val context=instrumentation.targetContext
+        val activity=instrumentation.startActivitySync(android.content.Intent(context,MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+        fun browser(view: android.view.View): android.webkit.WebView? {
+            if(view is android.webkit.WebView)return view
+            if(view is android.view.ViewGroup)for(i in 0 until view.childCount)browser(view.getChildAt(i))?.let{return it}
+            return null
+        }
+        fun evaluate(script: String): String? {
+            val latch=java.util.concurrent.CountDownLatch(1);var result:String?=null
+            instrumentation.runOnMainSync { browser(activity.findViewById(android.R.id.content))!!.evaluateJavascript(script){result=it;latch.countDown()} }
+            assertTrue(latch.await(10,java.util.concurrent.TimeUnit.SECONDS));return result
+        }
+        try {
+            val deadline=System.currentTimeMillis()+30000
+            while(System.currentTimeMillis()<deadline && evaluate("document.readyState==='complete'&&!!document.querySelector('.fluent-window')")!="true")android.os.SystemClock.sleep(300)
+            assertTrue(activity.isTrustedPage)
+            assertEquals("true",evaluate("(function(){var d=document.createElement('dialog');d.id='back-test';d.innerHTML='<button>Close</button>';document.body.appendChild(d);d.showModal();return d.open;})()"))
+            instrumentation.runOnMainSync { activity.onBackPressedDispatcher.onBackPressed() }
+            val end=System.currentTimeMillis()+5000
+            while(System.currentTimeMillis()<end && evaluate("!document.querySelector('#back-test').open")!="true")android.os.SystemClock.sleep(100)
+            assertEquals("true",evaluate("!document.querySelector('#back-test').open"))
+        } finally { instrumentation.runOnMainSync{activity.finish()};instrumentation.waitForIdleSync() }
+    }
+
     @Test fun paymentScreenIsRegisteredPrivateAndLaunches() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext

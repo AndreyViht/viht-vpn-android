@@ -143,7 +143,17 @@ class MainActivity : ComponentActivity() {
             }
         }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() { moveTaskToBack(true) }
+            override fun handleOnBackPressed() {
+                if (!isTrustedPage) { moveTaskToBack(true); return }
+                webView.evaluateJavascript("""
+                    (function(){var d=document.querySelector('dialog[open]');if(d){d.close();return true;}
+                    var overlays=document.querySelectorAll('.billing-shade,.fluent-modal-overlay');
+                    var e=new CustomEvent('viht-back',{cancelable:true,detail:{modal:overlays.length>0}});
+                    if(!window.dispatchEvent(e))return true;
+                    if(overlays.length){var o=overlays[overlays.length-1];var close=o.querySelector('.fluent-modal-close,.billing-close');(close||o).click();return true;}
+                    return false;})()
+                """.trimIndent()) { handled -> if(handled!="true"&&!isFinishing)moveTaskToBack(true) }
+            }
         })
     }
     override fun onDestroy() {

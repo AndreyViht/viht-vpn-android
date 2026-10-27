@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, CheckCircle2, Loader2, CreditCard } from 'lucide-react';
 import { fetchAppTariffs, createAppCheckout, fetchAppPaymentStatus } from '../services/api';
 import './SubscriptionBilling.css';
+import { normalizePayment, paymentPollDelay, archivePayment } from '../services/paymentTracking';
 
 export default function SubscriptionBilling({ token, accountId, onPaid, product = 'subscription' }) {
   const isSlots = product === 'slots';
@@ -14,9 +15,14 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
   const [tariffs, setTariffs] = useState([]);
   const [selected, setSelected] = useState(30);
   const [order, setOrder] = useState(() => {
-    try { const data = JSON.parse(localStorage.getItem(storageKey)); return data?.label && data?.paymentUrl ? data : null; }
+    try { return normalizePayment(JSON.parse(localStorage.getItem(storageKey))); }
     catch { return null; }
   });
+  const [history,setHistory]=useState(()=>{try{return (JSON.parse(localStorage.getItem(storageKey+':history'))||[]).map(item=>normalizePayment(item)).filter(Boolean)}catch{return []}});
+  const [checkingPayment,setCheckingPayment]=useState(false);
+  const [trackingPaused,setTrackingPaused]=useState(()=>paymentPollDelay(order)===null);
+  const manualCheck=useRef(null);
+  const historyRef=useRef(history);historyRef.current=history;
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -63,34 +69,50 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
         else if (!event.shiftKey && (document.activeElement === items.at(-1) || document.activeElement === dialog.current)) { event.preventDefault(); items[0].focus(); }
       }
     };
+    const nativeBack=event=>{event.preventDefault();setOpen(false);};
+    window.addEventListener('viht-back',nativeBack);
     document.addEventListener('keydown', keyboard);
-    return () => { document.body.style.overflow = previous; document.removeEventListener('keydown', keyboard); trigger.current?.focus?.(); };
+    return () => { window.removeEventListener('viht-back',nativeBack); document.body.style.overflow = previous; document.removeEventListener('keydown', keyboard); trigger.current?.focus?.(); };
   }, [open]);
   useEffect(() => {
-    if (!order?.label) return;
-    let active = true;
-    const check = async () => {
-      if (inFlight.current || document.hidden) return;
-      inFlight.current = true;
+    if(order)localStorage.setItem(storageKey,JSON.stringify(order));
+    let active=true,timer;
+    const saveHistory=items=>{historyRef.current=items;localStorage.setItem(storageKey+':history',JSON.stringify(items));setHistory(items);};
+    const check=async(force=false)=>{
+      if(inFlight.current||document.hidden)return;
+      const paused=paymentPollDelay(order)===null;
+      setTrackingPaused(paused);
+      if(paused&&!force)return;
+      const targets=force?[...(order?[order]:[]),...historyRef.current]:order?[order]:[];
+      if(!targets.length)return;
+      inFlight.current=true;setCheckingPayment(true);
       try {
-        const result = await fetchAppPaymentStatus(token, order.label);
-        if (!active) return;
-        if (!result.ok) { setError(result.error || 'Не удалось проверить оплату. Повторим автоматически.'); return; }
-        setError('');
-        if (result.data?.status === 'paid') {
-          localStorage.removeItem(storageKey); localStorage.removeItem(storageKey + ':draft'); setOrder(null); setPaid(true); setOpen(true);
-          onPaidRef.current?.();
+        for(const target of targets){
+          const result=await fetchAppPaymentStatus(token,target.label);
+          if(!active)return;
+          if(!result.ok){setError(result.error||'Не удалось проверить оплату. Повторите проверку позже.');break;}
+          setError('');
+          if(result.data?.status==='paid'){
+            if(target.label===order?.label){localStorage.removeItem(storageKey);localStorage.removeItem(storageKey+':draft');setOrder(null);}
+            else saveHistory(historyRef.current.filter(item=>item.label!==target.label));
+            setPaid(true);setOpen(true);onPaidRef.current?.();
+          }
         }
-      } catch (e) { if (active) setError(e.message || 'Проверьте подключение к интернету'); }
-      finally { inFlight.current = false; }
+      }catch(e){if(active)setError(e.message||'Проверьте подключение к интернету');}
+      finally{inFlight.current=false;if(active)setCheckingPayment(false);}
     };
-    void check();
-    const timer = setInterval(check, 10000);
-    window.addEventListener('focus', check);
-    document.addEventListener('visibilitychange', check);
-    const off = window.electronAPI?.onAppResumed?.(check);
-    return () => { active = false; clearInterval(timer); window.removeEventListener('focus', check); document.removeEventListener('visibilitychange', check); off?.(); };
-  }, [order?.label, token, storageKey]);
+    const schedule=()=>{const delay=paymentPollDelay(order);setTrackingPaused(delay===null);if(delay!==null)timer=setTimeout(async()=>{await check();if(active)schedule();},delay);};
+    manualCheck.current=()=>check(true);
+    const resumed=()=>{void check(true);};
+    void check(true);schedule();
+    window.addEventListener('focus',resumed);document.addEventListener('visibilitychange',resumed);
+    const off=window.electronAPI?.onAppResumed?.(resumed);
+    return()=>{active=false;clearTimeout(timer);manualCheck.current=null;window.removeEventListener('focus',resumed);document.removeEventListener('visibilitychange',resumed);off?.();};
+  },[order?.label,token,storageKey]);
+  const postponeOrder=()=>{
+    if(order){const items=archivePayment(historyRef.current,order);historyRef.current=items;localStorage.setItem(storageKey+':history',JSON.stringify(items));setHistory(items);}
+    localStorage.removeItem(storageKey);localStorage.removeItem(storageKey+':draft');setOrder(null);setPaid(false);
+  };
   const pay = async () => {
     if (payLock.current) return;
     payLock.current = true; setBusy(true); setError('');
@@ -107,7 +129,7 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
         const result = await createAppCheckout(token, draft.days, draft.requestId, { product, slots: draft.slots });
         if (!mounted.current) return;
         if (!result.ok || !result.data?.checkout?.label) throw Error(result.error || 'Не удалось создать оплату');
-        checkout = result.data.checkout;
+        checkout = normalizePayment(result.data.checkout);
         localStorage.setItem(storageKey, JSON.stringify(checkout));
         setOrder(checkout); setPaid(false);
         if (checkout.price !== (isSlots ? slotCount * slotPrice : tariffs.find(t => t.days === selected)?.price)) { setError('Цена обновилась. Проверьте новую сумму и нажмите «Продолжить оплату».'); return; }
@@ -123,15 +145,16 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
     <section className="billing-sheet" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="billing-title" tabIndex={-1}>
       <header><div><span>VIHT VPN</span><h2 id="billing-title">{isSlots ? 'Дополнительные слоты' : 'Тарифы'}</h2></div><button className="billing-close" aria-label="Закрыть тарифы" onClick={() => setOpen(false)}><X size={20} /></button></header>
       {paid ? <div className="billing-success"><CheckCircle2 size={44} /><h3>{isSlots ? 'Слоты добавлены' : 'Подписка продлена'}</h3><p>{isSlots ? 'Оплата подтверждена. Обновляем лимит устройств.' : 'Оплата подтверждена. Обновляем срок подписки.'}</p><button onClick={() => setOpen(false)}>Готово</button></div> : <>
-        {order ? <div className="billing-pending"><h3>{isSlots ? `Дополнительные слоты · ${order.slots}` : `Оплата · ${order.days} дней`}</h3><strong>{order.price} ₽</strong><p>Подтверждение от сервера появится автоматически. Если вы ещё не оплатили, продолжите оплату ниже.</p></div> : <>
+        {order ? <div className="billing-pending"><h3>{isSlots ? `Дополнительные слоты · ${order.slots}` : `Оплата · ${order.days} дней`}</h3><strong>{order.price} ₽</strong><p>{trackingPaused ? 'Автоматическая проверка приостановлена. Платёж не отменён: если банк уже списал деньги, нажмите «Проверить оплату».' : 'Подтверждение появится автоматически. Если вы ещё не оплатили, продолжите оплату ниже.'}</p></div> : <>
           <p className="billing-caption">{isSlots ? 'Слоты добавляются навсегда. Срок подписки не меняется.' : 'Оплаченные дни добавятся к оставшемуся сроку.'}</p>
           {loading ? <p className="billing-loading"><Loader2 className="spinning" size={20} /> Загружаем тарифы…</p> : isSlots ? <div className="billing-slot-picker" hidden={!slotPrice}><p>Один слот · {slotPrice} ₽</p><div><button aria-label="Уменьшить количество слотов" disabled={slotCount <= 1} onClick={() => setSlotCount(n => n - 1)}>−</button><strong aria-live="polite">{slotCount}</strong><button aria-label="Увеличить количество слотов" disabled={slotCount >= slotMax} onClick={() => setSlotCount(n => n + 1)}>+</button></div><span>Итого: {slotCount * slotPrice} ₽</span></div> : <div className="billing-tariffs" role="group" aria-label="Выбор тарифа">{tariffs.map(t => <button key={t.days} aria-pressed={selected === t.days} onClick={() => setSelected(t.days)}><span>{t.title}</span><strong>{t.price} ₽</strong>{selected === t.days && <CheckCircle2 size={18} />}</button>)}</div>}
         </>}
+        {(order||history.length>0)&&<button className="billing-retry" disabled={checkingPayment} onClick={()=>manualCheck.current?.()}>{checkingPayment?'Проверяем оплату…':order?'Проверить оплату':'Проверить отложенные платежи'}</button>}
         {error && <p className="billing-error" role="alert">{error}</p>}
         {!order && !loading && !tariffs.length && <button className="billing-retry" onClick={() => setLoadAttempt(n => n + 1)}>Повторить загрузку</button>}
         <button className="billing-pay" disabled={busy || (!order && (loading || (isSlots ? !slotPrice : !tariffs.some(t => t.days === selected))))} onClick={pay}>{busy ? <Loader2 className="spinning" size={18} /> : <CreditCard size={18} />}{order ? 'Продолжить оплату' : `Оплатить ${isSlots ? (slotPrice ? slotCount * slotPrice : '—') : (tariffs.find(t => t.days === selected)?.price ?? '')} ₽`}</button>
         <p className="billing-footnote">Карта и другие доступные способы — в защищённой форме ЮMoney. Для подтверждения банк может открыть своё приложение.</p>
-        {order && <><button className="billing-retry" onClick={() => setOpen(false)}>Проверим оплату в фоне · закрыть</button><button className="billing-retry" onClick={() => { localStorage.removeItem(storageKey); localStorage.removeItem(storageKey + ':draft'); setOrder(null); setPaid(false); }}>{isSlots ? 'Изменить количество слотов' : 'Выбрать другой тариф'}</button><p className="billing-footnote">Если уже оплатили, дождитесь подтверждения. Изменение заказа не отменяет платёж в банке.</p></>}
+        {order && <><button className="billing-retry" onClick={() => setOpen(false)}>Проверим оплату в фоне · закрыть</button><button className="billing-retry" onClick={postponeOrder}>{isSlots ? 'Изменить количество слотов' : 'Выбрать другой тариф'}</button><p className="billing-footnote">Если уже оплатили, дождитесь подтверждения. Изменение заказа не отменяет платёж в банке.</p></>}
       </>}
     </section>
   </div>, document.body);

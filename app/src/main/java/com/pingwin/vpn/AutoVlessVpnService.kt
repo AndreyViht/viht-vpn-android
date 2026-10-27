@@ -92,7 +92,7 @@ class AutoVlessVpnService :
                 context.startForegroundService(Intent(context, AutoVlessVpnService::class.java).setAction("RESTORE"))
             }
         }
-        fun stop(context: Context) {
+        fun stop(context: Context, reason: String? = null) {
             VpnRunStore.stop(context)
             VpnStatus.markManualStop()
             val intent =
@@ -101,6 +101,7 @@ class AutoVlessVpnService :
                     AutoVlessVpnService::class.java
                 ).apply {
                     action = ACTION_STOP
+                    if (reason != null) putExtra("stop_reason",reason)
                 }
 
             context.startService(intent)
@@ -316,6 +317,7 @@ class AutoVlessVpnService :
                 VpnRunStore.stop(this)
                 executor.execute {
                     stopVpn(startId)
+                    intent.getStringExtra("stop_reason")?.let { VpnStatus.fail(it,false) }
                 }
             }
 
@@ -498,6 +500,14 @@ class AutoVlessVpnService :
     }
     private fun requestRecovery(request: Int) {
         if (!everConnected || !VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) return
+        if (!VpnRecoveryPolicy.enabled(JSONObject(getSharedPreferences("viht_ui_settings",Context.MODE_PRIVATE).getString("vpnSettings","{}") ?: "{}"))) {
+            VpnRunStore.stop(this)
+            if (!executor.isShutdown) executor.execute {
+                stopVpn(request)
+                VpnStatus.fail("Связь потеряна. Автопереподключение выключено в настройках.",false)
+            }
+            return
+        }
         synchronized(recoveryLock) {
             if (recoveryPending) return
             recoveryPending = true
@@ -508,6 +518,9 @@ class AutoVlessVpnService :
                     synchronized(recoveryLock) { recoveryTask = null; recoveryPending = false }
                     try {
                     if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) return@execute
+                    if (!VpnRecoveryPolicy.enabled(JSONObject(getSharedPreferences("viht_ui_settings",Context.MODE_PRIVATE).getString("vpnSettings","{}") ?: "{}"))) {
+                        VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Автопереподключение выключено в настройках.",false); return@execute
+                    }
                     val source = lastSource ?: return@execute
                     val id = lastConnection ?: return@execute
                     VpnStatus.set(VpnConnectionState.CONNECTING)
@@ -531,7 +544,7 @@ class AutoVlessVpnService :
                     if (profile == null || !SubscriptionPolicy.active(profile)) { VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Подписка не активна",false); return@execute }
                     val device = kotlinx.coroutines.runBlocking { AndroidCabinetApi.request(this@AutoVlessVpnService,JSONObject().put("action","device-heartbeat").put("method","POST")) }
                     if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) return@execute
-                    if (device.optBoolean("ok") && device.has("device_allowed") && !device.optBoolean("device_allowed")) { VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Устройство отключено в подписке",false); return@execute }
+                    if (DeviceAccessPolicy.denied(device)) { VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Устройство отключено в подписке",false); return@execute }
                     }
                     if (VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) startVpn(source,id,request)
                     } catch (failure: Exception) {

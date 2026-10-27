@@ -14,7 +14,10 @@ object DevicePresenceReporter {
     private var requestedState: Boolean? = null
     private suspend fun report(context: Context) = requests.withLock {
         if (AndroidSessionStore.hasSession(context)) {
-            try { AndroidCabinetApi.request(context, JSONObject().put("action", "device-heartbeat").put("method", "POST")) }
+            try {
+                val reply=AndroidCabinetApi.request(context, JSONObject().put("action", "device-heartbeat").put("method", "POST"))
+                if (DeviceAccessPolicy.denied(reply) && VpnRunStore.desired(context)) AutoVlessVpnService.stop(context,"Устройство отключено в подписке")
+            }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { /* A temporary network failure is represented by heartbeat expiry. */ }
         }

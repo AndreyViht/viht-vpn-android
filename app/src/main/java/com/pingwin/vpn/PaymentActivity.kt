@@ -94,10 +94,20 @@ class PaymentActivity : ComponentActivity() {
                     val uri = request.url
                     if (uri.scheme == "https" && uri.host == "anviht.ru" && uri.path == "/payment/android-return") { finish(); return true }
                     if (uri.scheme == "https") return false
-                    // Bank applications may handle SBP/3DS; never open arbitrary local or intent:// URLs.
-                    if (request.isForMainFrame && uri.scheme?.matches(Regex("bank[0-9]{8,20}|sberpay|sbp|mirpay")) == true) {
-                        runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE)) }
-                            .onFailure { message.text = "Приложение банка недоступно. Выберите другой способ оплаты." }
+                    if (request.isForMainFrame) {
+                        val parsed=if(uri.scheme=="intent") runCatching { Intent.parseUri(uri.toString(),Intent.URI_INTENT_SCHEME) }.getOrNull() else null
+                        val target=parsed?.data ?: uri
+                        val fallback=parsed?.getStringExtra("browser_fallback_url")
+                        val bankPackage=parsed?.getPackage()?.takeIf { BankLinkPolicy.safePackage(it) }
+                        if (BankLinkPolicy.supportedScheme(target.scheme) || (bankPackage!=null && BankLinkPolicy.safeFallback(target.toString()))) {
+                            // Never forward incoming components, selectors, actions or permission flags.
+                            runCatching { startActivity(Intent(Intent.ACTION_VIEW,target).addCategory(Intent.CATEGORY_BROWSABLE).apply { if(bankPackage!=null)setPackage(bankPackage) }) }
+                                .onFailure {
+                                    if (BankLinkPolicy.safeFallback(fallback)) { view?.loadUrl(fallback!!); message.text="Приложение банка не найдено. Открыта веб-страница подтверждения." }
+                                    else message.text="Приложение банка недоступно. Выберите другой способ оплаты."
+                                }
+                        } else if (BankLinkPolicy.safeFallback(fallback)) view?.loadUrl(fallback!!)
+                        else message.text="Эта ссылка не поддерживается. Выберите другой способ подтверждения оплаты."
                     }
                     return true
                 }

@@ -78,6 +78,28 @@ function SettingsScreen({
   const [updateInfo, setUpdateInfo] = useState(null);
   const [updateProgress, setUpdateProgress] = useState({ percent: 0, downloadedMb: '0', totalMb: '0.0', speedMb: '0.0' });
   const [updateError, setUpdateError] = useState('');
+  function restoreDownloadStatus(status) {
+    if(status?.ok===false){setUpdateStatus('error');setUpdateError(status.error || 'Не удалось прочитать состояние загрузки');return false;}
+    if (!status?.available) return false;
+    setUpdateInfo(status.available);
+    if (status.progress) setUpdateProgress(status.progress);
+    if (status.downloadedVersion === status.available.version) setUpdateStatus('ready');
+    else if (status.error) { setUpdateStatus('error'); setUpdateError(status.error); }
+    else setUpdateStatus(status.downloading ? 'downloading' : 'available');
+    return true;
+  }
+  useEffect(() => {
+    if (!isAndroid || updateStatus !== 'downloading') return;
+    let active = true, busy = false;
+    const poll = async () => {
+      if (busy) return; busy = true;
+      try { const status=await window.electronAPI?.getUpdateStatus?.(); if(active)restoreDownloadStatus(status); }
+      catch(error){if(active)setUpdateError(error.message || 'Не удалось проверить загрузку');}
+      finally{busy=false;}
+    };
+    const timer=setInterval(poll,1500);void poll();
+    return()=>{active=false;clearInterval(timer)};
+  },[updateStatus]);
 
   useEffect(() => {
     if (window.electronAPI?.onUpdateProgress) {
@@ -101,10 +123,7 @@ function SettingsScreen({
     const unsubscribe = window.electronAPI?.onUpdateAvailable?.(available);
     window.electronAPI?.getUpdateStatus?.().then(status => {
       if (!mounted) return;
-      if (status?.available) {
-        available(status.available);
-        if (status.downloadedVersion === status.available.version) setUpdateStatus('ready');
-      }
+      if (status?.available) restoreDownloadStatus(status);
     }).catch(() => {});
     return () => { mounted = false; if (typeof unsubscribe === 'function') unsubscribe(); };
   }, []);
@@ -136,7 +155,9 @@ function SettingsScreen({
       if (!result?.ok) throw new Error(result?.error || 'Не удалось проверить обновления');
       setUpdateInfo(result.hasUpdate ? result.releaseInfo : null);
       setUpdateStatus(result.hasUpdate ? 'available' : 'up-to-date');
+      if(result.hasUpdate && isAndroid)restoreDownloadStatus(await window.electronAPI.getUpdateStatus());
     } catch (error) {
+      if(isAndroid){try{if(restoreDownloadStatus(await window.electronAPI?.getUpdateStatus?.())){setUpdateError('Сервер недоступен. Сохранённая загрузка доступна.');return;}}catch{}}
       setUpdateStatus('error');
       setUpdateError(error.message || 'Не удалось связаться с сервером обновлений');
     } finally { setCheckingUpdate(false); }
@@ -149,7 +170,7 @@ function SettingsScreen({
       if (!window.electronAPI?.downloadUpdate) throw new Error('Загрузка обновлений недоступна');
       const result = await window.electronAPI.downloadUpdate(updateInfo);
       if (!result?.ok) throw new Error(result?.error || 'Ошибка загрузки обновления');
-      setUpdateStatus('ready');
+      setUpdateStatus(result.downloading ? 'downloading' : 'ready');
     } catch (error) { setUpdateStatus('error'); setUpdateError(error.message || 'Ошибка загрузки обновления'); }
   };
   const handleApplyUpdateAndRestart = async () => {
