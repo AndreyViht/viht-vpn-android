@@ -16,7 +16,9 @@ import java.security.MessageDigest
 data class UpdateDownloadState(
     val status: Int,
     val progress: Int?,
-    val apkFile: File?
+    val apkFile: File?,
+    val downloadedBytes: Long = 0L,
+    val totalBytes: Long = 0L
 )
 
 object UpdateInstaller {
@@ -61,7 +63,7 @@ object UpdateInstaller {
                 )
             )
                 .setTitle(
-                    "pingwin"
+                    "Viht VPN"
                 )
                 .setDescription(
                     "Downloading update"
@@ -203,7 +205,9 @@ object UpdateInstaller {
             return UpdateDownloadState(
                 status = status,
                 progress = progress,
-                apkFile = apkFile
+                apkFile = apkFile,
+                downloadedBytes = downloadedBytes,
+                totalBytes = totalBytes
             )
         }
     }

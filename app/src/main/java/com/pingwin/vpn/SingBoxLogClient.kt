@@ -36,15 +36,6 @@ class SingBoxLogClient(
     private var stopped = false
 
     fun start() {
-        if (
-            !DiagnosticLogStore
-                .isDetailedEnabled(
-                    appContext
-                )
-        ) {
-            return
-        }
-
         executor.execute {
             synchronized(this) {
                 if (
@@ -58,9 +49,9 @@ class SingBoxLogClient(
             try {
                 val options =
                     CommandClientOptions().apply {
-                        addCommand(
-                            Libbox.CommandLog
-                        )
+                        addCommand(Libbox.CommandStatus)
+                        statusInterval = 1_000_000_000L
+                        if (DiagnosticLogStore.isDetailedEnabled(appContext)) addCommand(Libbox.CommandLog)
                     }
 
                 val client =
@@ -219,5 +210,8 @@ class SingBoxLogClient(
 
     override fun writeStatus(
         message: StatusMessage
-    ) = Unit
+    ) {
+        VpnStatus.traffic(org.json.JSONObject().put("bytesSent", message.uplinkTotal).put("bytesReceived", message.downlinkTotal)
+            .put("speedUp", message.uplink / 1048576.0).put("speedDown", message.downlink / 1048576.0))
+    }
 }

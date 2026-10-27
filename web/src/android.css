@@ -1,0 +1,33 @@
+/* Android uses the same Liquid Glass material and shared-layout motion as Windows. */
+html, body, #root { width: 100%; height: 100%; border-radius: 0; background: #0a111d; }
+body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+.liquid-window.is-android {
+  width: 100%; height: 100dvh; border: 0; border-radius: 0; clip-path: none;
+  font-family: Inter, Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.liquid-window.is-android .titlebar { height: 45px; min-height: 45px; padding: 0 18px; }
+.liquid-window.is-android .titlebar-drag-region { -webkit-app-region: no-drag; }
+.liquid-window.is-android .titlebar-brand { width: 100%; gap: 8px; }
+.liquid-window.is-android .titlebar-auth-pill { margin-left: auto; }
+.liquid-window.is-android .fluent-main-content { padding: 20px 17px 110px; max-width: 560px; gap: 13px; }
+.liquid-window.is-android .fluent-page { padding: 20px 17px 110px; max-width: 600px; gap: 18px; }
+.liquid-window.is-android .ios-bottom-bar { padding: 0 12px 12px; }
+.liquid-window.is-android .ios-bottom-bar__island { max-width: 500px; }
+.liquid-window.is-android .fluent-hero-morph-surface { padding: 21px 14px; }
+.liquid-window.is-android .fluent-hero-title { font-size: 18px; }
+.liquid-window.is-android .fluent-power-btn { width: 126px; height: 126px; }
+.liquid-window.is-android .fluent-toggle-row > .btn { flex-shrink: 0; }
+.liquid-window.is-android .login-screen { padding: 24px; }
+.liquid-window.is-android .login-actions { max-width: 420px; }
+.liquid-window.is-android .fluent-server-row { min-height: 66px; }
+.liquid-window.is-android .fluent-pill { min-height: 36px; }
+.liquid-window.is-android .btn--icon { min-width: 36px; min-height: 36px; }
+@media (min-width: 700px) {
+  .liquid-window.is-android .fluent-main-content, .liquid-window.is-android .fluent-page { padding-top: 32px; }
+}
+@media (max-width: 360px) {
+  .liquid-window.is-android .fluent-page, .liquid-window.is-android .fluent-main-content { padding-left: 12px; padding-right: 12px; }
+  .liquid-window.is-android .fluent-settings-tab-btn { font-size: 7.5px; }
+}
+
+.liquid-window.is-android .fluent-devices-toolbar .fluent-filter-pills { flex-wrap: wrap; }

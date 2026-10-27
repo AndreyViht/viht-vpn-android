@@ -26,7 +26,7 @@ export default function SubscriptionBilling({ token, accountId, onPaid }) {
   const trigger = useRef(null);
 
   useEffect(() => {
-    const show = () => { trigger.current = document.activeElement; setOpen(true); };
+    const show = () => { trigger.current = document.activeElement; setPaid(false); setOpen(true); };
     window.addEventListener('viht-open-tariffs', show);
     return () => window.removeEventListener('viht-open-tariffs', show);
   }, []);

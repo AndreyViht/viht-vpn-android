@@ -1,0 +1,408 @@
+/* Compact Liquid Glass shell. All surfaces share the same optical material. */
+html, body, #root {
+  background: transparent;
+  border-radius: 20px;
+  overflow: hidden;
+}
+.liquid-window {
+  --glass: rgba(223, 239, 255, .055);
+  --glass-edge: rgba(226, 240, 255, .14);
+  --glass-shadow: 0 12px 34px -18px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .13);
+  --text-secondary: #a6b6c9;
+  --text-muted: #8091a8;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: var(--font-ui);
+  color: #f2f6fc;
+  font-family: var(--font-ui);
+  isolation: isolate;
+  border: 1px solid rgba(224, 238, 255, .16);
+  border-radius: 20px;
+  clip-path: inset(0 round 20px);
+  opacity: 1;
+  transition: opacity .28s cubic-bezier(.22, 1, .36, 1), background .3s ease;
+}
+.liquid-window.is-window-dragging { opacity: .5; }
+.liquid-window.theme-emerald {
+  --neon-green: #89f5d0;
+  --neon-green-glow: rgba(117, 235, 196, .22);
+  --neon-green-light: #c0ffe7;
+  --border-active: rgba(137, 245, 208, .4);
+  --border-focus: #a8ffe3;
+}
+.liquid-window[class*="theme-"] {
+  background: #0a111d;
+}
+.liquid-window.theme-oled { background: #030507; }
+.liquid-window button, .liquid-window input { font: inherit; }
+.liquid-window button {
+  -webkit-app-region: no-drag;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.liquid-window button:not(:disabled), .liquid-window [role="button"] {
+  transition: background-color .25s, border-color .25s, box-shadow .3s, color .25s,
+    scale .35s cubic-bezier(.2, 1.6, .3, 1);
+}
+.liquid-window button:not([data-motion-press]):not(:disabled):active { scale: .96; }
+/* Motion owns these transforms; CSS must not interpolate them a second time. */
+.liquid-window [data-motion-press] { scale: 1 !important; transition-property: background-color, border-color, box-shadow, color !important; }
+.liquid-window .fluent-page-motion-wrap { backface-visibility: hidden; }
+.liquid-window :is(.timer-digits,.fluent-telemetry-val) { font-variant-numeric: tabular-nums; }
+.liquid-window button:disabled { cursor: default; }
+.liquid-window :is(button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--neon-green);
+  outline-offset: 4px;
+}
+
+/* Light behind the glass moves continuously, using only compositor transforms. */
+.liquid-backdrop { position: absolute; inset: 0; overflow: hidden; z-index: -1; pointer-events: none; }
+.liquid-orb { position: absolute; border-radius: 50%; filter: blur(58px); will-change: transform; }
+.liquid-orb--mint {
+  width: 350px; height: 350px; top: 110px; right: -220px;
+  background: var(--neon-green); opacity: .1;
+  animation: liquid-drift-one 19s ease-in-out infinite alternate;
+}
+.liquid-orb--blue {
+  width: 410px; height: 410px; top: -200px; left: -230px;
+  background: #518acd; opacity: .2;
+  animation: liquid-drift-two 23s ease-in-out infinite alternate;
+}
+.liquid-orb--violet {
+  width: 310px; height: 310px; bottom: -130px; left: -180px;
+  background: #8276cc; opacity: .13;
+  animation: liquid-drift-one 26s ease-in-out -9s infinite alternate-reverse;
+}
+.liquid-backdrop-grain {
+  position: absolute; inset: 0; opacity: .025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' opacity='.6' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+@keyframes liquid-drift-one {
+  from { transform: translate3d(0, -20px, 0) scale(1); }
+  to { transform: translate3d(-80px, 90px, 0) scale(1.14); }
+}
+@keyframes liquid-drift-two {
+  from { transform: translate3d(0, 0, 0) scale(.95); }
+  to { transform: translate3d(110px, 70px, 0) scale(1.12); }
+}
+
+/* Native draggable chrome remains available at narrow desktop widths. */
+.liquid-window .titlebar {
+  flex-shrink: 0; height: 51px; padding: 0 13px 0 18px;
+  background: rgba(12, 20, 31, .24); backdrop-filter: blur(28px);
+  border-bottom: 1px solid rgba(255, 255, 255, .055);
+}
+.liquid-window .titlebar-brand { gap: 7px; width: auto; justify-content: flex-start; }
+.liquid-window .titlebar-title { font-size: 13px; letter-spacing: -.2px; font-weight: 650; }
+.liquid-window .titlebar-icon-wrap { border-radius: 8px; background: rgba(255,255,255,.07); }
+.liquid-window .titlebar-badge { display: none !important; }
+.liquid-window .titlebar-auth-pill { padding: 3px 7px 3px 4px; font-size: 9px; background: rgba(255,255,255,.045); }
+.liquid-window:not(.is-mobile) .titlebar-controls { display: flex !important; gap: 3px; }
+.liquid-window .titlebar-btn { width: 26px; height: 28px; border-radius: 9px; color: #8f9fb4; }
+.liquid-window .titlebar-btn:hover { background: rgba(255,255,255,.09); color: #fff; }
+.liquid-window .titlebar-btn--close:hover { background: rgba(255,110,130,.15); color: #ffa3af; }
+.liquid-window .fluent-window-body { min-height: 0; }
+.liquid-window .fluent-app-layout { flex-direction: column; position: relative; }
+.liquid-window .fluent-main-viewport {
+  min-width: 0; width: 100%; padding: 0; overscroll-behavior: contain;
+  scrollbar-gutter: stable; scroll-behavior: smooth;
+}
+.liquid-window .fluent-page-motion-wrap { flex: 1 0 auto; min-height: 100%; }
+.liquid-window .fluent-page {
+  padding: 25px 22px 110px; gap: 20px; width: 100%; max-width: 600px;
+}
+.liquid-window .fluent-page-header { flex-direction: column; align-items: stretch; gap: 15px; }
+.liquid-window .fluent-page-title { font-size: 29px; letter-spacing: -1.1px; line-height: 1.15; font-weight: 720; }
+.liquid-window .fluent-page-subtitle { font-size: 12px; line-height: 1.65; color: var(--text-secondary); margin-top: 7px; }
+.liquid-window .fluent-page-header > .btn { align-self: flex-start; }
+.liquid-window .fluent-page-header__actions { width: auto; justify-content: flex-start; gap: 8px; }
+.liquid-window .fluent-page-header__actions .btn { flex: 0 1 auto; }
+
+/* One floating lens travels across the complete five-item dock. */
+.liquid-window .ios-bottom-bar { position: absolute; padding: 0 14px 13px; z-index: 50; }
+.liquid-window .ios-bottom-bar::before {
+  content: ''; position: absolute; inset: -18px 0 0; z-index: -1;
+  background: linear-gradient(transparent, rgba(9,16,27,.9)); pointer-events: none;
+}
+.liquid-window .ios-bottom-bar__island {
+  height: 73px; max-width: 500px; padding: 6px; gap: 3px; border-radius: 29px;
+  background: linear-gradient(155deg, rgba(77,95,116,.3), rgba(25,37,55,.68));
+  border: 1px solid rgba(234,245,255,.2);
+  backdrop-filter: blur(34px) saturate(160%);
+  box-shadow: 0 15px 32px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 0 rgba(255,255,255,.035);
+}
+.liquid-window .ios-tab-item {
+  height: 59px; min-width: 0; padding: 7px 0; gap: 3px; border-radius: 23px;
+  color: #8e9db2; background: transparent; overflow: visible; isolation: isolate;
+}
+.liquid-window .ios-tab-item__active-pill {
+  inset: 0; z-index: -1; border-radius: 23px;
+  background: linear-gradient(145deg, rgba(227,255,246,.18), rgba(137,245,208,.075));
+  border: 1px solid rgba(213,255,240,.23);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 3px 10px rgba(0,0,0,.15);
+}
+.liquid-window .ios-tab-item__icon-wrap { width: 28px; height: 25px; }
+.liquid-window .ios-tab-item__icon { color: inherit; transform: none; filter: none; }
+.liquid-window .ios-tab-item__label { color: inherit; font-size: 9px; letter-spacing: -.15px; font-weight: 550; }
+.liquid-window .ios-tab-item--active,
+.liquid-window .ios-tab-item--active .ios-tab-item__icon { color: var(--neon-green-light); }
+.liquid-window .ios-tab-item--active .ios-tab-item__label { color: #ecfff8; }
+
+/* Optical edges, inner highlights, and a pointer-following reflection. */
+.liquid-window :is(.fluent-card, .fluent-device-row, .fluent-hero-morph-surface, .fluent-search-box) {
+  background: linear-gradient(145deg, rgba(223,239,255,.07), rgba(223,239,255,.025));
+  border: 1px solid var(--glass-edge); border-radius: 22px; box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(22px) saturate(140%);
+}
+.liquid-window .fluent-card { padding: 16px; }
+.liquid-window :is(.btn--secondary, .btn-auth, .fluent-card, .fluent-server-row):hover {
+  background-image: radial-gradient(180px circle at var(--glass-x, 50%) var(--glass-y, 0%), rgba(222,245,255,.11), transparent 80%),
+    linear-gradient(145deg, rgba(223,239,255,.07), rgba(223,239,255,.025));
+  border-color: rgba(228,246,255,.24);
+}
+.liquid-window .btn { min-height: 35px; border-radius: 13px; gap: 7px; font-size: 11px; font-weight: 550; }
+.liquid-window .btn--sm { padding: 9px 12px; }
+.liquid-window .btn--secondary { background: rgba(233,244,255,.06); border: 1px solid rgba(233,244,255,.12); box-shadow: inset 0 1px 0 rgba(255,255,255,.06); }
+.liquid-window .btn--primary { background: var(--neon-green); color: #0c2620; box-shadow: 0 5px 20px var(--neon-green-glow); }
+.liquid-window .btn--icon { width: 33px; height: 33px; min-height: 33px; padding: 0; border-radius: 11px; }
+.liquid-window .btn:not(:disabled):hover svg, .liquid-window .btn-auth:hover .btn-auth__arrow { translate: 1px -1px; }
+.liquid-window button svg { transition: translate .3s, color .25s; }
+
+/* Home: a compact connection instrument, surrounded by breathing light. */
+.liquid-window .fluent-main-screen { height: auto; min-height: 100%; }
+.liquid-window .fluent-main-content { padding: 24px 22px 112px; gap: 13px; max-width: 520px; justify-content: flex-start; }
+.liquid-home-heading { padding: 0 2px 11px; }
+.liquid-eyebrow { display: block; font-size: 9px; font-weight: 650; letter-spacing: 2.5px; color: var(--neon-green); margin-bottom: 12px; }
+.liquid-home-heading h1 { font-size: 37px; font-weight: 650; letter-spacing: -1.8px; line-height: 1.13; }
+.liquid-home-heading h1 span { color: #b6c7dc; }
+.liquid-home-heading p { margin-top: 10px; font-size: 10.5px; line-height: 1.6; color: #92a5bd; }
+.liquid-window .fluent-server-select-card { padding: 14px 16px; gap: 12px; order: 1; }
+.liquid-window .fluent-server-card__info { min-width: 0; }
+.liquid-window .fluent-server-card__name { font-size: 12px; line-height: 1.4; }
+.liquid-window .fluent-server-card__subtitle { font-size: 10px; margin-top: 3px; color: #98a9be; }
+.liquid-window .fluent-server-card__action { gap: 8px; flex-shrink: 0; }
+.liquid-window .fluent-server-card__ping { font-size: 10px; padding: 5px 7px; border-radius: 9px; }
+.liquid-window .fluent-subscription-card { padding: 13px 16px; order: 3; gap: 10px; flex-wrap: wrap; }
+.liquid-window .fluent-sub-value { font-size: 12px; color: #e3eaf5; }
+.liquid-window .fluent-sub-label { font-size: 10px; }
+.liquid-window .fluent-sub-icon-wrap { border-radius: 12px; background: rgba(137,245,208,.07); }
+.liquid-window .fluent-sub-icon { color: var(--neon-green); }
+.liquid-window .fluent-renew-btn { border-radius: 12px; font-size: 10px; padding: 8px 10px; min-height: 32px; }
+.liquid-window .fluent-hero-morph-surface { order: 2; padding: 18px 14px 19px; gap: 16px; border-radius: 30px; }
+.liquid-window .fluent-morph-aura.state-disconnected {
+  background: radial-gradient(ellipse at 50% 35%, rgba(119,198,205,.13), transparent 65%); opacity: .8;
+}
+.liquid-window .fluent-status-badge-pill { font-size: 9px; padding: 5px 10px; color: #a6b8cc; background: rgba(11,23,35,.35); border-color: rgba(217,238,255,.08); }
+.liquid-window .fluent-status-dot { width: 5px; height: 5px; background: #8b9fb6; }
+.liquid-window .fluent-hero-center { gap: 15px; }
+.liquid-window .fluent-power-ring-wrap { width: 152px; height: 152px; display: grid; place-items: center; }
+.liquid-window .fluent-ring-ambient {
+  inset: -9px; opacity: .8; border: 1px solid rgba(185,230,238,.085);
+  background: radial-gradient(ellipse at 50% 15%, rgba(194,248,237,.1), transparent 70%);
+  animation: liquid-breathe 5s ease-in-out infinite;
+}
+.liquid-window .fluent-power-ring-wrap::after {
+  content: ''; position: absolute; inset: 4px; border-radius: 50%; border: 1px solid rgba(224,252,255,.09); pointer-events: none;
+}
+.liquid-window .fluent-power-btn {
+  width: 124px; height: 124px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 15%, rgba(219,252,255,.18), transparent 55%),
+    linear-gradient(150deg, rgba(156,206,212,.12), rgba(30,55,71,.23));
+  border: 1px solid rgba(215,248,251,.27);
+  box-shadow: inset 0 2px 2px rgba(236,255,255,.18), inset 0 -3px 8px rgba(0,0,0,.2), 0 12px 25px rgba(0,0,0,.23);
+  backdrop-filter: blur(8px);
+}
+.liquid-window .fluent-power-btn:hover { border-color: rgba(211,255,242,.55); box-shadow: inset 0 2px 3px rgba(255,255,255,.23), 0 0 35px var(--neon-green-glow); }
+.liquid-window .fluent-power-btn__glass { background: none; border: 0; box-shadow: none; }
+.liquid-window .fluent-power-icon { width: 39px; height: 39px; color: #c5f9e9; filter: drop-shadow(0 2px 10px rgba(156,255,225,.2)); }
+.liquid-window .fluent-hero-title { font-size: 18px; font-weight: 600; letter-spacing: -.55px; }
+.liquid-window .fluent-hero-desc { margin-top: 7px; font-size: 10px; color: #8eabc0; line-height: 1.65; }
+.liquid-window .fluent-protection-summary { gap: 7px; justify-content: center; flex-wrap: wrap; }
+.liquid-window .fluent-prot-pill { border: 0; background: transparent; padding: 3px 4px; color: #a4b6c9; font-size: 9px; gap: 5px; }
+.liquid-window .fluent-prot-pill svg { width: 11px; height: 11px; color: #b2d9d0; }
+.liquid-window .fluent-telemetry-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.liquid-window .fluent-telemetry-divider { display: none; }
+.liquid-window .fluent-telemetry-val { font-size: 14px; }
+@keyframes liquid-breathe { 0%,100% { transform: scale(.97); opacity: .55; } 50% { transform: scale(1.04); opacity: 1; } }
+
+/* Moving glass is used by every segmented control and selection. */
+.liquid-window :is(.fluent-filter-pills,.fluent-profile-tabs,.fluent-lang-toggle-group) {
+  display: flex; padding: 5px; gap: 3px; border: 1px solid rgba(231,243,255,.09);
+  border-radius: 17px; background: rgba(5,13,24,.25); width: 100%;
+}
+.liquid-window :is(.fluent-pill,.fluent-profile-tab,.fluent-lang-btn) {
+  position: relative; isolation: isolate; flex: 1; display: flex; justify-content: center;
+  min-width: 0; padding: 9px 4px; border-radius: 12px; border: 0;
+  color: #91a4ba; background: transparent; font-size: 10px; white-space: nowrap;
+}
+.liquid-window :is(.fluent-pill,.fluent-profile-tab,.fluent-lang-btn).active { background: transparent; color: #ecfff8; box-shadow: none; }
+.liquid-window .fluent-filter-pills { flex-wrap: nowrap; }
+.liquid-window .fluent-pill { font-weight: 500; }
+.liquid-window :is(.fluent-pill-active-bg,.fluent-profile-tab-active-bg,.liquid-segment-lens,.fluent-settings-tab-active-bg) {
+  position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(140deg, rgba(222,246,249,.14), rgba(191,224,238,.055));
+  border: 1px solid rgba(231,255,249,.19);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 3px 8px rgba(0,0,0,.12);
+}
+.liquid-window .fluent-server-row {
+  width: 100%; text-align: left; color: inherit; padding: 15px 13px; border-radius: 20px; gap: 11px;
+  background: rgba(223,239,255,.035); border: 1px solid rgba(223,239,255,.09);
+  isolation: isolate; cursor: pointer;
+}
+.liquid-window .fluent-server-row--selected { background: transparent; border-color: transparent; }
+.liquid-window .fluent-server-selected-glow {
+  inset: -1px; z-index: -1; border-radius: 20px;
+  background: linear-gradient(140deg, rgba(165,255,221,.12), rgba(175,212,248,.045));
+  border: 1px solid rgba(169,250,221,.32); box-shadow: inset 0 1px 0 rgba(227,255,245,.15);
+}
+.liquid-window .fluent-server-row__name { font-size: 11px; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
+.liquid-window .fluent-server-row__name-line { gap: 5px; flex-wrap: wrap; }
+.liquid-window .fluent-server-row__meta { gap: 8px; flex-shrink: 0; }
+.liquid-window .fluent-server-row__ping-box { font-size: 10px; padding: 5px 6px; }
+.liquid-window .fluent-server-row__flag { flex-shrink: 0; }
+.liquid-window .fluent-server-radio.selected { background: var(--neon-green); color: #133a2d; border-color: var(--neon-green); }
+.liquid-window .fluent-chip { border-radius: 7px; font-size: 8px; padding: 3px 5px; }
+.liquid-window .fluent-search-box { padding: 13px 15px; border-radius: 16px; }
+.liquid-window .fluent-search-input { font-size: 12px; }
+.liquid-window .fluent-search-box:focus-within { border-color: rgba(137,245,208,.5); box-shadow: 0 0 0 3px rgba(137,245,208,.06); }
+.liquid-window .fluent-servers-list { gap: 9px; }
+
+/* Devices remain readable in the narrow shell. */
+.liquid-window .fluent-slot-card__top { flex-wrap: wrap; gap: 14px; align-items: center; }
+.liquid-window .fluent-slot-title { font-size: 11px; }
+.liquid-window .fluent-slot-counter { font-size: 17px; color: var(--neon-green); letter-spacing: -.5px; }
+.liquid-window .fluent-btn-add-slot { font-size: 10px; min-height: 30px; padding: 7px 9px; }
+.liquid-window .fluent-slot-progress-bar { height: 4px; background: rgba(230,244,255,.08); margin-top: 15px; }
+.liquid-window .fluent-slot-progress-fill { background: linear-gradient(90deg, #79dbb8, #b9f5e4); }
+.liquid-window .fluent-device-row { padding: 15px 13px; gap: 11px; flex-wrap: wrap; }
+.liquid-window .fluent-device-info { flex: 1; min-width: 0; }
+.liquid-window .fluent-device-avatar { width: 38px; height: 38px; border-radius: 13px; flex-shrink: 0; }
+.liquid-window .fluent-device-name-row, .liquid-window .fluent-device-meta { flex-wrap: wrap; gap: 6px; }
+.liquid-window .fluent-device-name { font-size: 12px; overflow-wrap: anywhere; }
+.liquid-window .fluent-device-name-wrap { min-width: 0; }
+.liquid-window .fluent-device-meta { font-size: 10px; line-height: 1.5; }
+.liquid-window .fluent-device-actions { margin-left: auto; }
+.liquid-window .fluent-inline-input { min-width: 0; width: 100%; border-radius: 8px; }
+.liquid-window .fluent-empty-box { padding: 45px 16px; gap: 14px; text-align: center; }
+.liquid-window .fluent-empty-box h3 { font-size: 17px; letter-spacing: -.5px; color: #c4d2e3; }
+.liquid-window .fluent-empty-box p { font-size: 11px; line-height: 1.8; color: #8b9eb6; }
+.liquid-window .fluent-empty-icon { padding: 14px; box-sizing: content-box; border: 1px solid rgba(230,245,255,.1); border-radius: 23px; background: rgba(230,245,255,.035); }
+
+/* Settings: five glass categories, then iOS-style grouped rows. */
+.liquid-window .fluent-settings-layout { flex-direction: column; gap: 23px; }
+.liquid-window .fluent-settings-tabs {
+  width: 100%; min-width: 0; display: grid; grid-template-columns: repeat(5,minmax(0,1fr));
+  gap: 3px; padding: 5px; border-radius: 19px; background: rgba(5,13,24,.25); border: 1px solid rgba(231,243,255,.08);
+}
+.liquid-window .fluent-settings-tab-btn {
+  position: relative; isolation: isolate; flex-direction: column; justify-content: center; gap: 7px;
+  min-width: 0; min-height: 63px; padding: 9px 2px; border-radius: 14px; background: transparent; font-size: 8px;
+}
+.liquid-window .fluent-settings-tab-btn span { white-space: normal; text-align: center; line-height: 1.3; }
+.liquid-window .fluent-settings-tab-btn.active { background: transparent; color: #dcfff1; }
+.liquid-window .fluent-settings-tab-btn svg { width: 17px; height: 17px; flex-shrink: 0; }
+.liquid-window .fluent-settings-content { min-width: 0; width: 100%; }
+.liquid-window .fluent-section-title { font-size: 16px; font-weight: 600; letter-spacing: -.4px; }
+.liquid-window .fluent-section-desc { font-size: 11px; line-height: 1.7; color: #9cacc1; }
+.liquid-window .fluent-settings-group { padding: 3px 15px; gap: 0; }
+.liquid-window .fluent-toggle-row { padding: 17px 0; gap: 15px; min-width: 0; }
+.liquid-window .fluent-toggle-text { min-width: 0; gap: 5px; }
+.liquid-window .fluent-toggle-text strong { font-size: 12px; line-height: 1.4; font-weight: 550; }
+.liquid-window .fluent-toggle-text span { font-size: 10px; line-height: 1.6; color: #91a5bd; }
+.liquid-window .fluent-toggle-divider { background: rgba(231,243,255,.075); }
+.liquid-window .fluent-switch { width: 47px; height: 28px; border: 1px solid rgba(255,255,255,.13); border-radius: 18px; background: rgba(207,224,242,.13); box-shadow: inset 0 1px 3px rgba(0,0,0,.13); }
+.liquid-window .fluent-switch.active { background: #80dfb9; border-color: #95f1cb; box-shadow: 0 2px 12px rgba(101,225,173,.14); }
+.liquid-window .fluent-switch-thumb,
+.liquid-window .fluent-switch.active .fluent-switch-thumb { top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: linear-gradient(#fff,#e9f2f2); box-shadow: 0 2px 4px rgba(0,0,0,.18); transition: none; }
+.liquid-window .fluent-theme-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; padding-bottom: 14px; }
+.liquid-window .fluent-theme-card { position: relative; isolation: isolate; border-radius: 15px; padding: 9px; color: #bac8d9; background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.07); min-width: 0; cursor: pointer; }
+.liquid-window .fluent-theme-card.active { border-color: transparent; box-shadow: none; }
+.liquid-theme-lens { position: absolute; inset: -1px; border-radius: 15px; z-index: -1; background: rgba(220,251,245,.07); border: 1px solid var(--neon-green); }
+.liquid-window .fluent-theme-preview { width: 100%; height: 45px; border-radius: 9px; }
+.liquid-window .fluent-theme-name { font-size: 9px; }
+.liquid-window .fluent-lang-toggle-group { width: auto; gap: 2px; padding: 4px; flex-shrink: 0; }
+.liquid-window .fluent-lang-btn { padding: 8px; font-size: 9px; gap: 4px; }
+.liquid-window .fluent-about-card { gap: 14px; }
+.liquid-window .fluent-about-meta { overflow-wrap: anywhere; }
+.liquid-window .settings-update-card { padding: 15px; border-radius: 19px; }
+.liquid-window .settings-update-title { font-size: 12px; }
+.liquid-window .settings-update-desc { font-size: 10px; line-height: 1.6; }
+.liquid-window .settings-update-action-btn { white-space: normal; }
+
+/* Account cards and payment rows share the same compact rhythm. */
+.liquid-window .fluent-user-hero-card { padding: 19px 16px; align-items: flex-start; gap: 12px; }
+.liquid-window .fluent-user-avatar-box { width: 46px; height: 46px; border-radius: 16px; flex-shrink: 0; }
+.liquid-window .fluent-user-hero-info { min-width: 0; }
+.liquid-window .fluent-user-name-line { flex-wrap: wrap; gap: 7px; }
+.liquid-window .fluent-user-hero-name { font-size: 15px; letter-spacing: -.4px; overflow-wrap: anywhere; }
+.liquid-window .fluent-user-hero-meta { font-size: 10px; line-height: 1.8; flex-wrap: wrap; overflow-wrap: anywhere; }
+.liquid-window .fluent-provider-row { padding: 12px 0; gap: 9px; flex-wrap: wrap; }
+.liquid-window .fluent-provider-info { min-width: 0; flex: 1; }
+.liquid-window .fluent-provider-name { font-size: 12px; }
+.liquid-window .fluent-provider-account { font-size: 10px; overflow-wrap: anywhere; }
+.liquid-window .fluent-switcher-chips { flex-wrap: wrap; }
+.liquid-window .fluent-switcher-chip { position: relative; isolation: isolate; border-radius: 12px; font-size: 10px; }
+.liquid-window .fluent-switcher-chip.active { background: transparent; color: var(--neon-green-light); border-color: transparent; }
+.liquid-window .fluent-auth-tile { border-radius: 16px; background: rgba(235,246,255,.035); }
+.liquid-window .fluent-auth-tile--current { border-color: rgba(168,242,213,.3); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); background: rgba(175,246,222,.055); }
+.liquid-window .fluent-action-row { flex-wrap: wrap; gap: 12px; padding: 10px 0; }
+.liquid-window .fluent-action-row__text { min-width: 0; flex: 1 1 210px; gap: 5px; }
+.liquid-window .fluent-action-title { font-size: 12px; }
+.liquid-window .fluent-action-desc { font-size: 10px; line-height: 1.7; }
+.liquid-window .fluent-action-row .btn { flex-shrink: 0; white-space: nowrap; }
+.liquid-window .fluent-payments-summary-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.liquid-window .fluent-payments-summary-grid > :last-child { grid-column: 1 / -1; }
+.liquid-window .fluent-stats-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.liquid-window .fluent-stat-num { font-size: 24px; }
+.liquid-window .fluent-tx-row { padding: 13px 0; gap: 9px; flex-wrap: wrap; }
+.liquid-window .fluent-tx-main { min-width: 0; }
+.liquid-window .fluent-tx-title-row { flex-wrap: wrap; gap: 5px; }
+.liquid-window .fluent-payments-header-row { flex-wrap: wrap; gap: 10px; }
+.liquid-window .fluent-hwid-code { overflow-wrap: anywhere; user-select: text; font-size: 10px; }
+
+/* Entry screen carries the same material, spacing, and tactile controls. */
+.liquid-window .login-screen { padding: 30px 26px; justify-content: center; gap: 33px; overflow-y: auto; }
+.liquid-window .login-brand { margin-bottom: 0; }
+.liquid-window .login-logo-wrap { border-radius: 28px; background: linear-gradient(135deg,rgba(207,255,237,.12),rgba(207,237,255,.035)); border: 1px solid rgba(224,255,245,.2); box-shadow: inset 0 1px 0 rgba(255,255,255,.2),0 18px 36px rgba(0,0,0,.17); }
+.liquid-window .login-logo-icon { color: var(--neon-green-light); }
+.liquid-window .login-logo-pulse { animation: liquid-breathe 6s ease-in-out infinite; border-color: rgba(167,255,224,.1); }
+.liquid-window .login-title { font-size: 38px; letter-spacing: -1.8px; font-weight: 650; background: none; -webkit-text-fill-color: #effff9; }
+.liquid-window .login-subtitle { font-size: 12px; line-height: 1.7; color: #9eafc3; }
+.liquid-window .login-actions { width: 100%; max-width: 380px; gap: 11px; }
+.liquid-window .btn-auth { padding: 17px 16px; min-height: 77px; border-radius: 21px; background: linear-gradient(135deg,rgba(230,245,255,.075),rgba(230,245,255,.025)); border: 1px solid rgba(232,248,255,.14); box-shadow: var(--glass-shadow); gap: 13px; }
+.liquid-window .btn-auth__title { font-size: 13px; letter-spacing: -.2px; }
+.liquid-window .btn-auth__hint { font-size: 10px; margin-top: 4px; color: #8eabc0; }
+.liquid-window .btn-auth__icon-wrap { width: 35px; height: 35px; border-radius: 12px; }
+.liquid-window .login-footer { margin-top: 12px; font-size: 10px; color: #8d9db1; }
+.liquid-window .login-link-btn { color: var(--neon-green); }
+.liquid-window .login-waiting-card,.liquid-window .login-tg-form { border-radius: 23px; background: var(--glass); border-color: var(--glass-edge); }
+.liquid-window .fluent-modal-card { max-width: calc(100vw - 32px); border-radius: 25px; background: rgba(23,35,52,.94); backdrop-filter: blur(30px); border: 1px solid rgba(233,247,255,.18); }
+.liquid-window .fluent-modal-title { font-size: 13px; overflow-wrap: anywhere; }
+.liquid-window .fluent-log-pre { max-width: 100%; overflow: auto; }
+.liquid-window .fluent-toast { right: 18px; left: 18px; top: 16px; width: auto; border-radius: 17px; font-size: 11px; line-height: 1.6; backdrop-filter: blur(28px); }
+.liquid-window .fluent-toast-pill { max-width: calc(100vw - 36px); min-width: 0; }
+.liquid-window .fluent-toast-body { min-width: 0; }
+.liquid-window .fluent-toast-message {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4;
+  overflow: hidden; overflow-wrap: anywhere; white-space: normal;
+}
+
+@media (max-width: 420px) {
+  .liquid-window .fluent-page { padding-left: 17px; padding-right: 17px; }
+  .liquid-window .fluent-main-content { padding-left: 17px; padding-right: 17px; }
+  .liquid-window .fluent-slot-card__top { flex-direction: column; align-items: stretch; }
+  .liquid-window .fluent-btn-add-slot { align-self: flex-start; }
+  .liquid-window .fluent-lang-toggle-group { flex-wrap: wrap; }
+}
+@media (max-height: 700px) {
+  .liquid-window .liquid-home-heading h1 { font-size: 30px; }
+  .liquid-window .liquid-home-heading { padding-bottom: 4px; }
+  .liquid-window .liquid-home-heading p { display: none; }
+  .liquid-window .fluent-main-content { padding-top: 17px; }
+  .liquid-window .fluent-hero-morph-surface { gap: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .liquid-window *, .liquid-window *::before, .liquid-window *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+}

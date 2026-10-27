@@ -116,7 +116,7 @@ class UpdateCheckWorker(
                     android.R.drawable.stat_sys_download_done
                 )
                 .setContentTitle(
-                    "Доступно обновление pingwin"
+                    "Доступно обновление Viht VPN"
                 )
                 .setContentText(
                     "Новая версия: $version"

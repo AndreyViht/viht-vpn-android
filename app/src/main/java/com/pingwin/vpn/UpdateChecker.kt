@@ -10,24 +10,28 @@ data class UpdateRelease(
     val apkUrl: String,
     val releaseUrl: String,
     val releaseNotes: String,
-    val apkSha256: String? = null
+    val apkSha256: String? = null,
+    val apkSizeBytes: Long = 0L
 )
 
 object UpdateChecker {
 
     private const val LATEST_RELEASE_URL =
-        "https://api.github.com/repos/scripchenko/pingwin/releases/latest"
+        "https://anviht.ru/download/android-test-latest.json"
 
     private data class ApkAsset(
         val name: String,
         val url: String,
-        val sha256: String?
+        val sha256: String?,
+        val sizeBytes: Long = 0L
     )
 
     fun getLatestRelease(): UpdateRelease {
         val connection =
-            (URL(LATEST_RELEASE_URL).openConnection() as HttpURLConnection).apply {
+            (URL(LATEST_RELEASE_URL + "?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
+                useCaches = false
+                setRequestProperty("Cache-Control", "no-cache")
                 connectTimeout = 10_000
                 readTimeout = 15_000
                 setRequestProperty(
@@ -36,7 +40,7 @@ object UpdateChecker {
                 )
                 setRequestProperty(
                     "User-Agent",
-                    "pingwin-android"
+                    "VihtVPN-Android"
                 )
                 setRequestProperty(
                     "X-GitHub-Api-Version",
@@ -93,6 +97,7 @@ object UpdateChecker {
                             add(
                                 ApkAsset(
                                     name = name,
+                                    sizeBytes = asset.optLong("size", 0),
                                     url =
                                         asset.getString(
                                             "browser_download_url"
@@ -142,7 +147,8 @@ object UpdateChecker {
                     json.optString(
                         "body"
                     ),
-                apkSha256 = selectedAsset.sha256
+                apkSha256 = selectedAsset.sha256,
+                apkSizeBytes = selectedAsset.sizeBytes
             )
         } finally {
             connection.disconnect()

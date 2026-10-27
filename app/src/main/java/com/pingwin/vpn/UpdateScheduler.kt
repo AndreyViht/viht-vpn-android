@@ -40,8 +40,8 @@ object UpdateScheduler {
 
         val request =
             PeriodicWorkRequestBuilder<UpdateCheckWorker>(
-                1,
-                TimeUnit.DAYS
+                6,
+                TimeUnit.HOURS
             )
                 .setConstraints(
                     constraints

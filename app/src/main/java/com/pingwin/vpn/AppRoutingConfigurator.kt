@@ -10,15 +10,10 @@ object AppRoutingConfigurator {
         builder: VpnService.Builder,
         routing: RoutingSettings
     ) {
-        /*
-         * Intentionally empty.
-         *
-         * Every application is allowed into the Android VPN tunnel.
-         * sing-box is the single place that decides whether a connection
-         * uses the VLESS proxy or the direct outbound.
-         *
-         * This is required so domain rules work independently of which
-         * browser or application opened the site.
-         */
+        val raw=context.getSharedPreferences("viht_ui_settings",Context.MODE_PRIVATE).getString("vpnSettings","{}") ?: "{}"
+        for(pkg in VpnBypassSettings.packages(org.json.JSONObject(raw))) {
+            if(pkg==context.packageName) continue
+            try { builder.addDisallowedApplication(pkg) } catch (_: android.content.pm.PackageManager.NameNotFoundException) { /* uninstalled application */ }
+        }
     }
 }
