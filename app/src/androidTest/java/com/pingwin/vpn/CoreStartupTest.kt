@@ -21,14 +21,37 @@ class CoreStartupTest {
         val info = context.packageManager.getActivityInfo(component, 0)
         assertFalse(info.exported)
         assertEquals(PaymentActivity::class.java.name, info.name)
-        // No receiver, amount or invoice: opens the native screen without submitting a payment.
+        // Read-only form initialization: no card data, confirmation or transfer is submitted.
         val intent = android.content.Intent(context, PaymentActivity::class.java)
-            .putExtra("paymentUrl", "https://yoomoney.ru/quickpay/confirm.xml")
+            .putExtra("paymentUrl", "https://yoomoney.ru/quickpay/confirm.xml?receiver=4100119557878170&sum=59&label=viht_form_smoke_no_transfer&quickpay-form=shop")
             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         val activity = instrumentation.startActivitySync(intent)
         try {
             assertTrue(activity is PaymentActivity)
             assertFalse(activity.isFinishing)
+            fun webView(view: android.view.View): android.webkit.WebView? {
+                if (view is android.webkit.WebView) return view
+                if (view is android.view.ViewGroup) for (i in 0 until view.childCount) webView(view.getChildAt(i))?.let { return it }
+                return null
+            }
+            var formReady = false
+            val deadline = System.currentTimeMillis() + 60000
+            while (!formReady && System.currentTimeMillis() < deadline) {
+                val latch = java.util.concurrent.CountDownLatch(1)
+                instrumentation.runOnMainSync {
+                    val browser = webView(activity.findViewById(android.R.id.content))
+                    assertNotNull(browser)
+                    browser!!.evaluateJavascript("""
+                        (function(){var t=document.body?document.body.innerText:'';
+                        var count=Array.from(document.querySelectorAll('input')).filter(function(e){return e.type!=='hidden'&&e.getBoundingClientRect().width>0;}).length;
+                        return count>=3&&/номер\s+карты|card\s+number/i.test(t)&&/59/.test(t);})()
+                    """.trimIndent()) { value -> formReady = value == "true"; latch.countDown() }
+                }
+                assertTrue(latch.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                if (!formReady) android.os.SystemClock.sleep(700)
+            }
+            assertTrue("YooMoney must render amount and card inputs, not just an empty window", formReady)
+
         } finally {
             instrumentation.runOnMainSync { activity.finish() }
             instrumentation.waitForIdleSync()

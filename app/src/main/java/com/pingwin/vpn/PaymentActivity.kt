@@ -23,19 +23,18 @@ import androidx.core.view.WindowInsetsCompat
 /** Isolated provider surface: no Viht JavaScript interface, owner token or account cookies. */
 class PaymentActivity : ComponentActivity() {
     private lateinit var payment: WebView
+    private var formReady = false
+    private var loadEpoch = 0
+    private var loadWarning: Runnable? = null
     companion object {
-        fun isPaymentEntry(value: String): Boolean = runCatching {
-            val uri = Uri.parse(value)
-            uri.scheme == "https" && uri.host == "yoomoney.ru" && uri.port in setOf(-1, 443) && uri.userInfo == null &&
-                uri.path == "/quickpay/confirm.xml"
-        }.getOrDefault(false)
+        fun isPaymentEntry(value: String): Boolean = YooMoneyCheckout.isEntry(value)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val url = intent.getStringExtra("paymentUrl") ?: ""
-        if (!isPaymentEntry(url)) { finish(); return }
+        val checkout = runCatching { YooMoneyCheckout.fromSavedUrl(url) }.getOrElse { finish(); return }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.parseColor("#0c1521")) }
         val header = LinearLayout(this).apply { setPadding(20, 8, 12, 8); gravity = android.view.Gravity.CENTER_VERTICAL; minimumHeight = (56 * resources.displayMetrics.density).toInt() }
         header.addView(TextView(this).apply { text = "Оплата · ЮMoney"; textSize = 18f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -45,15 +44,45 @@ class PaymentActivity : ComponentActivity() {
         root.addView(progress, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 5))
         val message = TextView(this).apply { setTextColor(Color.LTGRAY); textSize = 13f; setPadding(20, 4, 20, 4) }
         root.addView(message)
+        fun probeForm(epoch: Int, remaining: Int) {
+            if (formReady || isFinishing || isDestroyed || epoch != loadEpoch) return
+            payment.evaluateJavascript("""
+                (function(){var t=document.body?document.body.innerText:'';
+                var inputs=Array.from(document.querySelectorAll('input')).filter(function(e){return e.type!=='hidden'&&e.getBoundingClientRect().width>0;}).length;
+                return inputs>=3&&/номер\s+карты|card\s+number/i.test(t);})()
+            """.trimIndent()) { ready ->
+                if (epoch != loadEpoch || isFinishing || isDestroyed) return@evaluateJavascript
+                if (ready == "true") {
+                    formReady = true; message.text = ""
+                    loadWarning?.let { payment.removeCallbacks(it) }
+                } else if (remaining > 0) payment.postDelayed({ probeForm(epoch, remaining - 1) }, 1000)
+            }
+        }
+        fun submitCheckout() {
+            message.text = ""; progress.visibility = android.view.View.VISIBLE
+            formReady = false; loadEpoch += 1
+            val epoch = loadEpoch
+            loadWarning?.let { payment.removeCallbacks(it) }
+            payment.postUrl(checkout.endpoint, checkout.body.toByteArray(Charsets.UTF_8))
+            payment.postDelayed({ probeForm(epoch, 28) }, 1000)
+            loadWarning = Runnable {
+                if (!isFinishing && !isDestroyed && !formReady) {
+                    progress.visibility = android.view.View.GONE
+                    message.text = "ЮMoney не загрузил форму оплаты. Нажмите здесь, чтобы повторить."
+                }
+            }.also { payment.postDelayed(it, 30000) }
+        }
+        message.setOnClickListener { submitCheckout() }
         payment = WebView(this).apply {
             setBackgroundColor(Color.WHITE)
             settings.apply {
                 javaScriptEnabled = true; domStorageEnabled = true
+                useWideViewPort = true; loadWithOverviewMode = true
                 allowFileAccess = false; allowContentAccess = false
                 mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                 safeBrowsingEnabled = true
             }
-            CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             webChromeClient = object : WebChromeClient() {
                 override fun onProgressChanged(view: WebView?, value: Int) {
                     progress.progress = value
@@ -74,8 +103,14 @@ class PaymentActivity : ComponentActivity() {
                 }
                 override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: android.webkit.WebResourceError?) {
                     if (request?.isForMainFrame == true) {
+                        progress.visibility = android.view.View.GONE
                         message.text = "Не удалось загрузить оплату. Нажмите здесь для повтора или закройте окно."
-                        message.setOnClickListener { message.text = ""; payment.reload() }
+                    }
+                }
+                override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, error: android.webkit.WebResourceResponse?) {
+                    if (request?.isForMainFrame == true) {
+                        progress.visibility = android.view.View.GONE
+                        message.text = "Платёжный сервис временно недоступен. Нажмите здесь, чтобы повторить."
                     }
                 }
             }
@@ -87,8 +122,8 @@ class PaymentActivity : ComponentActivity() {
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom)); insets
         }
-        if (savedInstanceState == null) payment.loadUrl(url) else payment.restoreState(savedInstanceState)
+        if (savedInstanceState == null || payment.restoreState(savedInstanceState) == null) submitCheckout()
     }
     override fun onSaveInstanceState(outState: Bundle) { payment.saveState(outState); super.onSaveInstanceState(outState) }
-    override fun onDestroy() { if (::payment.isInitialized) { payment.stopLoading(); payment.destroy() }; super.onDestroy() }
+    override fun onDestroy() { if (::payment.isInitialized) { loadWarning?.let { payment.removeCallbacks(it) }; payment.stopLoading(); payment.destroy() }; super.onDestroy() }
 }
