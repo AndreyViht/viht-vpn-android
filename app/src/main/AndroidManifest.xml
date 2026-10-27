@@ -37,6 +37,12 @@
         android:theme="@style/Theme.Pingwin">
 
         <activity
+            android:name="com.pingwin.vpn.PaymentActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Pingwin"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".MainActivity"
             android:launchMode="singleTask"
             android:exported="true"

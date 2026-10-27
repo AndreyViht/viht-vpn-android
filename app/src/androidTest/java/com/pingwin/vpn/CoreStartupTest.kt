@@ -14,6 +14,27 @@ import java.lang.reflect.Proxy
 /** Starts the actual packaged core with local-only inbounds. Never creates a VPN/TUN. */
 @RunWith(AndroidJUnit4::class)
 class CoreStartupTest {
+    @Test fun paymentScreenIsRegisteredPrivateAndLaunches() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val component = android.content.ComponentName(context, PaymentActivity::class.java)
+        val info = context.packageManager.getActivityInfo(component, 0)
+        assertFalse(info.exported)
+        assertEquals(PaymentActivity::class.java.name, info.name)
+        // No receiver, amount or invoice: opens the native screen without submitting a payment.
+        val intent = android.content.Intent(context, PaymentActivity::class.java)
+            .putExtra("paymentUrl", "https://yoomoney.ru/quickpay/confirm.xml")
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        val activity = instrumentation.startActivitySync(intent)
+        try {
+            assertTrue(activity is PaymentActivity)
+            assertFalse(activity.isFinishing)
+        } finally {
+            instrumentation.runOnMainSync { activity.finish() }
+            instrumentation.waitForIdleSync()
+        }
+    }
+
     private fun stub(type: Class<*>): Any = Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, _ ->
         when (method.name) {
             "openTun" -> error("This test must never create a TUN")

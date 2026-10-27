@@ -522,8 +522,7 @@ function SettingsScreen({
 
                   <div className="fluent-toggle-divider" />
 
-                  {/* Split tunneling: Обход сайтов РФ */}
-                  <div
+                  {isAndroid ? <BypassEditor settings={settings} onUpdateSetting={onUpdateSetting}/> : (<div
                     className="fluent-toggle-row"
                     onClick={() => onUpdateSetting('bypassRussia', settings.bypassRussia !== false ? false : true)}
                   >
@@ -536,8 +535,7 @@ function SettingsScreen({
                       label={t('setting_split_ru', currentLang)}
                       onChange={() => onUpdateSetting('bypassRussia', settings.bypassRussia !== false ? false : true)}
                     />
-                  </div>
-
+                  </div>)}
                   <div className="fluent-toggle-divider" />
 
                   {/* Экспорт логов */}
@@ -558,7 +556,7 @@ function SettingsScreen({
                   </div>
                 </div>
 
-                {isAndroid && <BypassEditor settings={settings} onUpdateSetting={onUpdateSetting}/>}
+
                 {/* О программе & проверка обновлений */}
                 <div className="fluent-card fluent-about-card">
                   <div className="fluent-about-header">
