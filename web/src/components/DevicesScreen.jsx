@@ -274,11 +274,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
   const getAppChipLabel = deviceAppLabel;
   const usage = slotUsage(devices, limits);
 
-  const openAddSlot = () => {
-    const url = 'https://anviht.ru/lk?modal=slot';
-    if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
-    else window.open(url, '_blank');
-  };
+  const openAddSlot = () => window.dispatchEvent(new CustomEvent('viht-open-tariffs', { detail: { product: 'slots' } }));
 
   return (
     <div className="fluent-page fluent-devices-page">

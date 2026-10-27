@@ -941,6 +941,7 @@ export default function App() {
       <TitleBar title="VihtVPN" isConnected={connectionState === 'connected'} user={user} onOpenHelp={handleOpenHelp} minimizeToTray={settings.minimizeToTray !== false} />
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
       {token && user && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
+      {token && user && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
       {availableUpdate && <div className="fluent-card" style={{position:'absolute',top:58,left:16,right:16,zIndex:1000,display:'flex',alignItems:'center',gap:10,padding:14}}>
         <span style={{flex:1}}>Доступно обновление {availableUpdate.version}</span>
         <button className="btn btn--primary btn--sm" onClick={() => {setFocusUpdates(true);setActiveTab('settings');setAvailableUpdate(null);}}>Обновить</button>
