@@ -1,93 +1,100 @@
 name: Build Viht VPN APK
-
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
-
 permissions:
-  contents: write
-
+  contents: read
 jobs:
   build:
-    name: Build Viht VPN APK
+    name: Android universal test APK
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-
+    timeout-minutes: 45
+    env:
+      VIHT_TEST_KEYSTORE: ${{ github.workspace }}/.viht-test-signing.keystore
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build and test shared interface
+        working-directory: web
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          npm run build
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-
-      - name: Install Android 37 platform
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android platform
         run: sdkmanager "platforms;android-37.0"
-
-      - name: Ensure libbox.aar
+      - uses: actions/cache@v4
+        with:
+          path: app/libs/libbox.aar
+          key: libbox-3a706062e1b3e804ca7f7abbdef523a05c4ad7c125ab1496e2b0a52a62c360a5
+      - name: Verify pinned VPN core
+        run: node tools/fetch-libbox.mjs
+      - uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: viht-android-test-signing-v1
+      - name: Ensure persistent test signing key
         run: |
-          mkdir -p app/libs
-          if [ ! -s app/libs/libbox.aar ] || [ $(wc -c < app/libs/libbox.aar) -lt 1000 ]; then
-            echo "Downloading libbox.aar from LFS..."
-            node -e "
-              const fs = require('fs');
-              const https = require('https');
-              async function run() {
-                const resp = await fetch('https://github.com/scripchenko/pingwin.git/info/lfs/objects/batch', {
-                  method: 'POST',
-                  headers: { 'Accept': 'application/vnd.git-lfs+json', 'Content-Type': 'application/vnd.git-lfs+json' },
-                  body: JSON.stringify({ operation: 'download', transfers: ['basic'], objects: [{ oid: '3a706062e1b3e804ca7f7abbdef523a05c4ad7c125ab1496e2b0a52a62c360a5', size: 92997417 }] })
-                });
-                const data = await resp.json();
-                const downloadUrl = data.objects[0].actions.download.href;
-                const file = fs.createWriteStream('app/libs/libbox.aar');
-                await new Promise((resolve, reject) => {
-                  https.get(downloadUrl, res => {
-                    res.pipe(file);
-                    file.on('finish', () => { file.close(); resolve(); });
-                  }).on('error', reject);
-                });
-                console.log('libbox.aar downloaded and verified');
-              }
-              run().catch(e => { console.error(e); process.exit(1); });
-            "
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -dname "CN=Viht VPN Test,O=Viht,C=RU" -keyalg RSA -keysize 2048 -validity 10000
           fi
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Make Gradle executable
-        run: chmod +x gradlew
-
-      - name: Verify libbox SHA-256
-        run: ./gradlew verifyLibbox --console=plain
-
-      - name: Build Optimized Single APK
-        run: ./gradlew assembleDebug --console=plain --stacktrace
-
-      - name: Organize Single APK
+          cp "$HOME/.android/debug.keystore" "$VIHT_TEST_KEYSTORE"
+          chmod 600 "$VIHT_TEST_KEYSTORE"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: Test, lint and build
+        run: |
+          chmod +x gradlew
+          ./gradlew verifyLibbox testDebugUnitTest lintDebug assembleDebug --continue --console=plain --stacktrace -PciVersionCode=$((1000 + GITHUB_RUN_NUMBER))
+      - name: Enable KVM for core runtime verification
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Start packaged core without a VPN tunnel
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: ./gradlew connectedDebugAndroidTest --console=plain --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=com.pingwin.vpn.CoreStartupTest -PciVersionCode=$((1000 + GITHUB_RUN_NUMBER))
+      - name: Prepare universal APK
         run: |
           mkdir -p release-apk
-          cp app/build/outputs/apk/debug/*.apk release-apk/VihtVPN.apk
-          ls -la release-apk/
-
-      - name: Upload Single APK Artifact
-        uses: actions/upload-artifact@v4
+          cp app/build/outputs/apk/debug/*.apk release-apk/VihtVPN-1.4.9-test-universal.apk
+          sha256sum release-apk/*.apk > release-apk/SHA256SUMS.txt
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$signer" verify --verbose --print-certs release-apk/VihtVPN-1.4.9-test-universal.apk > release-apk/signature-verification.txt
+          expected=$(keytool -exportcert -keystore "$VIHT_TEST_KEYSTORE" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f1)
+          actual=$(node tools/apk-signer-sha256.mjs release-apk/VihtVPN-1.4.9-test-universal.apk)
+          echo "Expected certificate: $expected; APK certificate: $actual"
+          test "$expected" = "$actual"
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            unzip -Z1 release-apk/VihtVPN-1.4.9-test-universal.apk | grep "^lib/$abi/.*\.so$" > /dev/null || exit 1
+          done
+      - uses: actions/upload-artifact@v4
         with:
-          name: VihtVPN-Android
-          path: release-apk/VihtVPN.apk
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+          name: VihtVPN-Android-test
+          path: release-apk/
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          tag_name: v1.3.7
-          name: "Viht VPN Android v1.3.7 (Fix Status Bar Overlap, Key Sync & Devices)"
-          files: release-apk/VihtVPN.apk
-          generate_release_notes: true
+          name: Android-check-reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            app/build/reports/lint-results-debug.*

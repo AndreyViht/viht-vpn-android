@@ -18,15 +18,16 @@ android {
 
     defaultConfig {
         applicationId = "ru.anviht.vpn"
-        minSdk = 29
+        minSdk = 26
         targetSdk = 37
-        versionCode = 8
-        versionName = "1.3.7"
+        versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 9
+        versionName = "1.4.9"
+        manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters.add("arm64-v8a")
+            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64"))
         }
     }
 
@@ -37,6 +38,12 @@ android {
     }
 
     signingConfigs {
+        getByName("debug") {
+            storeFile = file(System.getenv("VIHT_TEST_KEYSTORE") ?: (System.getProperty("user.home") + "/.android/debug.keystore"))
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (pingwinStoreFile.isPresent && pingwinStorePassword.isPresent && pingwinKeyAlias.isPresent && pingwinKeyPassword.isPresent) {
             create("release") {
                 storeFile = file(pingwinStoreFile.get())
@@ -49,7 +56,9 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
+            applicationIdSuffix = ".test"
+            versionNameSuffix = "-test"
+            manifestPlaceholders["appLabel"] = "Viht VPN Test"
         }
         release {
             signingConfigs.findByName("release")?.let { signingConfig = it }
@@ -87,6 +96,8 @@ dependencies {
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.joaomgcd:taskerpluginlibrary:0.4.10")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    testImplementation("org.json:json:20240303")
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
