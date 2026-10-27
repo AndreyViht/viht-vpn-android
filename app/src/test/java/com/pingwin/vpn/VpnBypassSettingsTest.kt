@@ -19,7 +19,10 @@ class VpnBypassSettingsTest {
         assertEquals("sniff",rules.getJSONObject(0).getString("action"))
         assertEquals("hijack-dns",rules.getJSONObject(1).getString("action"))
         assertEquals("direct",rules.getJSONObject(2).getString("outbound"))
-        assertTrue(rules.getJSONObject(2).getJSONArray("domain_suffix").toString().contains("example.org"))
+        assertTrue((0 until rules.length()).any {
+            val rule=rules.getJSONObject(it)
+            rule.optString("outbound")=="direct" && rule.optJSONArray("domain_suffix")?.toString()?.contains("example.org")==true
+        })
     }
     @Test fun persistedRulesUseOneAtomicSettingsObject() {
         val rules=JSONObject().put("domains",JSONArray(listOf("example.org"))).put("apps",JSONArray(listOf("com.example.app")))

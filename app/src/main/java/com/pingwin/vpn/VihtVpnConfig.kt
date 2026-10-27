@@ -34,6 +34,7 @@ object VihtVpnConfig {
         })
         for (index in 0 until previous.length()) { val rule=previous.getJSONObject(index); if(rule.optString("action")!="sniff") rules.put(rule) }
         route.put("rules", rules)
+        PaymentNetworkPolicy.apply(config)
         return config.toString()
     }
 }

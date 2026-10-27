@@ -11,8 +11,9 @@ object AppRoutingConfigurator {
         routing: RoutingSettings
     ) {
         val raw=context.getSharedPreferences("viht_ui_settings",Context.MODE_PRIVATE).getString("vpnSettings","{}") ?: "{}"
-        for(pkg in VpnBypassSettings.packages(org.json.JSONObject(raw))) {
-            if(pkg==context.packageName) continue
+        // Viht's isolated payment WebView and control-plane requests must use the
+        // physical network. Other applications remain captured by the VPN.
+        for(pkg in PaymentNetworkPolicy.directPackages(context.packageName,org.json.JSONObject(raw))) {
             try { builder.addDisallowedApplication(pkg) } catch (_: android.content.pm.PackageManager.NameNotFoundException) { /* uninstalled application */ }
         }
     }

@@ -22,7 +22,9 @@ class VihtVpnConfigTest {
     @Test fun settingsChangeDnsAndLanPolicy() {
         val config = JSONObject(VihtVpnConfig.build(ConnectionProfileParser.parse(key), JSONObject().put("allowLan",false).put("bypassRussia",false).put("dnsAdblock",false)))
         assertTrue(config.getJSONObject("route").getJSONArray("rules").let { rules -> (0 until rules.length()).any { rules.getJSONObject(it).optBoolean("ip_is_private") && rules.getJSONObject(it).optString("action")=="reject" } })
-        assertEquals(0, config.getJSONObject("dns").getJSONArray("rules").length())
+        val paymentDns = config.getJSONObject("dns").getJSONArray("rules")
+        assertEquals(1, paymentDns.length())
+        assertTrue(paymentDns.getJSONObject(0).getJSONArray("domain_suffix").toString().contains("yoomoney.ru"))
         assertEquals("1.1.1.1", config.getJSONObject("dns").getJSONArray("servers").getJSONObject(1).getString("server"))
         val filtered = JSONObject(VihtVpnConfig.build(ConnectionProfileParser.parse(key), JSONObject()))
         assertEquals("94.140.14.14", filtered.getJSONObject("dns").getJSONArray("servers").getJSONObject(1).getString("server"))
