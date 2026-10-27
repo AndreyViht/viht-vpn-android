@@ -35,7 +35,7 @@ export default function SubscriptionBilling({ token, accountId, onPaid }) {
   useEffect(() => {
     if (!open) return;
     let active = true;
-    setLoading(true); setError('');
+    setLoading(true); setTariffs([]); setError('');
     fetchAppTariffs(token).then(result => {
       if (!active) return;
       if (!result.ok || !Array.isArray(result.data?.tariffs) || !result.data.tariffs.length) throw Error(result.error || 'Не удалось загрузить тарифы');
@@ -104,6 +104,7 @@ export default function SubscriptionBilling({ token, accountId, onPaid }) {
         checkout = result.data.checkout;
         localStorage.setItem(storageKey, JSON.stringify(checkout));
         setOrder(checkout); setPaid(false);
+        if (checkout.price !== tariffs.find(t => t.days === selected)?.price) { setError('Цена обновилась. Проверьте новую сумму и нажмите «Продолжить оплату».'); return; }
       }
       if (!mounted.current) return;
       const result = await window.electronAPI.openPayment(checkout.paymentUrl);
