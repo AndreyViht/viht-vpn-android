@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
         val pending=kotlinx.coroutines.CompletableDeferred<String?>()
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main){
             check(inviteScan==null){"Сканер уже открыт"};inviteScan=pending
-            inviteScanner.launch(com.journeyapps.barcodescanner.ScanOptions().setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.QR_CODE).setPrompt("Отсканируйте приглашение Viht VPN").setBeepEnabled(false).setCaptureActivity(InviteCaptureActivity::class.java).setOrientationLocked(true))
+            inviteScanner.launch(com.journeyapps.barcodescanner.ScanOptions().setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.QR_CODE).setPrompt("Отсканируйте приглашение Viht").setBeepEnabled(false).setCaptureActivity(InviteCaptureActivity::class.java).setOrientationLocked(true))
         }
         val content=pending.await()?:return org.json.JSONObject().put("ok",false).put("cancelled",true)
         return org.json.JSONObject().put("ok",true).put("delivered",true)
@@ -76,18 +76,18 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (::bridge.isInitialized) bridge.completeBrowserAuth(intent.data); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
     suspend fun addQuickTile(): org.json.JSONObject {
         if (Build.VERSION.SDK_INT < 33) {
-            val message="Откройте шторку → Изменить плитки → перетащите Viht VPN"
+            val message="Откройте шторку → Изменить плитки → перетащите Viht"
             android.widget.Toast.makeText(this,message,android.widget.Toast.LENGTH_LONG).show()
             return org.json.JSONObject().put("ok",true).put("manual",true).put("message",message)
         }
         val result=kotlinx.coroutines.CompletableDeferred<Int>()
         getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
-            android.content.ComponentName(this,VihtTileService::class.java),"Viht VPN",
+            android.content.ComponentName(this,VihtTileService::class.java),"Viht",
             android.graphics.drawable.Icon.createWithResource(this,R.drawable.ic_viht_tile),mainExecutor) { code -> result.complete(code) }
         val code=kotlinx.coroutines.withTimeoutOrNull(20000) { result.await() }
         val added=code==1 || code==2
         if(added) getSharedPreferences("viht_ui_settings",Context.MODE_PRIVATE).edit().putBoolean("tileAdded",true).apply()
-        val message=when(code) { 1 -> "Плитка уже добавлена в шторку";2 -> "Плитка добавлена";else -> "Android не добавил плитку. Откройте шторку → Изменить плитки → Viht VPN." }
+        val message=when(code) { 1 -> "Плитка уже добавлена в шторку";2 -> "Плитка добавлена";else -> "Android не добавил плитку. Откройте шторку → Изменить плитки → Viht." }
         return org.json.JSONObject().put("ok",added).put("added",added).put("message",message).put("error",if(added) org.json.JSONObject.NULL else message)
     }
     fun consumeTileConnect(): Boolean = intent?.getBooleanExtra("viht_tile_connect", false)?.also { intent.removeExtra("viht_tile_connect") } ?: false
@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
         val provider = WebView.getCurrentWebViewPackage()
         if ((provider?.versionName?.substringBefore('.')?.toIntOrNull() ?: 0) < 103) {
             setContentView(TextView(this).apply {
-                text = "Для Viht VPN обновите Android System WebView или Chrome, затем откройте приложение снова."
+                text = "Для Viht обновите Android System WebView или Chrome, затем откройте приложение снова."
                 setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#0a111d")); textSize = 18f
                 setPadding(30, 80, 30, 30)
                 setOnClickListener { runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + (provider?.packageName ?: "com.google.android.webview")))) } }

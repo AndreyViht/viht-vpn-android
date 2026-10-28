@@ -30,7 +30,7 @@ object VpnNotification {
         val details=if(connected) "↓ ${rate(traffic.optDouble("speedDown",0.0))}   ↑ ${rate(traffic.optDouble("speedUp",0.0))}" else if(VpnStatus.state.value==VpnConnectionState.CONNECTING) "Подключение к VPN…" else if(VpnStatus.state.value==VpnConnectionState.ERROR) "Ошибка подключения" else "Подготовка VPN…"
         return NotificationCompat.Builder(context,CHANNEL)
             .setSmallIcon(R.drawable.ic_viht_tile)
-            .setContentTitle(if(!name.isNullOrBlank()) "Viht VPN · $name" else "Viht VPN")
+            .setContentTitle(if(!name.isNullOrBlank()) "Viht · $name" else "Viht")
             .setContentText(details).setStyle(NotificationCompat.BigTextStyle().bigText(details))
             .setContentIntent(PendingIntent.getActivity(context,0,Intent(context,MainActivity::class.java),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             .addAction(R.drawable.ic_viht_tile,"Отключить",PendingIntent.getService(context,1,Intent(context,AutoVlessVpnService::class.java).setAction("STOP"),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))

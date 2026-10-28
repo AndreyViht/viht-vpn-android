@@ -65,7 +65,7 @@ object AppAnnouncements {
             (Build.VERSION.SDK_INT<33 || ContextCompat.checkSelfPermission(context,Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED) && NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             val latest=fresh.first()
             val manager=context.getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(NotificationChannel(CHANNEL,"Новости Viht VPN",NotificationManager.IMPORTANCE_DEFAULT))
+            manager.createNotificationChannel(NotificationChannel(CHANNEL,"Новости Viht",NotificationManager.IMPORTANCE_DEFAULT))
             val intent=Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(EXTRA_OPEN,latest.getString("id"))
             val pending=PendingIntent.getActivity(context,1907,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val notification=NotificationCompat.Builder(context,CHANNEL).setSmallIcon(R.drawable.ic_viht_tile)

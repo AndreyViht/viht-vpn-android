@@ -70,7 +70,7 @@ object UpdateInstaller {
                 )
             )
                 .setTitle(
-                    "Viht VPN"
+                    "Viht"
                 )
                 .setDescription(
                     "Downloading update"

@@ -132,7 +132,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "setLoginItemSettings" -> error("Автозапуск Windows недоступен на Android")
                     "copyText" -> { withContext(Dispatchers.Main) {
                         val value=args.getString(0); require(value.length <= 8192)
-                        val clip=android.content.ClipData.newPlainText("Viht VPN",value)
+                        val clip=android.content.ClipData.newPlainText("Viht",value)
                         if (Build.VERSION.SDK_INT >= 33) clip.description.extras=android.os.PersistableBundle().apply { putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE,true) }
                         (activity.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(clip)
                     }; ok() }
@@ -185,7 +185,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             }
             if (epoch != operation.get()) return error("Подключение отменено").put("cancelled", true)
             val id = server.getString("id")
-            val saved = ConnectionStore.loadAll(activity).filterNot { it.id == id } + SavedConnection(id, server.optString("name", "Viht VPN"), link)
+            val saved = ConnectionStore.loadAll(activity).filterNot { it.id == id } + SavedConnection(id, server.optString("name", "Viht"), link)
             ConnectionStore.saveAll(activity, saved); ConnectionStore.select(activity, id)
             preferences.edit().putString("vpnSettings", settings.toString()).apply()
             activity.ensureNotificationPermission()
@@ -237,7 +237,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         val saved = (0 until array.length()).mapNotNull { index ->
             val server = array.optJSONObject(index) ?: return@mapNotNull null
             val link = server.optString("vless_uri").ifBlank { server.optString("vlessUri") }
-            if (link.isBlank()) null else SavedConnection(server.getString("id"), server.optString("name", "Viht VPN"), link)
+            if (link.isBlank()) null else SavedConnection(server.getString("id"), server.optString("name", "Viht"), link)
         }
         ConnectionStore.saveAll(activity, saved)
     }

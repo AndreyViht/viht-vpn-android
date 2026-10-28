@@ -110,7 +110,7 @@ export function getAuthProviderInfo(user, preferredProvider = null) {
   };
 }
 
-function TitleBar({ title = "VihtVPN", isConnected = false, user = null, onOpenHelp, onOpenNews, newsUnread = 0, minimizeToTray = true }) {
+function TitleBar({ title = "Viht", isConnected = false, user = null, onOpenHelp, onOpenNews, newsUnread = 0, minimizeToTray = true }) {
   const handleMinimize = () => {
     if (window.electronAPI?.minimizeWindow) {
       window.electronAPI.minimizeWindow();

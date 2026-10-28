@@ -955,7 +955,7 @@ export default function App() {
       <LiquidBackdrop />
 
       {/* Native Windows 11 TitleBar */}
-      <TitleBar title="VihtVPN" isConnected={connectionState === 'connected'} user={user} onOpenHelp={handleOpenHelp} onOpenNews={()=>window.dispatchEvent(new Event('viht-open-news'))} newsUnread={newsUnread} minimizeToTray={settings.minimizeToTray !== false} />
+      <TitleBar title="Viht" isConnected={connectionState === 'connected'} user={user} onOpenHelp={handleOpenHelp} onOpenNews={()=>window.dispatchEvent(new Event('viht-open-news'))} newsUnread={newsUnread} minimizeToTray={settings.minimizeToTray !== false} />
       <OwnerPairConfirmation onOpen={()=>setActiveTab('devices')} onAdded={()=>window.dispatchEvent(new Event('viht-devices-refresh'))}/>
       <JoinSubscription signedIn={!!token} beforeJoin={handleLogout}/>
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />

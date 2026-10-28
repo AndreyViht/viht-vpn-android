@@ -840,7 +840,7 @@ class AutoVlessVpnService :
         val builder =
             Builder()
                 .setSession(
-                    "Viht VPN"
+                    "Viht"
                 )
                 .setMtu(
                     options.mtu

@@ -26,9 +26,9 @@ class VihtTileService : TileService() {
     private fun refresh() {
         val current = VpnStatus.state.value
         qsTile?.apply {
-            label = "Viht VPN"
+            label = "Viht"
             state = if (current == VpnConnectionState.CONNECTED || current == VpnConnectionState.CONNECTING) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-            if (Build.VERSION.SDK_INT >= 29) subtitle = when(current) { VpnConnectionState.CONNECTED -> "Подключено"; VpnConnectionState.CONNECTING -> "Подключение…"; VpnConnectionState.ERROR -> "Ошибка — откройте Viht VPN"; else -> "Отключено" }
+            if (Build.VERSION.SDK_INT >= 29) subtitle = when(current) { VpnConnectionState.CONNECTED -> "Подключено"; VpnConnectionState.CONNECTING -> "Подключение…"; VpnConnectionState.ERROR -> "Ошибка — откройте Viht"; else -> "Отключено" }
             updateTile()
         }
     }

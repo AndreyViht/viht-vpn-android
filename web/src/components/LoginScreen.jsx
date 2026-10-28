@@ -55,7 +55,7 @@ export default function LoginScreen() {
           <Shield className="login-logo-icon" size={36} />
           <div className="login-logo-pulse"></div>
         </div>
-        <h1 className="login-title">VihtVPN</h1>
+        <h1 className="login-title">Viht</h1>
         <p className="login-subtitle">Скоростной приватный доступ в один клик</p>
       </div>
 

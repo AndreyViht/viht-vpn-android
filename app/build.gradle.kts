@@ -59,7 +59,7 @@ android {
             isDebuggable = false
             applicationIdSuffix = ".test"
             versionNameSuffix = "-test"
-            manifestPlaceholders["appLabel"] = "Viht VPN Test"
+            manifestPlaceholders["appLabel"] = "Viht"
         }
         release {
             signingConfigs.findByName("release")?.let { signingConfig = it }
