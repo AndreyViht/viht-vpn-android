@@ -10,6 +10,9 @@ val pingwinStorePassword = providers.gradleProperty("PINGWIN_STORE_PASSWORD")
 val pingwinKeyAlias = providers.gradleProperty("PINGWIN_KEY_ALIAS")
 val pingwinKeyPassword = providers.gradleProperty("PINGWIN_KEY_PASSWORD")
 
+val samsungCompatibility = providers.gradleProperty("samsungCompatibility").orNull == "true"
+val samsungArm64Only = providers.gradleProperty("samsungArm64Only").orNull == "true"
+
 android {
     namespace = "com.pingwin.vpn"
     compileSdk {
@@ -19,21 +22,21 @@ android {
     defaultConfig {
         applicationId = "ru.anviht.vpn"
         minSdk = 26
-        targetSdk = 37
+        targetSdk = if (samsungCompatibility) 36 else 37
         versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 9
-        versionName = "1.4.21"
+        versionName = if (samsungCompatibility) "1.4.22" else "1.4.21"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64"))
+            abiFilters.addAll(if (samsungArm64Only) listOf("arm64-v8a") else listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64"))
         }
     }
 
     packaging {
         jniLibs {
-            useLegacyPackaging = true
+            useLegacyPackaging = !samsungCompatibility
         }
     }
 
