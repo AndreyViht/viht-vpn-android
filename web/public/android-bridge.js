@@ -32,12 +32,13 @@
   window.__vihtNativeEvent = function (type, data) {
     if (type === 'auth-success' && data.restore && localStorage.getItem('viht_desktop_token') === data.token) return;
     const targets = listeners.get(type);
-    if (!targets?.size) { if (type === 'invite-open' || type === 'auth-success' || type === 'auth-error' || type === 'quick-connect' || type === 'open-updates' || type === 'announcement-open') queued.set(type, data); return; }
+    if (!targets?.size) { if (type === 'owner-pair-scan' || type === 'guest-scan-result' || type === 'invite-open' || type === 'auth-success' || type === 'auth-error' || type === 'quick-connect' || type === 'open-updates' || type === 'announcement-open') queued.set(type, data); return; }
     for (const callback of [...targets]) callback(data);
   };
   window.electronAPI = Object.freeze({
+    onOwnerPairScan:callback=>subscribe('owner-pair-scan',callback), onGuestScan:callback=>subscribe('guest-scan-result',callback), ackScanResult:id=>call('ackScanResult',[id]),
     onInviteOpen:callback=>subscribe('invite-open',callback),
-    scanInvite:()=>call('scanInvite',[],180000), guestInvite:(action,invite)=>call('guestInvite',[action,invite]), inviteQr:url=>call('inviteQr',[url]),
+    scanInvite:options=>call('scanInvite',[options||{}],180000), guestInvite:(action,invite)=>call('guestInvite',[action,invite]), inviteQr:url=>call('inviteQr',[url]),
     openExternal: url => call('openExternal', [url]),
     openPayment: url => call('openPayment', [url]),
     getAnnouncements: () => call('getAnnouncements'), readAnnouncement: (id,revision) => call('readAnnouncement',[id,revision]),

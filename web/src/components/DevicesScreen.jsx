@@ -49,6 +49,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
     setTimeout(() => setToast(null), 3500);
   };
 
+  useEffect(()=>{const refresh=()=>void loadDevices(true);window.addEventListener('viht-devices-refresh',refresh);return()=>window.removeEventListener('viht-devices-refresh',refresh)},[token,hwid]);
   const responseEpoch = useRef(0);
   const devicesCountRef = useRef(devices.length);
   devicesCountRef.current = devices.length;

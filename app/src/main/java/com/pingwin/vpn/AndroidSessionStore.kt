@@ -95,6 +95,21 @@ object AndroidSessionStore {
         }
         token
     }
+    suspend fun beginScan(context: Context, purpose: String) = withContext(Dispatchers.IO) {
+        mutex.withLock {require(purpose in setOf("guest","owner-pair"));write(context,JSONObject().put("purpose",purpose).put("expires",System.currentTimeMillis()+600000),"scan_context")}
+    }
+    suspend fun finishScan(context: Context, content: String?) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val pending=read(context,"scan_context")
+            context.getSharedPreferences(STORE,Context.MODE_PRIVATE).edit().remove("scan_context").commit()
+            if(content!=null&&content.length<=4096){
+                write(context,JSONObject().put("id",java.util.UUID.randomUUID().toString()).put("purpose",pending?.optString("purpose") ?: if(content.startsWith("https://anviht.ru/pair#"))"owner-pair" else "guest").put("content",content).put("expires",System.currentTimeMillis()+300000),"scan_result")
+            }
+        }
+    }
+    suspend fun pendingScan(context: Context): JSONObject? = withContext(Dispatchers.IO){mutex.withLock{read(context,"scan_result")?.takeIf{it.optLong("expires")>System.currentTimeMillis()}}}
+    suspend fun acknowledgeScan(context: Context, id: String) = withContext(Dispatchers.IO){mutex.withLock{if(read(context,"scan_result")?.optString("id")==id)context.getSharedPreferences(STORE,Context.MODE_PRIVATE).edit().remove("scan_result").commit()}}
+
     suspend fun guestAttempt(context: Context, invite: String): String = withContext(Dispatchers.IO) {
         mutex.withLock {
             if(read(context)!=null)throw SessionFailure("Сначала выйдите из текущего аккаунта")

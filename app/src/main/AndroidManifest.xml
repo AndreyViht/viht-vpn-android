@@ -37,6 +37,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Pingwin">
 
+        <activity android:name=".InviteCaptureActivity" android:exported="false" android:screenOrientation="portrait" android:theme="@style/zxing_CaptureTheme" />
+
         <activity
             android:name="com.pingwin.vpn.PaymentActivity"
             android:exported="false"
@@ -45,6 +47,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
             android:launchMode="singleTask"
             android:exported="true"
             android:label="${appLabel}"

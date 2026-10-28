@@ -1,5 +1,5 @@
 import UpdateBanner from './components/UpdateBanner';
-import {GuestMembership,JoinSubscription} from './components/SubscriptionInvite';
+import {GuestMembership,JoinSubscription,OwnerPairConfirmation} from './components/SubscriptionInvite';
 import AppAnnouncements from './components/AppAnnouncements';
 import SubscriptionBilling from './components/SubscriptionBilling';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -956,6 +956,7 @@ export default function App() {
 
       {/* Native Windows 11 TitleBar */}
       <TitleBar title="VihtVPN" isConnected={connectionState === 'connected'} user={user} onOpenHelp={handleOpenHelp} onOpenNews={()=>window.dispatchEvent(new Event('viht-open-news'))} newsUnread={newsUnread} minimizeToTray={settings.minimizeToTray !== false} />
+      <OwnerPairConfirmation onOpen={()=>setActiveTab('devices')} onAdded={()=>window.dispatchEvent(new Event('viht-devices-refresh'))}/>
       <JoinSubscription signedIn={!!token} beforeJoin={handleLogout}/>
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
       {token&&user&&<AppAnnouncements key={'news:'+String(user.id||user.telegram_id||user.yandex_email)} accountId={String(user.id||user.telegram_id||user.yandex_email)} enabled={settings.notifyNews!==false} onUnreadChange={setNewsUnread}/>}

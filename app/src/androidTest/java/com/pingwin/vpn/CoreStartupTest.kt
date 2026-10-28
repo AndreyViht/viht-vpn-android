@@ -217,4 +217,45 @@ class CoreStartupTest {
         }finally{instrumentation.runOnMainSync{activity.finish()}}
     }
 
+    @Test fun ownerScanResultSurvivesActivityRecreationAndIsAcknowledged() {
+        val instrumentation=InstrumentationRegistry.getInstrumentation()
+        val context=instrumentation.targetContext
+        var activity=instrumentation.startActivitySync(android.content.Intent(context,MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+        kotlinx.coroutines.runBlocking{AndroidSessionStore.beginScan(context,"owner-pair")}
+        val previous=activity
+        instrumentation.runOnMainSync{previous.recreate()}
+        val recreatedUntil=System.currentTimeMillis()+15000
+        while(System.currentTimeMillis()<recreatedUntil){
+            instrumentation.runOnMainSync{
+                val resumed=androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED).filterIsInstance<MainActivity>().firstOrNull()
+                if(resumed!=null)activity=resumed
+            }
+            if(activity!==previous)break
+            android.os.SystemClock.sleep(200)
+        }
+        assertNotSame(previous,activity)
+        kotlinx.coroutines.runBlocking{AndroidSessionStore.finishScan(context,"https://anviht.ru/pair#"+"0".repeat(64))}
+        val field=MainActivity::class.java.getDeclaredField("bridge").apply{isAccessible=true}
+        (field.get(activity) as AndroidVihtBridge).deliverPendingScans()
+        fun browser(view: android.view.View): android.webkit.WebView? {
+            if(view is android.webkit.WebView)return view
+            if(view is android.view.ViewGroup)for(i in 0 until view.childCount)browser(view.getChildAt(i))?.let{return it}
+            return null
+        }
+        try{
+            var shown=false
+            val until=System.currentTimeMillis()+30000
+            while(System.currentTimeMillis()<until&&!shown){
+                val latch=java.util.concurrent.CountDownLatch(1)
+                instrumentation.runOnMainSync{browser(activity.findViewById(android.R.id.content))!!.evaluateJavascript("!!document.querySelector('[aria-label=\"Подключение компьютера\"]')"){result->shown=result=="true";latch.countDown()}}
+                assertTrue(latch.await(5,java.util.concurrent.TimeUnit.SECONDS))
+                if(!shown)android.os.SystemClock.sleep(250)
+            }
+            assertTrue("Scanner result must open the global owner confirmation after recreation",shown)
+            val ackUntil=System.currentTimeMillis()+5000
+            while(System.currentTimeMillis()<ackUntil&&kotlinx.coroutines.runBlocking{AndroidSessionStore.pendingScan(context)}!=null)android.os.SystemClock.sleep(100)
+            assertNull(kotlinx.coroutines.runBlocking{AndroidSessionStore.pendingScan(context)})
+        }finally{instrumentation.runOnMainSync{activity.finish()}}
+    }
+
 }

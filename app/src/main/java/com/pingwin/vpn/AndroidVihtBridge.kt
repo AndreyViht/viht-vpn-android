@@ -48,7 +48,8 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             try {
                 val args = JSONArray(arguments)
                 val result: Any = when(method) {
-                    "scanInvite" -> activity.scanInvite()
+                    "scanInvite" -> activity.scanInvite(args.optJSONObject(0)?.optString("purpose") ?: "guest")
+                    "ackScanResult" -> {AndroidSessionStore.acknowledgeScan(activity,args.getString(0));ok()}
                     "guestInvite" -> {
                         val result=GuestInviteApi.request(activity,args.getString(0),args.getString(1))
                         if(args.getString(0)=="accept"){
@@ -281,7 +282,9 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     }
     fun requestQuickConnect() { emit("quick-connect", JSONObject()) }
     private var lastUpdateCheck = 0L
+    fun deliverPendingScans(){if(!activity.isUiReady)return;scope.launch{AndroidSessionStore.pendingScan(activity)?.let{emit(if(it.optString("purpose")=="owner-pair")"owner-pair-scan" else "guest-scan-result",it)}}}
     fun pageReady() {
+        deliverPendingScans()
         deliverInvite()
         scope.launch {AndroidSessionStore.pendingGuest(activity)?.let { pending -> runCatching { GuestInviteApi.request(activity,"accept",pending.getString("invite")) }.getOrNull()?.let { accepted -> preferences.edit().putString("provider","guest").apply();emit("auth-success",JSONObject().put("token",accepted.getString("token")).put("provider","guest")) } }}
         if (activity.consumeTileConnect()) requestQuickConnect()

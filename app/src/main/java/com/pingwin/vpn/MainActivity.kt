@@ -39,15 +39,23 @@ class MainActivity : ComponentActivity() {
     @Volatile var isUiReady: Boolean = false
         private set
     private var inviteScan: kotlinx.coroutines.CompletableDeferred<String?>? = null
-    private val inviteScanner = registerForActivityResult(com.journeyapps.barcodescanner.ScanContract()) { result -> inviteScan?.complete(result.contents);inviteScan=null }
-    suspend fun scanInvite(): org.json.JSONObject {
+    private val inviteScanner = registerForActivityResult(com.journeyapps.barcodescanner.ScanContract()) { result ->
+        val waiter=inviteScan;inviteScan=null
+        lifecycleScope.launch {
+            AndroidSessionStore.finishScan(applicationContext,result.contents)
+            waiter?.complete(result.contents)
+            if(::bridge.isInitialized)bridge.deliverPendingScans()
+        }
+    }
+    suspend fun scanInvite(purpose: String): org.json.JSONObject {
+        AndroidSessionStore.beginScan(applicationContext,purpose)
         val pending=kotlinx.coroutines.CompletableDeferred<String?>()
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main){
             check(inviteScan==null){"Сканер уже открыт"};inviteScan=pending
-            inviteScanner.launch(com.journeyapps.barcodescanner.ScanOptions().setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.QR_CODE).setPrompt("Отсканируйте приглашение Viht VPN").setBeepEnabled(false).setOrientationLocked(false))
+            inviteScanner.launch(com.journeyapps.barcodescanner.ScanOptions().setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.QR_CODE).setPrompt("Отсканируйте приглашение Viht VPN").setBeepEnabled(false).setCaptureActivity(InviteCaptureActivity::class.java).setOrientationLocked(true))
         }
         val content=pending.await()?:return org.json.JSONObject().put("ok",false).put("cancelled",true)
-        return org.json.JSONObject().put("ok",true).put("content",content)
+        return org.json.JSONObject().put("ok",true).put("delivered",true)
     }
     private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (::bridge.isInitialized) bridge.onVpnPermissionResult(result.resultCode == RESULT_OK)
@@ -112,7 +120,7 @@ class MainActivity : ComponentActivity() {
         webView = WebView(this).apply {
             setBackgroundColor(Color.parseColor("#0a111d"))
             settings.apply {
-                javaScriptEnabled = true; domStorageEnabled = true
+                javaScriptEnabled = true; domStorageEnabled = true; cacheMode=WebSettings.LOAD_NO_CACHE
                 allowFileAccess = false; allowContentAccess = false
                 mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                 safeBrowsingEnabled = true; textZoom = 100
@@ -162,10 +170,10 @@ class MainActivity : ComponentActivity() {
                 if (!isTrustedPage) { moveTaskToBack(true); return }
                 webView.evaluateJavascript("""
                     (function(){var d=document.querySelector('dialog[open]');if(d){d.close();return true;}
-                    var overlays=document.querySelectorAll('.billing-shade,.fluent-modal-overlay');
+                    var overlays=document.querySelectorAll('.billing-shade,.fluent-modal-overlay,.invite-overlay');
                     var e=new CustomEvent('viht-back',{cancelable:true,detail:{modal:overlays.length>0}});
                     if(!window.dispatchEvent(e))return true;
-                    if(overlays.length){var o=overlays[overlays.length-1];var close=o.querySelector('.fluent-modal-close,.billing-close');(close||o).click();return true;}
+                    if(overlays.length){var o=overlays[overlays.length-1];var close=o.querySelector('.fluent-modal-close,.billing-close,.invite-close');(close||o).click();return true;}
                     return false;})()
                 """.trimIndent()) { handled -> if(handled!="true"&&!isFinishing)moveTaskToBack(true) }
             }
