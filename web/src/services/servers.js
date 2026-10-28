@@ -45,6 +45,7 @@ export function parseSubscriptionBody(body) {
     return configs.flatMap(config => {
       if (typeof config === 'string') return [{ vless_uri: config }];
       if (config?.vless_uri) return [config];
+      if (String(config?.uri||'').startsWith('vless://')) return [{...config,vless_uri:config.uri,inbound_remarks:config.name||config.location||''}];
       const client = configToClient(config);
       return client ? [client] : [];
     });

@@ -21,7 +21,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 9
-        versionName = "1.4.20"
+        versionName = "1.4.21"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -56,6 +56,7 @@ android {
 
     buildTypes {
         debug {
+            isDebuggable = false
             applicationIdSuffix = ".test"
             versionNameSuffix = "-test"
             manifestPlaceholders["appLabel"] = "Viht VPN Test"
