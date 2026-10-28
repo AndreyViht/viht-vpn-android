@@ -19,9 +19,9 @@ android {
     defaultConfig {
         applicationId = "ru.anviht.vpn"
         minSdk = 26
-        targetSdk = 37
+        targetSdk = 36
         versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 9
-        versionName = "1.4.21"
+        versionName = "1.4.22"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -33,7 +33,7 @@ android {
 
     packaging {
         jniLibs {
-            useLegacyPackaging = true
+            useLegacyPackaging = false
         }
     }
 
