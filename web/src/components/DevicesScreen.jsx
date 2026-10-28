@@ -1,3 +1,4 @@
+import './DevicesCompact.css';
 import {OwnerInvite} from './SubscriptionInvite';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -278,8 +279,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
   const openAddSlot = () => window.dispatchEvent(new CustomEvent('viht-open-tariffs', { detail: { product: 'slots' } }));
 
   return (
-    <div className="fluent-page fluent-devices-page">
-      <OwnerInvite />
+    <div className="fluent-page fluent-devices-page devices-compact">
       {/* Toast alert */}
       <AnimatePresence>
         {toast && (
@@ -295,56 +295,12 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
         )}
       </AnimatePresence>
 
-      {/* Page Header */}
-      <div className="fluent-page-header">
-        <motion.button data-motion-press="true"
-          type="button"
-          className="btn btn--secondary btn--sm"
-          onClick={() => loadDevices(true)}
-          disabled={refreshing}
-          title={t('device_title_refresh', lang)}
-          {...buttonPress}
-        >
-          <RefreshCw size={14} className={refreshing ? 'spinning' : ''} />
-          <span>{refreshing ? t('devices_refreshing', lang) : t('devices_refresh', lang)}</span>
-        </motion.button>
-      </div>
-
-      {/* Slot Limit Card */}
-      <div className="fluent-card fluent-slot-card">
-        <div className="fluent-slot-card__top">
-          <div className="fluent-slot-card__label-box">
-            <span className="fluent-slot-title">{t('devices_slots_used', lang)}</span>
-            <strong className="fluent-slot-counter">
-              {usage.used} {t('devices_slots_of', lang)} {usage.total ?? '—'}
-            </strong>
-          </div>
-
-          <motion.button data-motion-press="true"
-            type="button"
-            className="btn btn--secondary btn--sm fluent-btn-add-slot"
-            onClick={openAddSlot}
-            title={t('device_slot_manage_tooltip', lang)}
-            {...buttonPress}
-          >
-            <PlusCircle size={14} />
-            <span>{t('devices_add_slot', lang)} (+{limits.slot_price || 300} ₽)</span>
-            <ExternalLink size={12} />
-          </motion.button>
-        </div>
-
-        {/* Smooth animated progress bar */}
-        <div className="fluent-slot-progress-bar">
-          <motion.div
-            className="fluent-slot-progress-fill"
-            initial={{ width: 0 }}
-            animate={{
-              width: `${usage.percent}%`,
-            }}
-            transition={springs.natural}
-          />
-        </div>
-      </div>
+      <section className="compact-device-summary" aria-label="Слоты подписки">
+        <div className="compact-device-heading"><span>Слоты <strong>{usage.used}<small> / {usage.total ?? '—'}</small></strong></span><button type="button" className="compact-refresh" onClick={()=>loadDevices(true)} disabled={refreshing} aria-label="Обновить устройства" title="Обновить"><RefreshCw size={17} className={refreshing?'spinning':''}/></button></div>
+        <div className="compact-device-commands"><OwnerInvite compact/><button type="button" className="compact-slot-buy" onClick={openAddSlot}><PlusCircle size={14}/><span>Слот · {limits.slot_price||300} ₽</span></button></div>
+        <div className="fluent-slot-progress-bar"><motion.div className="fluent-slot-progress-fill" initial={false} animate={{width:usage.percent+'%'}} transition={springs.natural}/></div>
+        <details className="compact-slot-note"><summary>Учитываются только приложения Viht</summary><p>Happ, Incy и V2RayTun временно не занимают слоты. Их прежний доступ сохранён.</p></details>
+      </section>
 
       {unidentified.length > 0 && <div className="fluent-card" style={{padding:12,fontSize:12,color:'var(--text-secondary)'}}>Старые клиенты без идентификатора: {unidentified.length}. Слоты не занимают; определить физическое устройство для них нельзя.</div>}
       {bindingDevice && <div style={{position:'fixed',inset:0,zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(0,0,0,.6)'}} onClick={()=>!bindingBusy&&setBindingDevice(null)}><div className="fluent-card" role="dialog" aria-modal="true" aria-label="Привязка к устройству" style={{padding:18,display:'grid',gap:14,width:'100%',maxWidth:480}} onClick={event=>event.stopPropagation()}>
@@ -361,10 +317,10 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
       <div className="fluent-devices-toolbar">
         <div className="fluent-filter-pills">
           {[
-            { id: 'all', label: `${t('devices_all', lang)} (${devices.length})` },
-            { id: 'online', label: `${t('devices_online', lang)} (${devices.filter(d => deviceState(d) === 'online').length})` },
-            { id: 'offline', label: `${t('devices_offline', lang)} (${devices.filter(d => deviceState(d) === 'offline').length})` },
-            { id: 'unknown', label: `${lang === 'en' ? 'Unknown' : 'Нет данных'} (${devices.filter(d => deviceState(d) === 'unknown').length})` },
+            { id: 'all', label: `${lang==='en'?'All':'Все'} ${devices.length}` },
+            { id: 'online', label: `${lang==='en'?'Online':'В сети'} ${devices.filter(d => deviceState(d) === 'online').length}` },
+            { id: 'offline', label: `${lang==='en'?'Offline':'Не в сети'} ${devices.filter(d => deviceState(d) === 'offline').length}` },
+            { id: 'unknown', label: `${lang === 'en' ? 'Unknown' : 'Неизвестно'} ${devices.filter(d => deviceState(d) === 'unknown').length}` },
           ].map((pill) => {
             const isActive = filter === pill.id;
             return (
@@ -512,9 +468,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                         )}
                       </AnimatePresence>
 
-                      {isCurrent && (
-                        <span className="fluent-chip fluent-chip--current">{t('devices_this_device', lang)}</span>
-                      )}
+
 
                       {device.disabled && (
                         <span className="fluent-chip fluent-chip--mute">⏸️ Отключено</span>
@@ -535,6 +489,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                     </div>
 
                     <div className="fluent-device-meta">
+                      {isCurrent&&<span className="compact-current-device">Это устройство</span>}
                       <span className="fluent-device-model">
                         {device.custom_name && device.device_model ? `${device.device_model}` : (device.device_model || device.raw_model || 'Устройство')}
                       </span>
@@ -553,18 +508,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                         )}
                       </span>
                     </div>
-                    <details style={{marginTop:10,fontSize:12}}>
-                      <summary>VPN-приложения: {device.client_count || 1}</summary>
-                      <div style={{display:'grid',gap:9,marginTop:10}}>
-                        {(device.clients || [device]).map(client=><div key={client.device_id||client.id} style={{display:'grid',gap:5}}>
-                          <span>{deviceAppLabel(client)} · ID: {client.hwid_short||'нет ID'} · {deviceState(client)==='online'?'В сети':client.last_active||'Нет данных'}</span>
-                          {device.client_count>1 && <button className="btn btn--secondary btn--sm" onClick={()=>separateClient(client)}>Это отдельное устройство</button>}
-                        </div>)}
-                        {!device.is_current && !device.disabled && device.hwid && <button className="btn btn--secondary btn--sm" onClick={()=>bindCurrentDevice(device)}>Использую Viht на этом устройстве</button>}
-                        {!device.disabled && device.hwid && <button className="btn btn--secondary btn--sm" onClick={()=>createBindingLink(device)}>Добавить VPN-приложение на это устройство</button>}
-                        {device.hwid && devices.length>1 && <button className="btn btn--secondary btn--sm" onClick={()=>{setBindingTarget(devices.find(d=>d.is_current&&d.id!==device.id)?.device_id||'');setBindingDevice(device);}}>Это другое приложение того же устройства</button>}
-                      </div>
-                    </details>
+
                   </div>
 
                   <div className="fluent-device-actions">
@@ -590,6 +534,18 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                       <Trash2 size={14} />
                     </motion.button>
                   </div>
+                    <details className="compact-device-details">
+                      <summary>Подробнее{device.client_count>1?' · '+device.client_count+' приложения':''}</summary>
+                      <div className="compact-device-detail-body"><strong>{displayName}</strong>
+                        {(device.clients || [device]).map(client=><div key={client.device_id||client.id} style={{display:'grid',gap:5}}>
+                          <span>{deviceAppLabel(client)} · ID: {client.hwid_short||'нет ID'} · {deviceState(client)==='online'?'В сети':client.last_active||'Нет данных'}</span>
+                          {device.client_count>1 && <button className="btn btn--secondary btn--sm" onClick={()=>separateClient(client)}>Это отдельное устройство</button>}
+                        </div>)}
+                        {!device.is_current && !device.disabled && device.hwid && <button className="btn btn--secondary btn--sm" onClick={()=>bindCurrentDevice(device)}>Использую Viht на этом устройстве</button>}
+                        {!device.disabled && device.hwid && <button className="btn btn--secondary btn--sm" onClick={()=>createBindingLink(device)}>Добавить VPN-приложение на это устройство</button>}
+                        {device.hwid && devices.length>1 && <button className="btn btn--secondary btn--sm" onClick={()=>{setBindingTarget(devices.find(d=>d.is_current&&d.id!==device.id)?.device_id||'');setBindingDevice(device);}}>Это другое приложение того же устройства</button>}
+                      </div>
+                    </details>
                 </motion.div>
               );
             })}
