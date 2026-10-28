@@ -297,7 +297,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
 
       <section className="compact-device-summary" aria-label="Слоты подписки">
         <div className="compact-device-heading"><span>Слоты <strong>{usage.used}<small> / {usage.total ?? '—'}</small></strong></span><button type="button" className="compact-refresh" onClick={()=>loadDevices(true)} disabled={refreshing} aria-label="Обновить устройства" title="Обновить"><RefreshCw size={17} className={refreshing?'spinning':''}/></button></div>
-        <div className="compact-device-commands"><OwnerInvite compact/><button type="button" className="compact-slot-buy" onClick={openAddSlot}><PlusCircle size={14}/><span>Слот · {limits.slot_price||300} ₽</span></button></div>
+        <div className="compact-device-commands"><OwnerInvite compact onAdded={()=>loadDevices(true)}/><button type="button" className="compact-slot-buy" onClick={openAddSlot}><PlusCircle size={14}/><span>Слот · {limits.slot_price||300} ₽</span></button></div>
         <div className="fluent-slot-progress-bar"><motion.div className="fluent-slot-progress-fill" initial={false} animate={{width:usage.percent+'%'}} transition={springs.natural}/></div>
         <details className="compact-slot-note"><summary>Учитываются только приложения Viht</summary><p>Happ, Incy и V2RayTun временно не занимают слоты. Их прежний доступ сохранён.</p></details>
       </section>
