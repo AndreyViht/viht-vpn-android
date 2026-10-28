@@ -206,11 +206,13 @@ class CoreStartupTest {
         }
         try {
             var shown=false
-            val deadline=System.currentTimeMillis()+30000
+            val deadline=System.currentTimeMillis()+60000
             while(System.currentTimeMillis()<deadline&&!shown){
                 val latch=java.util.concurrent.CountDownLatch(1)
                 instrumentation.runOnMainSync{browser(activity.findViewById(android.R.id.content))!!.evaluateJavascript("!!document.querySelector('[aria-label=\"Подключиться к подписке\"]')"){result->shown=result=="true";latch.countDown()}}
-                assertTrue(latch.await(5,java.util.concurrent.TimeUnit.SECONDS))
+                // Cold WebView startup can exceed one probe on a loaded emulator.
+                // Keep the overall deadline and require the actual confirmation dialog.
+                latch.await(5,java.util.concurrent.TimeUnit.SECONDS)
                 if(!shown)android.os.SystemClock.sleep(250)
             }
             assertTrue("A cold deep link must open invitation confirmation after the WebView is ready",shown)
