@@ -6,13 +6,13 @@ import java.net.URL
 data class HttpReply(val status: Int, val body: String)
 
 object VihtHttp {
-    fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(), body: String? = null): HttpReply {
+    fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(), body: String? = null, readTimeoutMs: Int = 15_000): HttpReply {
         require(URL(url).protocol == "https") { "Only HTTPS service requests are allowed" }
         val connection = URL(url).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = method
             connection.connectTimeout = 10_000
-            connection.readTimeout = 15_000
+            connection.readTimeout = readTimeoutMs.coerceIn(1000, 120000)
             connection.instanceFollowRedirects = false
             connection.useCaches = false
             connection.setRequestProperty("Cache-Control", "no-cache")

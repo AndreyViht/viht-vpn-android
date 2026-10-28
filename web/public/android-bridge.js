@@ -51,7 +51,7 @@
     startAuthServer: provider => call('startAuthServer', [provider]), cancelAuthServer: () => call('cancelAuthServer'),
     onAuthSuccess: callback => subscribe('auth-success', callback), onAuthError: callback => subscribe('auth-error', callback),
     cabinetRequest: options => call('cabinetRequest', [options], 65000),
-    fetchSubscription: token => call('fetchSubscription', [token]), syncServers: servers => call('syncServers', [servers]),
+    fetchSubscription: token => call('fetchSubscription', [token], token==='guest'?75000:30000), syncServers: servers => call('syncServers', [servers]),
     pingServers: servers => call('pingServers', [servers], 7000),
     vpnConnect: (server, settings) => call('vpnConnect', [server, settings], 95000),
     vpnDisconnect: () => call('vpnDisconnect', [], 20000), vpnUpdateSettings: settings => call('vpnUpdateSettings', [settings], 60000),

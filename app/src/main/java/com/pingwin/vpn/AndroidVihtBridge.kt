@@ -100,7 +100,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         require(token.isNotBlank() && token.length < 512) { "Не найдена подписка" }
                         val access=AndroidSessionStore.getToken(activity)
                         if(access.startsWith("vg_")){
-                            val reply=VihtHttp.request("https://anviht.ru/api/cabinet-api?action=guest-config",headers=mapOf("Authorization" to "Bearer $access","x-hwid" to VihtPreferences.getHwid(activity)))
+                            val reply=VihtHttp.request("https://anviht.ru/api/cabinet-api?action=guest-config",headers=mapOf("Authorization" to "Bearer $access","x-hwid" to VihtPreferences.getHwid(activity)),readTimeoutMs=60_000)
                             if(reply.status in 200..299)ok().put("body",reply.body) else error("Не удалось загрузить гостевую подписку: HTTP "+reply.status)
                         }else {
                         val url = "https://anviht.ru/api/subscription-link?format=json&token=" + URLEncoder.encode(token, "UTF-8")

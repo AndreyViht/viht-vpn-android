@@ -5,6 +5,7 @@ import { isMobile } from '../utils/platform';
 
 export function getAuthProviderInfo(user, preferredProvider = null) {
   if (!user) return null;
+  if(user.is_guest)return {type:"guest",label:"Гостевой доступ",badge:"Viht",account:user.owner_label||"Чужая подписка",subAccount:"",avatar_url:null};
 
   const auths = Array.isArray(user.authorizations) ? user.authorizations : [];
   const vkAuth = auths.find((a) => a.provider === 'vk');

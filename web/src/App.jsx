@@ -890,7 +890,15 @@ export default function App() {
     });
   }, []);
 
-  const handleLogout = useCallback(async () => {
+  const logoutBusy=useRef(false);
+  const handleLogout = useCallback(async (skipGuestLeave=false) => {
+    if(logoutBusy.current)return;logoutBusy.current=true;
+    try{
+    if(tokenRef.current.startsWith("vg_")&&skipGuestLeave!==true){
+      await window.electronAPI?.vpnDisconnect?.();
+      const left=await window.electronAPI?.cabinetRequest?.({action:"guest-leave",method:"POST",body:{}});
+      if(!left?.ok&&!left?.unauthorized){showToast(left?.error||"Не удалось покинуть подписку. Повторите при подключённом интернете.","error");return;}
+    }
     hadConnectedSessionRef.current = false;
     clearTimeout(stableConnectionTimerRef.current);
     manualDisconnectRef.current = true;
@@ -908,10 +916,11 @@ export default function App() {
       window.electronAPI?.clearOwnerSession?.(),
       window.electronAPI?.vpnDisconnect?.(),
     ]);
+    }finally{logoutBusy.current=false;}
   }, [applyServerList]);
 
   useEffect(() => {
-    const expired = () => { void handleLogout(); };
+    const expired = () => { void handleLogout(true); };
     window.addEventListener('viht-auth-required', expired);
     return () => window.removeEventListener('viht-auth-required', expired);
   }, [handleLogout]);
@@ -949,7 +958,7 @@ export default function App() {
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
       {token&&user&&<AppAnnouncements key={'news:'+String(user.id||user.telegram_id||user.yandex_email)} accountId={String(user.id||user.telegram_id||user.yandex_email)} enabled={settings.notifyNews!==false} onUnreadChange={setNewsUnread}/>}
       {token && user && !user.is_guest && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
-      {token && user && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
+      {token && user && !user.is_guest && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
       {availableUpdate && <div className="fluent-card" style={{position:'absolute',top:58,left:16,right:16,zIndex:1000,display:'flex',alignItems:'center',gap:10,padding:14}}>
         <span style={{flex:1}}>Доступно обновление {availableUpdate.version}</span>
         <button className="btn btn--primary btn--sm" onClick={() => {setFocusUpdates(true);setActiveTab('settings');setAvailableUpdate(null);}}>Обновить</button>
@@ -974,7 +983,7 @@ export default function App() {
         ) : profileError ? (
           <ProfileErrorScreen error={profileError} onRetry={() => setProfileRetry(value => value + 1)} onLogout={handleLogout} />
         ) : !isSubActive ? (
-          <NoSubscriptionScreen
+          user?.is_guest ? <GuestMembership user={user} onLogout={handleLogout}/> : <NoSubscriptionScreen
             user={user}
             onRefresh={() => setProfileRetry(value => value + 1)}
             onLogout={handleLogout}
