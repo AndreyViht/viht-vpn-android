@@ -9,7 +9,7 @@ import java.io.IOException
 /** Fixed service endpoint: WebView cannot turn this into a general HTTP proxy. */
 object AndroidCabinetApi {
     private val readActions = setOf("profile", "active-devices", "payments", "app-tariffs", "app-announcements")
-    private val writeActions = setOf("device-action", "reset-keys", "device-heartbeat", "app-checkout", "app-payment-status")
+    private val writeActions = setOf("device-action", "reset-keys", "device-heartbeat", "app-checkout", "app-payment-status", "create-invite", "guest-leave")
     suspend fun request(context: Context, options: JSONObject): JSONObject {
         return try {
             val action = options.getString("action")

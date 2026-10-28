@@ -1,3 +1,4 @@
+import {JoinSubscription} from './SubscriptionInvite';
 import React, { useState, useEffect } from 'react';
 import { Shield, ArrowRight, ExternalLink, Loader2 } from 'lucide-react';
 import SocialIcon from './SocialIcon';
@@ -75,6 +76,7 @@ export default function LoginScreen() {
         </div>
       ) : (
         <div className="login-actions">
+          <JoinSubscription />
           {/* Кнопка входа через Яндекс */}
           <button
             type="button"

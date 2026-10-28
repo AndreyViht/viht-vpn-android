@@ -36,6 +36,17 @@ class MainActivity : ComponentActivity() {
     private lateinit var bridge: AndroidVihtBridge
     @Volatile var isTrustedPage: Boolean = false
         private set
+    private var inviteScan: kotlinx.coroutines.CompletableDeferred<String?>? = null
+    private val inviteScanner = registerForActivityResult(com.journeyapps.barcodescanner.ScanContract()) { result -> inviteScan?.complete(result.contents);inviteScan=null }
+    suspend fun scanInvite(): org.json.JSONObject {
+        val pending=kotlinx.coroutines.CompletableDeferred<String?>()
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main){
+            check(inviteScan==null){"Сканер уже открыт"};inviteScan=pending
+            inviteScanner.launch(com.journeyapps.barcodescanner.ScanOptions().setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.QR_CODE).setPrompt("Отсканируйте приглашение Viht VPN").setBeepEnabled(false).setOrientationLocked(false))
+        }
+        val content=pending.await()?:return org.json.JSONObject().put("ok",false).put("cancelled",true)
+        return org.json.JSONObject().put("ok",true).put("content",content)
+    }
     private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (::bridge.isInitialized) bridge.onVpnPermissionResult(result.resultCode == RESULT_OK)
     }

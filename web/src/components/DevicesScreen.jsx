@@ -1,3 +1,4 @@
+import {OwnerInvite} from './SubscriptionInvite';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -278,6 +279,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
 
   return (
     <div className="fluent-page fluent-devices-page">
+      <OwnerInvite />
       {/* Toast alert */}
       <AnimatePresence>
         {toast && (

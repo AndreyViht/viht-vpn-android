@@ -48,6 +48,24 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             try {
                 val args = JSONArray(arguments)
                 val result: Any = when(method) {
+                    "scanInvite" -> activity.scanInvite()
+                    "guestInvite" -> {
+                        val result=GuestInviteApi.request(activity,args.getString(0),args.getString(1))
+                        if(args.getString(0)=="accept"){
+                            preferences.edit().putString("provider","guest").apply()
+                            emit("auth-success",JSONObject().put("token",result.getString("token")).put("originalToken",result.getString("token")).put("provider","guest"))
+                            result.remove("token")
+                        };result
+                    }
+                    "inviteQr" -> {
+                        val text=args.getString(0);require(text.startsWith("https://anviht.ru/join#")&&text.length<120)
+                        val matrix=com.google.zxing.qrcode.QRCodeWriter().encode(text,com.google.zxing.BarcodeFormat.QR_CODE,600,600)
+                        val bitmap=android.graphics.Bitmap.createBitmap(600,600,android.graphics.Bitmap.Config.ARGB_8888)
+                        val pixels=IntArray(360000){i->if(matrix[i%600,i/600])android.graphics.Color.BLACK else android.graphics.Color.WHITE}
+                        bitmap.setPixels(pixels,0,600,0,0,600,600)
+                        val stream=java.io.ByteArrayOutputStream();bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,stream);bitmap.recycle()
+                        ok().put("dataUrl","data:image/png;base64,"+android.util.Base64.encodeToString(stream.toByteArray(),android.util.Base64.NO_WRAP))
+                    }
                     "getSystemInfo" -> JSONObject().put("platform", "android").put("deviceModel", VihtPreferences.getDeviceModel()).put("hwid", VihtPreferences.getHwid(activity)).put("manualConnectOnly", false)
                     "getAppVersion" -> BuildConfig.VERSION_NAME
                     "getAnnouncements" -> AppAnnouncements.refresh(activity,false)
@@ -80,10 +98,16 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "fetchSubscription" -> {
                         val token = args.getString(0)
                         require(token.isNotBlank() && token.length < 512) { "Не найдена подписка" }
+                        val access=AndroidSessionStore.getToken(activity)
+                        if(access.startsWith("vg_")){
+                            val reply=VihtHttp.request("https://anviht.ru/api/cabinet-api?action=guest-config",headers=mapOf("Authorization" to "Bearer $access","x-hwid" to VihtPreferences.getHwid(activity)))
+                            if(reply.status in 200..299)ok().put("body",reply.body) else error("Не удалось загрузить гостевую подписку: HTTP "+reply.status)
+                        }else {
                         val url = "https://anviht.ru/api/subscription-link?format=json&token=" + URLEncoder.encode(token, "UTF-8")
                         val reply = VihtHttp.request(url, headers = mapOf("Accept" to "application/json, text/plain", "User-Agent" to "VihtVPN-Android/" + BuildConfig.VERSION_NAME,
                             "x-hwid" to VihtPreferences.getHwid(activity), "x-device-model" to VihtPreferences.getDeviceModel(), "x-device-os" to "Android", "x-app-name" to "Viht Android", "x-app-version" to BuildConfig.VERSION_NAME))
                         if (reply.status in 200..299) ok().put("body", reply.body) else error("Не удалось загрузить подписку: HTTP " + reply.status)
+                    }
                     }
                     "syncServers" -> { syncServers(args.getJSONArray(0)); ok() }
                     "vpnConnect" -> connect(args.getJSONObject(0), args.optJSONObject(1) ?: JSONObject())
@@ -243,6 +267,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         JSONObject().apply { values.forEach { (id, value) -> put(id, value ?: JSONObject.NULL) } }
     }
     fun completeBrowserAuth(uri: Uri?) {
+        if(uri?.scheme=="vihtvpn"&&uri.host=="join"){val invite=uri.getQueryParameter("invite");if(invite!=null&&Regex("[a-f0-9]{64}").matches(invite))emit("invite-open",JSONObject().put("invite",invite));return}
         if (uri?.scheme != "vihtvpn" || uri.host != "auth" || uri.path != "/callback") return
         scope.launch {
             try {
@@ -255,6 +280,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     fun requestQuickConnect() { emit("quick-connect", JSONObject()) }
     private var lastUpdateCheck = 0L
     fun pageReady() {
+        scope.launch {AndroidSessionStore.pendingGuest(activity)?.let { pending -> runCatching { GuestInviteApi.request(activity,"accept",pending.getString("invite")) }.getOrNull()?.let { accepted -> preferences.edit().putString("provider","guest").apply();emit("auth-success",JSONObject().put("token",accepted.getString("token")).put("provider","guest")) } }}
         if (activity.consumeTileConnect()) requestQuickConnect()
         if (activity.consumeOpenUpdates()) emit("open-updates", JSONObject())
         activity.consumeOpenAnnouncement()?.let { emit("announcement-open",JSONObject().put("id",it)) }

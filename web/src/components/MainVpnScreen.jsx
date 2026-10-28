@@ -115,7 +115,8 @@ function MainVpnScreen({
     };
   }
 
-  const handleOpenRenew = () => window.dispatchEvent(new Event('viht-open-tariffs'));
+  const handleOpenRenew = () => {if(!user?.is_guest)window.dispatchEvent(new Event('viht-open-tariffs'));};
+  if(user?.is_guest){renewConfig.disabled=true;renewConfig.tooltip='Подпиской управляет '+user.owner_label;}
 
   const getCountryCode = getServerCountry;
 
@@ -201,7 +202,7 @@ function MainVpnScreen({
             transition={springs.tactile}
           >
             <CreditCard size={14} className="fluent-renew-btn__icon" />
-            <span>{t('extend_sub', lang)}</span>
+            <span>{user?.is_guest?'Подписка владельца':t('extend_sub', lang)}</span>
           </motion.button>
         </motion.div>
 

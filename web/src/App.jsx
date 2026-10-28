@@ -1,3 +1,4 @@
+import {GuestMembership} from './components/SubscriptionInvite';
 import AppAnnouncements from './components/AppAnnouncements';
 import SubscriptionBilling from './components/SubscriptionBilling';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -78,7 +79,7 @@ export default function App() {
     window.electronAPI?.getUiSnapshot?.().then(result=>{
       if(!active || !result?.snapshot?.user) return;
       const cached=result.snapshot;
-      if (!tokenRef.current || (cached._owner && cached._owner!==decodeJwt(tokenRef.current)?.sub)) return;
+      if (!tokenRef.current || (cached._owner && cached._owner!==sessionOwner(tokenRef.current))) return;
       setUser(previous=>previous||cached.user);
       setProfileError('');
       if(Array.isArray(cached.servers) && cached.servers.length) {
@@ -90,7 +91,7 @@ export default function App() {
     return ()=>{active=false};
   },[]);
   useEffect(()=>{
-    if(user && token) void window.electronAPI?.cacheUiSnapshot?.({_owner:decodeJwt(token)?.sub,user,servers,currentServerId:currentServer?.id}).catch(()=>{});
+    if(user && token) void window.electronAPI?.cacheUiSnapshot?.({_owner:sessionOwner(token),user,servers,currentServerId:currentServer?.id}).catch(()=>{});
   },[user,servers,currentServer,token]);
 
   // Loading states for actions
@@ -260,6 +261,7 @@ export default function App() {
   };
 
   // Helper to decode JWT token
+  function sessionOwner(tok){return tok?.startsWith('vg_')?'guest:'+tok.slice(3,19):decodeJwt(tok)?.sub;}
   function decodeJwt(tok) {
     if (!tok || typeof tok !== 'string') return null;
     try {
@@ -353,7 +355,7 @@ export default function App() {
       const resolvedToken = data?.originalToken || data?.token;
       if (!resolvedToken) { showToast('Не удалось получить сессию. Повторите вход.', 'error'); return; }
       if (resolvedToken === tokenRef.current) { if (!data?.restore) setProfileRetry(value => value + 1); return; }
-      if (decodeJwt(resolvedToken)?.sub && decodeJwt(resolvedToken)?.sub === decodeJwt(tokenRef.current)?.sub) { localStorage.setItem('viht_desktop_token',resolvedToken); setToken(resolvedToken); return; }
+      if (sessionOwner(resolvedToken) && sessionOwner(resolvedToken) === sessionOwner(tokenRef.current)) { localStorage.setItem('viht_desktop_token',resolvedToken); setToken(resolvedToken); return; }
       clearAccountStorage();
       applyServerList([]);
       localStorage.setItem('viht_desktop_token', resolvedToken);
@@ -946,7 +948,7 @@ export default function App() {
       <TitleBar title="VihtVPN" isConnected={connectionState === 'connected'} user={user} onOpenHelp={handleOpenHelp} onOpenNews={()=>window.dispatchEvent(new Event('viht-open-news'))} newsUnread={newsUnread} minimizeToTray={settings.minimizeToTray !== false} />
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
       {token&&user&&<AppAnnouncements key={'news:'+String(user.id||user.telegram_id||user.yandex_email)} accountId={String(user.id||user.telegram_id||user.yandex_email)} enabled={settings.notifyNews!==false} onUnreadChange={setNewsUnread}/>}
-      {token && user && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
+      {token && user && !user.is_guest && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
       {token && user && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
       {availableUpdate && <div className="fluent-card" style={{position:'absolute',top:58,left:16,right:16,zIndex:1000,display:'flex',alignItems:'center',gap:10,padding:14}}>
         <span style={{flex:1}}>Доступно обновление {availableUpdate.version}</span>
@@ -1035,12 +1037,12 @@ export default function App() {
                     onAnimationComplete={releasePageMotion}
                     {...pageVariants}
                   >
-                    <DevicesScreen onBindingChanged={() => synchronizeKeys(true)}
+                    {user?.is_guest ? <GuestMembership user={user} onLogout={handleLogout}/> : <DevicesScreen onBindingChanged={() => synchronizeKeys(true)}
                       token={token}
                       hwid={hwid}
                       limits={user?.limits}
                       lang={currentLang}
-                    />
+                    />}
                   </motion.div>
                 )}
 
@@ -1053,14 +1055,14 @@ export default function App() {
                     onAnimationComplete={releasePageMotion}
                     {...pageVariants}
                   >
-                    <ProfileScreen
+                    {user?.is_guest ? <GuestMembership user={user} onLogout={handleLogout}/> : <ProfileScreen
                       user={user}
                       hwid={hwid}
                       token={token}
                       onLogout={handleLogout}
                       onSwitchProvider={handleSwitchProvider}
                       lang={currentLang}
-                    />
+                    />}
                   </motion.div>
                 )}
 

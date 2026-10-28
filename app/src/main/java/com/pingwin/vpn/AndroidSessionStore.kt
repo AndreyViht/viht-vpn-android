@@ -95,6 +95,28 @@ object AndroidSessionStore {
         }
         token
     }
+    suspend fun guestAttempt(context: Context, invite: String): String = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            if(read(context)!=null)throw SessionFailure("Сначала выйдите из текущего аккаунта")
+            val old=read(context,"guest_pending")
+            if(old!=null && old.optString("invite")==invite)return@withLock old.getString("token")
+            if(old!=null)throw SessionFailure("Завершите предыдущее подключение или перезапустите приложение для восстановления")
+            val token="vg_"+ByteArray(32).also(java.security.SecureRandom()::nextBytes).joinToString(""){"%02x".format(it)}
+            write(context,JSONObject().put("invite",invite).put("token",token),"guest_pending");token
+        }
+    }
+    suspend fun pendingGuest(context: Context): JSONObject? = withContext(Dispatchers.IO){mutex.withLock{if(read(context)==null)read(context,"guest_pending") else null}}
+    suspend fun clearPendingGuest(context: Context) = withContext(Dispatchers.IO){mutex.withLock{context.getSharedPreferences(STORE,Context.MODE_PRIVATE).edit().remove("guest_pending").commit()}}
+    suspend fun acceptGuest(context: Context, token: String) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            require(Regex("vg_[a-f0-9]{64}").matches(token))
+            if(read(context)!=null)throw SessionFailure("Сначала выйдите из текущего аккаунта")
+            generation.incrementAndGet()
+            write(context,JSONObject().put("accessToken",token).put("ownerId","guest:"+token.substring(3,19)).put("provider","guest"))
+            context.getSharedPreferences(STORE,Context.MODE_PRIVATE).edit().remove("guest_pending").commit()
+            VihtPreferences.clearAuth(context);ConnectionStore.saveAll(context,emptyList())
+        }
+    }
     suspend fun clear(context: Context) = withContext(Dispatchers.IO) {
         AppAnnouncements.cancelNotification(context)
         generation.incrementAndGet()
@@ -108,6 +130,7 @@ object AndroidSessionStore {
         mutex.withLock {
             val session = read(context) ?: throw SessionFailure("Войдите в аккаунт", true)
             val access = session.getString("accessToken")
+            if(access.startsWith("vg_")){if(rejectedToken.isBlank())return@withLock access;throw SessionFailure("Гостевой доступ завершён",true)}
             if ((rejectedToken.isBlank() || rejectedToken != access) && expiry(access) > System.currentTimeMillis() + 60_000) return@withLock access
             val refresh = session.optString("refreshToken").takeUnless { it.isBlank() || it == "null" }
             if (refresh == null) {
