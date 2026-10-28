@@ -25,9 +25,10 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
         kotlin.check(preferences.edit().apply { if(newer)putString("available",UpdateReleaseCache.encode(release)) else remove("available") }.commit()) { "Не удалось сохранить обновление" }
         return JSONObject().put("ok", true).put("hasUpdate", newer).put("currentVersion", BuildConfig.VERSION_NAME).put("latestVersion", release.version).put("releaseInfo", describe(release))
     }
+    private fun downloadedState(release: UpdateRelease?) = DirectUpdateDownload.state(activity,release) ?: UpdateInstaller.getDownloadState(activity)
     @Synchronized fun status(): JSONObject {
         val release=available
-        val state=DirectUpdateDownload.state(activity,release) ?: UpdateInstaller.getDownloadState(activity)
+        val state=downloadedState(release)
         val matches=release!=null && state!=null && UpdateInstaller.getExpectedSha256(activity).equals(release.apkSha256,ignoreCase=true)
         val complete=matches && state?.status==DownloadManager.STATUS_SUCCESSFUL
         val file=state?.apkFile
@@ -56,19 +57,19 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
         verifiedStamp=null
         return@withLock JSONObject().put("ok",true).put("downloading",true)
     }
-    suspend fun install(request: JSONObject): JSONObject {
+    suspend fun install(request: JSONObject): JSONObject = downloadLock.withLock {
         val release=available ?: error("Сначала проверьте обновления")
         kotlin.check(release.version==request.optString("version")) { "Версия обновления изменилась" }
-        val state=UpdateInstaller.getDownloadState(activity) ?: error("Сначала скачайте обновление")
+        val state=downloadedState(release) ?: error("Сначала скачайте обновление")
         kotlin.check(state.status==DownloadManager.STATUS_SUCCESSFUL) { "Загрузка ещё не завершена" }
         kotlin.check(UpdateInstaller.getExpectedSha256(activity).equals(release.apkSha256,ignoreCase=true)) { "Скачана другая версия обновления" }
         val apk=state.apkFile ?: error("Загрузка ещё не завершена")
         kotlin.check(UpdateInstaller.verifyDownloadedApk(activity,apk)) { "APK не прошёл проверку" }
         if(!UpdateInstaller.canInstallPackages(activity)) {
             withContext(Dispatchers.Main){UpdateInstaller.openInstallPermission(activity)}
-            return JSONObject().put("ok",false).put("needsPermission",true).put("error","Разрешите установку приложений, затем нажмите «Установить» ещё раз")
+            return@withLock JSONObject().put("ok",false).put("needsPermission",true).put("error","Разрешите установку приложений, затем нажмите «Установить» ещё раз")
         }
         withContext(Dispatchers.Main){UpdateInstaller.installApk(activity,apk)}
-        return JSONObject().put("ok",true)
+        return@withLock JSONObject().put("ok",true)
     }
 }

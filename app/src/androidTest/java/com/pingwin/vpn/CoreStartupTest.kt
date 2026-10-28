@@ -161,4 +161,60 @@ class CoreStartupTest {
             }
         }
     }
+    @Test fun completedDirectDownloadIsFoundByInstallerAndStillRejectsUnsignedApk() {
+        val instrumentation=InstrumentationRegistry.getInstrumentation()
+        val context=instrumentation.targetContext
+        val auto=UpdateSettingsStore.isAutoCheckEnabled(context)
+        UpdateSettingsStore.setAutoCheckEnabled(context,false)
+        val ui=context.getSharedPreferences("viht_ui_settings",android.content.Context.MODE_PRIVATE)
+        val notify=ui.getBoolean("notifyUpdate",true);ui.edit().putBoolean("notifyUpdate",false).commit()
+        val releasePrefs=context.getSharedPreferences("viht_update_release",android.content.Context.MODE_PRIVATE)
+        val directPrefs=context.getSharedPreferences("viht_direct_update",android.content.Context.MODE_PRIVATE)
+        val activity=instrumentation.startActivitySync(android.content.Intent(context,MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+        try {
+            val bytes="not a signed APK".toByteArray()
+            val sha=java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString(""){"%02x".format(it)}
+            val release=UpdateRelease("99.0.0-test","https://anviht.ru/download/VihtVPN-Android-99.0.0-test.apk","https://help.anviht.ru/android","test",sha,bytes.size.toLong())
+            UpdateInstaller.prepareDirectDownload(context,sha,false)
+            UpdateInstaller.getDownloadFile(context).writeBytes(bytes)
+            directPrefs.edit().putString("sha",sha).putInt("status",android.app.DownloadManager.STATUS_SUCCESSFUL).commit()
+            releasePrefs.edit().putString("available",UpdateReleaseCache.encode(release)).commit()
+            val bridge=AndroidUpdateBridge(activity){}
+            val failure=runCatching{kotlinx.coroutines.runBlocking{bridge.install(JSONObject().put("version",release.version))}}.exceptionOrNull()
+            assertNotNull("An unsigned APK must never launch the installer",failure)
+            assertTrue("Installer must find the direct download and reject its signature, rather than report it missing: "+failure?.message,failure?.message?.contains("APK")==true)
+            assertTrue(UpdateInstaller.getDownloadFile(context).exists())
+        } finally {
+            releasePrefs.edit().clear().commit();directPrefs.edit().clear().commit()
+            context.getSharedPreferences("pingwin_update_download",android.content.Context.MODE_PRIVATE).edit().clear().commit()
+            UpdateInstaller.getDownloadFile(context).delete()
+            ui.edit().putBoolean("notifyUpdate",notify).commit()
+            UpdateSettingsStore.setAutoCheckEnabled(context,auto)
+            instrumentation.runOnMainSync{activity.finish()}
+        }
+    }
+
+    @Test fun coldInvitationSurvivesWebViewInitialization() {
+        val instrumentation=InstrumentationRegistry.getInstrumentation()
+        val context=instrumentation.targetContext
+        val uri=android.net.Uri.parse("vihtvpn://join?invite="+"0".repeat(64))
+        val activity=instrumentation.startActivitySync(android.content.Intent(android.content.Intent.ACTION_VIEW,uri,context,MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+        fun browser(view: android.view.View): android.webkit.WebView? {
+            if(view is android.webkit.WebView)return view
+            if(view is android.view.ViewGroup)for(i in 0 until view.childCount)browser(view.getChildAt(i))?.let{return it}
+            return null
+        }
+        try {
+            var shown=false
+            val deadline=System.currentTimeMillis()+30000
+            while(System.currentTimeMillis()<deadline&&!shown){
+                val latch=java.util.concurrent.CountDownLatch(1)
+                instrumentation.runOnMainSync{browser(activity.findViewById(android.R.id.content))!!.evaluateJavascript("!!document.querySelector('[aria-label=\"Подключиться к подписке\"]')"){result->shown=result=="true";latch.countDown()}}
+                assertTrue(latch.await(5,java.util.concurrent.TimeUnit.SECONDS))
+                if(!shown)android.os.SystemClock.sleep(250)
+            }
+            assertTrue("A cold deep link must open invitation confirmation after the WebView is ready",shown)
+        }finally{instrumentation.runOnMainSync{activity.finish()}}
+    }
+
 }

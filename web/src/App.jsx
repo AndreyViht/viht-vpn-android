@@ -1,4 +1,5 @@
-import {GuestMembership} from './components/SubscriptionInvite';
+import UpdateBanner from './components/UpdateBanner';
+import {GuestMembership,JoinSubscription} from './components/SubscriptionInvite';
 import AppAnnouncements from './components/AppAnnouncements';
 import SubscriptionBilling from './components/SubscriptionBilling';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -524,7 +525,7 @@ export default function App() {
 
   useEffect(() => {
     const first = window.electronAPI?.onQuickConnect?.(() => setQuickConnectRequested(true));
-    const second = window.electronAPI?.onOpenUpdates?.(() => { setFocusUpdates(true); setActiveTab('settings'); });
+    const second = window.electronAPI?.onOpenUpdates?.(() => { window.dispatchEvent(new Event('viht-show-update'));if(tokenRef.current){setFocusUpdates(true);setActiveTab('settings')} });
     return () => { first?.(); second?.(); };
   }, []);
   useEffect(() => {
@@ -886,7 +887,7 @@ export default function App() {
     window.electronAPI?.setDesktopPreferences?.({ minimizeToTray: settingsRef.current.minimizeToTray !== false, notifyUpdate: settingsRef.current.notifyUpdate !== false, notifyNews:settingsRef.current.notifyNews!==false, autoReconnect:settingsRef.current.autoReconnect!==false }).catch(() => {});
     return window.electronAPI?.onUpdateAvailable?.(release => {
       setAvailableUpdate(release);
-      if (settingsRef.current.notifyUpdate !== false) showToast('Доступна версия ' + release.version + '. Обновление — в настройках.', 'info');
+      if (settingsRef.current.notifyUpdate !== false) showToast('Доступна версия ' + release.version + '. Скачать можно в панели сверху.', 'info');
     });
   }, []);
 
@@ -955,15 +956,12 @@ export default function App() {
 
       {/* Native Windows 11 TitleBar */}
       <TitleBar title="VihtVPN" isConnected={connectionState === 'connected'} user={user} onOpenHelp={handleOpenHelp} onOpenNews={()=>window.dispatchEvent(new Event('viht-open-news'))} newsUnread={newsUnread} minimizeToTray={settings.minimizeToTray !== false} />
+      <JoinSubscription signedIn={!!token} beforeJoin={handleLogout}/>
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
       {token&&user&&<AppAnnouncements key={'news:'+String(user.id||user.telegram_id||user.yandex_email)} accountId={String(user.id||user.telegram_id||user.yandex_email)} enabled={settings.notifyNews!==false} onUnreadChange={setNewsUnread}/>}
       {token && user && !user.is_guest && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
       {token && user && !user.is_guest && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
-      {availableUpdate && <div className="fluent-card" style={{position:'absolute',top:58,left:16,right:16,zIndex:1000,display:'flex',alignItems:'center',gap:10,padding:14}}>
-        <span style={{flex:1}}>Доступно обновление {availableUpdate.version}</span>
-        <button className="btn btn--primary btn--sm" onClick={() => {setFocusUpdates(true);setActiveTab('settings');setAvailableUpdate(null);}}>Обновить</button>
-        <button className="btn btn--secondary btn--sm" aria-label="Закрыть" onClick={() => setAvailableUpdate(null)}>×</button>
-      </div>}
+      <UpdateBanner release={availableUpdate} onDismiss={()=>setAvailableUpdate(null)}/>
       <ForeignVpnModal
         detection={foreignVpnWarning}
         onClose={() => setForeignVpnWarning(null)}

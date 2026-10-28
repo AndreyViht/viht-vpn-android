@@ -724,7 +724,7 @@ function SettingsScreen({
                           {...buttonPress}
                         >
                           <Sparkles size={14} />
-                          <span>{currentLang === 'en' ? `Restart & Apply (v${updateInfo?.version})` : `Перезапустить и применить (v${updateInfo?.version})`}</span>
+                          <span>{currentLang === 'en' ? 'Install update' : 'Установить обновление'}</span>
                         </motion.button>
                       </div>
                     )}

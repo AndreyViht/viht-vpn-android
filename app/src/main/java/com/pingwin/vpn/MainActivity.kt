@@ -36,6 +36,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var bridge: AndroidVihtBridge
     @Volatile var isTrustedPage: Boolean = false
         private set
+    @Volatile var isUiReady: Boolean = false
+        private set
     private var inviteScan: kotlinx.coroutines.CompletableDeferred<String?>? = null
     private val inviteScanner = registerForActivityResult(com.journeyapps.barcodescanner.ScanContract()) { result -> inviteScan?.complete(result.contents);inviteScan=null }
     suspend fun scanInvite(): org.json.JSONObject {
@@ -61,7 +63,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun attachBaseContext(newBase: Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
     override fun onStart() { super.onStart(); AppVisibility.setForeground(true); UpdateScheduler.sync(this); AppAnnouncements.schedule(this) }
-    override fun onResume() { super.onResume(); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
+    override fun onResume() { super.onResume(); if (::bridge.isInitialized && isUiReady) bridge.pageReady() }
     override fun onStop() { AppVisibility.setForeground(false); super.onStop() }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (::bridge.isInitialized) bridge.completeBrowserAuth(intent.data); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
     suspend fun addQuickTile(): org.json.JSONObject {
@@ -125,10 +127,11 @@ class MainActivity : ComponentActivity() {
                     if (request.isForMainFrame && request.url.scheme in setOf("http", "https")) runCatching { startActivity(Intent(Intent.ACTION_VIEW, request.url)) }
                     return true
                 }
-                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) { isTrustedPage = url?.let(::local) == true }
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) { isUiReady=false;isTrustedPage = url?.let(::local) == true }
                 override fun onPageFinished(view: WebView?, url: String?) {
                     isTrustedPage = url?.let(::local) == true
-                    if (isTrustedPage && ::bridge.isInitialized) bridge.pageReady()
+                    isUiReady=isTrustedPage
+                    if (isUiReady && ::bridge.isInitialized) bridge.pageReady()
                 }
             }
         }
@@ -169,6 +172,7 @@ class MainActivity : ComponentActivity() {
         })
     }
     override fun onDestroy() {
+        isUiReady=false
         isTrustedPage = false
         if (::bridge.isInitialized) bridge.close()
         if (::webView.isInitialized) { webView.removeJavascriptInterface("VihtNative"); webView.destroy() }

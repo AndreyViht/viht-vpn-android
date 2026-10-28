@@ -266,8 +266,10 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         } }.awaitAll()
         JSONObject().apply { values.forEach { (id, value) -> put(id, value ?: JSONObject.NULL) } }
     }
+    @Volatile private var pendingInvite: String? = null
+    private fun deliverInvite(){if(!activity.isUiReady)return;val value=pendingInvite?:return;pendingInvite=null;emit("invite-open",JSONObject().put("invite",value))}
     fun completeBrowserAuth(uri: Uri?) {
-        if(uri?.scheme=="vihtvpn"&&uri.host=="join"){val invite=uri.getQueryParameter("invite");if(invite!=null&&Regex("[a-f0-9]{64}").matches(invite))emit("invite-open",JSONObject().put("invite",invite));return}
+        if(uri?.scheme=="vihtvpn"&&uri.host=="join"){val invite=uri.getQueryParameter("invite");if(invite!=null&&Regex("[a-f0-9]{64}").matches(invite)){pendingInvite=invite;deliverInvite()};return}
         if (uri?.scheme != "vihtvpn" || uri.host != "auth" || uri.path != "/callback") return
         scope.launch {
             try {
@@ -280,6 +282,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     fun requestQuickConnect() { emit("quick-connect", JSONObject()) }
     private var lastUpdateCheck = 0L
     fun pageReady() {
+        deliverInvite()
         scope.launch {AndroidSessionStore.pendingGuest(activity)?.let { pending -> runCatching { GuestInviteApi.request(activity,"accept",pending.getString("invite")) }.getOrNull()?.let { accepted -> preferences.edit().putString("provider","guest").apply();emit("auth-success",JSONObject().put("token",accepted.getString("token")).put("provider","guest")) } }}
         if (activity.consumeTileConnect()) requestQuickConnect()
         if (activity.consumeOpenUpdates()) emit("open-updates", JSONObject())
