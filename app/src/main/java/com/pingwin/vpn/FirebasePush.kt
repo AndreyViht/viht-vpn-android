@@ -40,7 +40,8 @@ object FirebasePush {
                 val messaging=FirebaseMessaging.getInstance();messaging.isAutoInitEnabled=true
                 val token=withTimeout(15000){messaging.token.value()}
                 val account=AppAnnouncements.accountKey(AndroidSessionStore.getToken(app));if(account.isBlank())return@launch
-                val binding=hash(token+":"+account),storage=prefs(app)
+                val binding=hash(token+":"+account)
+                val storage=prefs(app)
                 if(storage.getString("binding",null)==binding&&System.currentTimeMillis()-storage.getLong("registeredAt",0)<6*3600000)return@launch
                 val response=AndroidCabinetApi.request(app,JSONObject().put("action","push-register").put("method","POST").put("body",JSONObject().put("fcm_token",token)))
                 if(response.optBoolean("ok")&&AndroidSessionStore.hasSession(app)&&AppAnnouncements.accountKey(AndroidSessionStore.getToken(app))==account)storage.edit().putString("binding",binding).putLong("registeredAt",System.currentTimeMillis()).apply()
