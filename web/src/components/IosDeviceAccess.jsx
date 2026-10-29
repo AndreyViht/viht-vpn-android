@@ -2,8 +2,8 @@ import React,{useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import './IosDeviceAccess.css';
 
-export default function IosDeviceAccess({enabled,request,qrForLink,onChanged}){
- const latest=useRef({request,qrForLink,onChanged});latest.current={request,qrForLink,onChanged};
+export default function IosDeviceAccess({enabled,request,qrForLink,onChanged,allowOpen=true,copyLink=link=>navigator.clipboard.writeText(link)}){
+ const latest=useRef({request,qrForLink,onChanged,copyLink});latest.current={request,qrForLink,onChanged,copyLink};
  const [view,setView]=useState(''),[invite,setInvite]=useState(null),[qr,setQr]=useState(''),[selected,setSelected]=useState(null),[pending,setPending]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false),[now,setNow]=useState(Date.now()),[result,setResult]=useState('');
  const seen=useRef(new Set()),viewRef=useRef(''),inviteRef=useRef(null),selectionRef=useRef(null),generation=useRef(0),dialog=useRef(null),closeButton=useRef(null);
  viewRef.current=view;inviteRef.current=invite;selectionRef.current=selected;
@@ -41,7 +41,7 @@ export default function IosDeviceAccess({enabled,request,qrForLink,onChanged}){
   setBusy(true);setError('');try{await ask(approve?'ios-approve':'ios-reject',{id:selected.id});setPending(rows=>rows.filter(row=>row.id!==selected.id));setResult(approve?'iPhone подключён':'Запрос отклонён');setView('success');latest.current.onChanged?.()}catch(e){setError(e.message)}finally{setBusy(false)}
  }
  async function cancel(){setBusy(true);setError('');try{await ask('ios-cancel',{id:invite.id});close()}catch(e){setError(e.message)}finally{setBusy(false)}}
- async function copy(){try{await navigator.clipboard.writeText(invite.link);setCopied(true)}catch{setError('Не удалось скопировать. Используйте QR-код.')}}
+ async function copy(){try{const copied=await latest.current.copyLink(invite.link);if(copied?.ok===false)throw Error();setCopied(true)}catch{setError('Не удалось скопировать. Используйте QR-код.')}}
  const left=Math.max(0,Math.ceil((Date.parse(invite?.expires_at||'')-now)/1000)||0);
  if(!enabled)return null;
  return <>
@@ -52,7 +52,7 @@ export default function IosDeviceAccess({enabled,request,qrForLink,onChanged}){
    <h2 id="viht-ios-title">{view==='confirm'?'Новое подключение iOS':view==='success'?result:'Подключить iPhone'}</h2>
    {view==='loading'&&<p>Создаём личное приглашение…</p>}
    {view==='invite'&&<><p>Сканируйте QR в Incy или откройте приглашение на iPhone. Затем подтвердите устройство в кабинете Viht.</p>
-    {left>0?<>{qr?<img className="viht-ios-qr" src={qr} alt="Одноразовое приглашение iPhone в Incy"/>:<p>Подготавливаем QR…</p>}<div className="viht-ios-timer">Один iPhone · {Math.floor(left/60)}:{String(left%60).padStart(2,'0')}</div><a className="viht-ios-primary" href={invite.link}>Открыть в Incy</a><button className="viht-ios-secondary" onClick={copy}>{copied?'Скопировано':'Скопировать приглашение'}</button><button className="viht-ios-text" onClick={cancel} disabled={busy}>Отменить приглашение</button></>:<><p>Срок приглашения истёк.</p><button className="viht-ios-primary" onClick={create} disabled={busy}>Создать новое</button></>}
+    {left>0?<>{qr?<img className="viht-ios-qr" src={qr} alt="Одноразовое приглашение iPhone в Incy"/>:<p>Подготавливаем QR…</p>}<div className="viht-ios-timer">Один iPhone · {Math.floor(left/60)}:{String(left%60).padStart(2,'0')}</div>{allowOpen&&<a className="viht-ios-primary" href={invite.link}>Открыть в Incy</a>}<button className="viht-ios-secondary" onClick={copy}>{copied?'Скопировано':'Скопировать приглашение'}</button><button className="viht-ios-text" onClick={cancel} disabled={busy}>Отменить приглашение</button></>:<><p>Срок приглашения истёк.</p><button className="viht-ios-primary" onClick={create} disabled={busy}>Создать новое</button></>}
     <small>Только Incy на iPhone и iPad. Если запрос не появляется, включите отправку HWID в настройках Incy и обновите подписку.</small><a className="viht-ios-text" href="https://apps.apple.com/us/app/incy/id6756943388" target="_blank" rel="noopener noreferrer">Установить Incy</a></>}
    {view==='confirm'&&selected&&<><p>Устройство запрашивает доступ к вашей подписке.</p><strong className="viht-ios-model">{selected.device_model||'iPhone'}</strong><dl><div><dt>Приложение</dt><dd>Incy {selected.app_version||''}</dd></div><div><dt>Система</dt><dd>iOS {selected.os_version||''}</dd></div><div><dt>Запрос</dt><dd>{new Date(selected.requested_at).toLocaleString('ru-RU')}</dd></div></dl><details><summary>Подробнее об устройстве</summary><p>HWID, переданный Incy</p><code>{selected.bound_hwid}</code></details><p>Будет занят один свободный слот. Оплата и управление подпиской останутся у вас.</p><button className="viht-ios-primary" onClick={()=>decide(true)} disabled={busy}>{busy?'Обрабатываем…':'Принять подключение'}</button><button className="viht-ios-secondary" onClick={()=>decide(false)} disabled={busy}>Отклонить</button></>}
    {view==='success'&&<><p>{result==='iPhone подключён'?'Доступ подтверждён. Обновите подписку в Incy, чтобы получить серверы.':'Рабочие ключи этому устройству не выдавались.'}</p><button className="viht-ios-primary" onClick={close}>Готово</button></>}
