@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1040741827283",
+    "project_id": "vihtvpn",
+    "storage_bucket": "vihtvpn.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1040741827283:android:75f4e0d4be96beb2934a26",
+        "android_client_info": {
+          "package_name": "ru.anviht.vpn.test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9wfrNobCXJNFn_1raQTHmAM7rMWnBkH4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

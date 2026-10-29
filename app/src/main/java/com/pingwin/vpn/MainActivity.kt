@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
     private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (::bridge.isInitialized) bridge.onVpnPermissionResult(result.resultCode == RESULT_OK)
     }
-    private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { FirebasePush.sync(this) }
     fun launchVpnPermission(intent: Intent) { vpnPermission.launch(intent) }
     fun ensureNotificationPermission() {
         runOnUiThread {

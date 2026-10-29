@@ -27,10 +27,14 @@ object AppAnnouncements {
     private var lastConnectedCheck=0L
     private fun prefs(context: Context)=context.getSharedPreferences("viht_announcements",Context.MODE_PRIVATE)
     private fun enabled(context: Context)=runCatching { JSONObject(context.getSharedPreferences("viht_ui_settings",Context.MODE_PRIVATE).getString("vpnSettings","{}") ?: "{}").optBoolean("notifyNews",true) }.getOrDefault(true)
-    private fun owner(token:String)=runCatching { JSONObject(String(android.util.Base64.decode(token.split('.')[1],android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP),Charsets.UTF_8)).getString("sub") }.getOrDefault("")
+    internal fun accountKey(token:String):String {
+        if(token.startsWith("vg_"))return "guest:"+java.security.MessageDigest.getInstance("SHA-256").digest(token.toByteArray()).joinToString(""){"%02x".format(it)}
+        return runCatching { JSONObject(String(android.util.Base64.decode(token.split('.')[1],android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP),Charsets.UTF_8)).getString("sub") }.getOrDefault("")
+    }
     private fun key(owner:String,id:String)=owner+":"+id
     fun cancelNotification(context: Context) { context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION) }
     fun schedule(context: Context) {
+        FirebasePush.sync(context)
         val manager=WorkManager.getInstance(context)
         if(!enabled(context)){manager.cancelUniqueWork("viht-announcements");return}
         val request=PeriodicWorkRequestBuilder<AnnouncementWorker>(15,TimeUnit.MINUTES)
@@ -45,13 +49,14 @@ object AppAnnouncements {
     }
     @android.annotation.SuppressLint("MissingPermission")
     suspend fun refresh(context: Context, notify: Boolean): JSONObject=lock.withLock {
+        FirebasePush.sync(context)
         if(!AndroidSessionStore.hasSession(context))return@withLock JSONObject().put("ok",true).put("announcements",JSONArray())
         val token=try{AndroidSessionStore.getToken(context)}catch(_:Exception){return@withLock JSONObject().put("ok",false)}
-        val account=owner(token)
+        val account=accountKey(token)
         if(account.isBlank())return@withLock JSONObject().put("ok",false)
         val reply=AndroidCabinetApi.request(context,JSONObject().put("action","app-announcements"))
         if(!reply.optBoolean("ok"))return@withLock reply
-        val current=runCatching { owner(AndroidSessionStore.getToken(context)) }.getOrDefault("")
+        val current=runCatching { accountKey(AndroidSessionStore.getToken(context)) }.getOrDefault("")
         if(current!=account)return@withLock JSONObject().put("ok",false)
         val items=reply.optJSONObject("data")?.optJSONArray("announcements") ?: JSONArray()
         val storage=prefs(context);val fresh=mutableListOf<JSONObject>()
@@ -82,7 +87,7 @@ object AppAnnouncements {
     }
     suspend fun read(context:Context,id:String,revision:String):JSONObject {
         require(id.matches(Regex("[0-9a-fA-F-]{36}"))&&revision.length in 1..80)
-        val account=owner(AndroidSessionStore.getToken(context))
+        val account=accountKey(AndroidSessionStore.getToken(context))
         check(account.isNotBlank())
         prefs(context).edit().putString("read:"+key(account,id),revision).apply()
         context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION)

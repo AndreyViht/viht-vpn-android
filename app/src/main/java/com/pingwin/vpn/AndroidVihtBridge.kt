@@ -118,9 +118,9 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "exportDebugLog" -> DiagnosticLogStore.entries(activity).joinToString("\n")
                     "setDesktopPreferences" -> {
                         val value = args.getJSONObject(0)
-                        if(value.has("notifyNews")||value.has("autoReconnect")) {
+                        if(value.has("notifyNews")||value.has("autoReconnect")||value.has("sendDiagnostics")) {
                             val settings=JSONObject(preferences.getString("vpnSettings","{}") ?: "{}")
-                            for(key in listOf("notifyNews","autoReconnect"))if(value.has(key))settings.put(key,value.getBoolean(key))
+                            for(key in listOf("notifyNews","autoReconnect","sendDiagnostics"))if(value.has(key))settings.put(key,value.getBoolean(key))
                             check(preferences.edit().putString("vpnSettings",settings.toString()).commit())
                             AppAnnouncements.schedule(activity)
                         }

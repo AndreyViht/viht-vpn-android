@@ -861,7 +861,7 @@ export default function App() {
       let result = { ok: true };
       if (['autoLaunch', 'startMinimized'].includes(key)) {
         result = await window.electronAPI?.setLoginItemSettings?.({ openAtLogin: Boolean(next.autoLaunch), startMinimized: Boolean(next.startMinimized) });
-      } else if (['minimizeToTray', 'notifyUpdate', 'notifyNews', 'autoReconnect'].includes(key)) {
+      } else if (['minimizeToTray', 'notifyUpdate', 'notifyNews', 'autoReconnect', 'sendDiagnostics'].includes(key)) {
         result = await window.electronAPI?.setDesktopPreferences?.({ [key]: value });
       } else if (networkChange) {
         // Reconfiguring the current tunnel is deliberate, not an unexpected drop.

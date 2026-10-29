@@ -392,6 +392,11 @@ function SettingsScreen({
                     <FluentSwitch checked={settings.notifyNews !== false} label="Объявления Viht" onChange={() => onUpdateSetting('notifyNews', settings.notifyNews === false)} />
                   </div>
                   <div className="fluent-toggle-divider" />
+                  <div className="fluent-toggle-row" onClick={()=>onUpdateSetting('sendDiagnostics',settings.sendDiagnostics!==true)}>
+                    <div className="fluent-toggle-text"><strong>Отчёты о сбоях</strong><span>По желанию: техническая диагностика Crashlytics для улучшения приложения, без истории посещений.</span></div>
+                    <FluentSwitch checked={settings.sendDiagnostics===true} label="Отчёты о сбоях" onChange={()=>onUpdateSetting('sendDiagnostics',settings.sendDiagnostics!==true)}/>
+                  </div>
+                  <div className="fluent-toggle-divider" />
                   <div className="fluent-toggle-row" onClick={() => onUpdateSetting('notifyUpdate', settings.notifyUpdate === false)}>
                     <div className="fluent-toggle-text">
                       <strong>{currentLang === 'en' ? 'Available updates' : 'Доступные обновления'}</strong>

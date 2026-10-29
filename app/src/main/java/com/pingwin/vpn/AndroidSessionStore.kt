@@ -93,6 +93,7 @@ object AndroidSessionStore {
             write(context, JSONObject().put("accessToken", token).put("refreshToken", refresh).put("ownerId", owner).put("provider", provider))
             VihtPreferences.clearAuth(context)
         }
+        FirebasePush.sync(context)
         token
     }
     suspend fun beginScan(context: Context, purpose: String) = withContext(Dispatchers.IO) {
@@ -131,8 +132,10 @@ object AndroidSessionStore {
             context.getSharedPreferences(STORE,Context.MODE_PRIVATE).edit().remove("guest_pending").commit()
             VihtPreferences.clearAuth(context);ConnectionStore.saveAll(context,emptyList())
         }
+        FirebasePush.sync(context)
     }
     suspend fun clear(context: Context) = withContext(Dispatchers.IO) {
+        runCatching { kotlinx.coroutines.withTimeout(3500) { FirebasePush.unregister(context) } }
         AppAnnouncements.cancelNotification(context)
         generation.incrementAndGet()
         mutex.withLock {
