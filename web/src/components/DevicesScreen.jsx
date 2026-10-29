@@ -535,18 +535,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                       <Trash2 size={14} />
                     </motion.button>
                   </div>
-                    <details className="compact-device-details">
-                      <summary>Подробнее{device.client_count>1?' · '+device.client_count+' приложения':''}</summary>
-                      <div className="compact-device-detail-body"><strong>{displayName}</strong>
-                        {(device.clients || [device]).map(client=><div key={client.device_id||client.id} style={{display:'grid',gap:5}}>
-                          <span>{deviceAppLabel(client)} · ID: {client.hwid_short||'нет ID'} · {deviceState(client)==='online'?'В сети':client.last_active||'Нет данных'}</span>
-                          {device.client_count>1 && <button className="btn btn--secondary btn--sm" onClick={()=>separateClient(client)}>Это отдельное устройство</button>}
-                        </div>)}
-                        {!device.is_current && !device.disabled && device.hwid && <button className="btn btn--secondary btn--sm" onClick={()=>bindCurrentDevice(device)}>Использую Viht на этом устройстве</button>}
-                        {!device.disabled && device.hwid && <button className="btn btn--secondary btn--sm" onClick={()=>createBindingLink(device)}>Добавить VPN-приложение на это устройство</button>}
-                        {device.hwid && devices.length>1 && <button className="btn btn--secondary btn--sm" onClick={()=>{setBindingTarget(devices.find(d=>d.is_current&&d.id!==device.id)?.device_id||'');setBindingDevice(device);}}>Это другое приложение того же устройства</button>}
-                      </div>
-                    </details>
+
                 </motion.div>
               );
             })}
