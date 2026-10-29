@@ -1,3 +1,5 @@
+import IosDeviceAccess from './components/IosDeviceAccess.jsx';
+import {iosCabinetRequest} from './services/api';
 import UpdateBanner from './components/UpdateBanner';
 import {GuestMembership,JoinSubscription,OwnerPairConfirmation} from './components/SubscriptionInvite';
 import AppAnnouncements from './components/AppAnnouncements';
@@ -957,6 +959,7 @@ export default function App() {
       {/* Native Windows 11 TitleBar */}
       <TitleBar title="Viht" isConnected={connectionState === 'connected'} user={user} onOpenHelp={handleOpenHelp} onOpenNews={()=>window.dispatchEvent(new Event('viht-open-news'))} newsUnread={newsUnread} minimizeToTray={settings.minimizeToTray !== false} />
       <OwnerPairConfirmation onOpen={()=>setActiveTab('devices')} onAdded={()=>window.dispatchEvent(new Event('viht-devices-refresh'))}/>
+      <IosDeviceAccess enabled={!!token&&!!user&&!user.is_guest} request={(action,body)=>iosCabinetRequest(token,action,body)} qrForLink={async link=>{const r=await window.electronAPI.inviteQr(link);if(!r.ok)throw Error(r.error);return r.dataUrl}} onChanged={()=>window.dispatchEvent(new Event("viht-devices-refresh"))}/>
       <JoinSubscription signedIn={!!token} beforeJoin={handleLogout}/>
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
       {token&&user&&<AppAnnouncements key={'news:'+String(user.id||user.telegram_id||user.yandex_email)} accountId={String(user.id||user.telegram_id||user.yandex_email)} enabled={settings.notifyNews!==false} onUnreadChange={setNewsUnread}/>}

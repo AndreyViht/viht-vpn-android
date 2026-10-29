@@ -54,7 +54,7 @@ async function cabinetRequest(token, action, { hwid, method = 'GET', body } = {}
     if (version) url.searchParams.set('app_version', version);
     let accessToken = await ownerToken(token);
     const send = () => fetch(url, {
-      method, cache: 'no-store', signal: AbortSignal.timeout(12000),
+      method, cache: 'no-store', signal: AbortSignal.timeout(action.startsWith('ios-')?30000:12000),
       headers: { Authorization: 'Bearer ' + accessToken, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
@@ -114,3 +114,5 @@ export async function resetSubscriptionKeys(token) {
 export async function fetchAppTariffs(token) { return cabinetRequest(token, 'app-tariffs'); }
 export async function createAppCheckout(token, days, requestId, options = {}) { return cabinetRequest(token, 'app-checkout', { method: 'POST', body: { days, requestId, product: options.product || 'subscription', ...(options.product === 'slots' ? { slots: options.slots } : {}) } }); }
 export async function fetchAppPaymentStatus(token, label) { return cabinetRequest(token, 'app-payment-status', { method: 'POST', body: { label } }); }
+
+export async function iosCabinetRequest(token,action,body){const r=await cabinetRequest(token,action,{method:body===undefined?"GET":"POST",body});if(!r.ok)throw Error(r.error||"Сервис iOS недоступен");return r.data;}

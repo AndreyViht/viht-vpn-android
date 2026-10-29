@@ -59,7 +59,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         };result
                     }
                     "inviteQr" -> {
-                        val text=args.getString(0);require(text.startsWith("https://anviht.ru/join#")&&text.length<120)
+                        val text=args.getString(0);require((text.startsWith("https://anviht.ru/join#")&&text.length<120)||(text.startsWith("incy://crypt1/")&&text.length<2048))
                         val matrix=com.google.zxing.qrcode.QRCodeWriter().encode(text,com.google.zxing.BarcodeFormat.QR_CODE,600,600)
                         val bitmap=android.graphics.Bitmap.createBitmap(600,600,android.graphics.Bitmap.Config.ARGB_8888)
                         val pixels=IntArray(360000){i->if(matrix[i%600,i/600])android.graphics.Color.BLACK else android.graphics.Color.WHITE}
