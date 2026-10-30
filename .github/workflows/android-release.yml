@@ -83,7 +83,7 @@ jobs:
           arch: x86_64
           target: google_apis_ps16k
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          emulator-options: -memory 4096 -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: bash tools/test-16k-core.sh
       - name: Start packaged core without a VPN tunnel
         uses: reactivecircus/android-emulator-runner@v2
