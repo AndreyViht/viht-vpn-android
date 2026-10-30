@@ -39,7 +39,9 @@ object AndroidCabinetApi {
                 access = AndroidSessionStore.getToken(context, access)
                 reply = send()
             }
-            if (reply.status == 401) throw SessionFailure("Сессия истекла. Войдите заново.", true)
+            // A newly refreshed owner token followed by a cabinet 401 is not proof of revoked auth.
+            // Only the native refresh service may confirm permanent owner-session rejection.
+            if (reply.status == 401) throw SessionFailure("Кабинет временно не подтвердил доступ. Данные входа сохранены; повторите попытку.")
             var data = runCatching { JSONObject(reply.body) }.getOrNull()
             if (action == "profile" && reply.status in 200..299 && data?.optBoolean("linked", true) == false) {
                 val provisionUrl = Uri.parse(url).buildUpon().clearQuery().appendQueryParameter("action", "skip-link").build().toString()

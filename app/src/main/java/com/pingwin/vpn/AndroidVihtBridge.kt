@@ -34,9 +34,9 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             if (!closed && activity.isTrustedPage) webView.evaluateJavascript("window.__vihtNativeCallback?.(" + JSONObject.quote(id) + "," + encoded + ");", null)
         }
     }
-    fun emit(type: String, data: JSONObject) {
+    fun emit(type: String, data: JSONObject, sessionEpoch: Long? = null) {
         activity.runOnUiThread {
-            if (!closed && activity.isTrustedPage) webView.evaluateJavascript("window.__vihtNativeEvent?.(" + JSONObject.quote(type) + "," + data.toString() + ");", null)
+            if (!closed && activity.isTrustedPage && (sessionEpoch==null||sessionEpoch==AndroidSessionStore.sessionEpoch())) webView.evaluateJavascript("window.__vihtNativeEvent?.(" + JSONObject.quote(type) + "," + data.toString() + ");", null)
         }
     }
     private fun ok() = JSONObject().put("ok", true)
@@ -86,6 +86,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         try { ok().put("token", AndroidSessionStore.getToken(activity, options.optString("rejectedToken"))) }
                         catch (failure: SessionFailure) { error(failure.message ?: "Войдите заново").put("unauthorized", failure.unauthorized) }
                     }
+                    "getStoredOwnerSession" -> AndroidSessionStore.storedSession(activity)
                     "clearOwnerSession" -> { AuthCallbackServer.stop(); AndroidSessionStore.clear(activity); ok() }
                     "startAuthServer" -> {
                         val provider = args.getString(0)
@@ -297,7 +298,10 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         emit("app-resumed",JSONObject())
         emit("vpn-state", VpnStatus.snapshot().put("snapshot",true))
         scope.launch {
-            runCatching { AndroidSessionStore.getToken(activity) }.getOrNull()?.let { token -> emit("auth-success", JSONObject().put("token", token).put("originalToken", token).put("provider", preferences.getString("provider", "yandex")).put("restore", true)) }
+            runCatching { AndroidSessionStore.storedSession(activity) }.getOrNull()?.takeIf{it.optBoolean("hasSession")}?.let { saved ->
+                val token=saved.getString("token")
+                emit("auth-success",JSONObject().put("token",token).put("originalToken",token).put("provider",saved.getString("provider")).put("restore",true),saved.getLong("epoch"))
+            }
         }
     }
     fun close() { closed = true; permission?.complete(false); scope.cancel() }

@@ -26,22 +26,27 @@ object AndroidSessionStore {
     private const val KEY = "owner_session"
     private const val ALIAS = "viht.owner.session.v1"
 
-    private fun key(): SecretKey {
+    @Synchronized private fun key(create: Boolean = true): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(ALIAS, null) as? SecretKey)?.let { return it }
+        check(create) { "Session encryption key temporarily unavailable" }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {
             init(KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setRandomizedEncryptionRequired(true).build())
         }.generateKey()
     }
-    private fun read(context: Context, storageKey: String = KEY): JSONObject? = runCatching {
-        val envelope = context.getSharedPreferences(STORE, Context.MODE_PRIVATE).getString(storageKey, null) ?: return@runCatching null
+    private fun read(context: Context, storageKey: String = KEY): JSONObject? {
+        val envelope = context.getSharedPreferences(STORE, Context.MODE_PRIVATE).getString(storageKey, null) ?: return null
+        return try {
         val json = JSONObject(envelope)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, Base64.decode(json.getString("iv"), Base64.NO_WRAP)))
+        cipher.init(Cipher.DECRYPT_MODE, key(create = false), GCMParameterSpec(128, Base64.decode(json.getString("iv"), Base64.NO_WRAP)))
         JSONObject(String(cipher.doFinal(Base64.decode(json.getString("data"), Base64.NO_WRAP)), Charsets.UTF_8))
-    }.getOrNull()
+        } catch (_: Exception) {
+            throw SessionFailure("Не удалось открыть сохранённый вход. Повторите попытку — данные входа сохранены.")
+        }
+    }
     private fun write(context: Context, session: JSONObject, storageKey: String = KEY) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
         val encrypted = cipher.doFinal(session.toString().toByteArray(Charsets.UTF_8))
@@ -57,7 +62,17 @@ object AndroidSessionStore {
         val payload = String(Base64.decode(token.split('.')[1], Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING), Charsets.UTF_8)
         JSONObject(payload).optLong("exp", 0) * 1000
     }.getOrDefault(0)
-    fun hasSession(context: Context): Boolean = read(context) != null
+    fun hasSession(context: Context): Boolean = context.getSharedPreferences(STORE, Context.MODE_PRIVATE).contains(KEY)
+    fun sessionEpoch(): Long = generation.get()
+    suspend fun storedSession(context: Context): JSONObject = withContext(Dispatchers.IO) {
+        // Atomic encrypted preferences read: never wait behind a network refresh's mutex.
+        val epoch=generation.get()
+        val session=read(context)
+        if(epoch!=generation.get())throw SessionFailure("Состояние входа изменилось. Повторите запрос.")
+        JSONObject().put("ok",true).put("hasSession",session!=null).put("epoch",epoch).apply {
+            if(session!=null){put("token",session.getString("accessToken"));put("provider",session.optString("provider","yandex"))}
+        }
+    }
     suspend fun cacheUi(context: Context, value: JSONObject) = withContext(Dispatchers.IO) {
         mutex.withLock { val session=read(context) ?: return@withLock; if(value.optString("_owner")!=session.getString("ownerId")) return@withLock; write(context,JSONObject().put("owner",session.getString("ownerId")).put("savedAt",System.currentTimeMillis()).put("data",value),"ui_snapshot") }
     }
@@ -159,10 +174,13 @@ object AndroidSessionStore {
             val configuration = config(context)
             val reply = authRequest(configuration.getString("authUrl") + "/token?grant_type=refresh_token", "POST",
                 mapOf("apikey" to configuration.getString("anonKey")), JSONObject().put("refresh_token", refresh).toString())
-            if (attempt != generation.get()) throw SessionFailure("Сессия закрыта", true)
+            if (attempt != generation.get()) throw SessionFailure("Состояние входа изменилось. Повторите запрос.")
             if (reply.status == 400 || reply.status == 401) {
-                context.getSharedPreferences(STORE, Context.MODE_PRIVATE).edit().clear().commit()
-                throw SessionFailure("Сессия истекла. Войдите заново.", true)
+                if(SessionRefreshPolicy.revoked(reply.status,reply.body)) {
+                    context.getSharedPreferences(STORE, Context.MODE_PRIVATE).edit().clear().commit()
+                    throw SessionFailure("Сессия истекла. Войдите заново.", true)
+                }
+                throw SessionFailure("Сервис входа временно не подтвердил сессию. Данные входа сохранены; повторите попытку.")
             }
             if (reply.status !in 200..299) throw SessionFailure("Сервис входа временно недоступен")
             val rotated = JSONObject(reply.body)

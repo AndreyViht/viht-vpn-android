@@ -14,6 +14,36 @@ import java.lang.reflect.Proxy
 /** Starts the actual packaged core with local-only inbounds. Never creates a VPN/TUN. */
 @RunWith(AndroidJUnit4::class)
 class CoreStartupTest {
+    @Test fun expiredOwnerSessionRestoresLocallyWithoutRefreshOrBrowserStorage() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        assertFalse("Use only the empty emulator fixture",AndroidSessionStore.hasSession(context))
+        val prefs=context.getSharedPreferences("viht_secure_owner",android.content.Context.MODE_PRIVATE)
+        val token="eyJhbGciOiJIUzI1NiJ9."+android.util.Base64.encodeToString("{\"sub\":\"restore-test\",\"exp\":1}".toByteArray(),android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING)+".fixture"
+        val method=AndroidSessionStore::class.java.getDeclaredMethod("write",android.content.Context::class.java,JSONObject::class.java,String::class.java).apply{isAccessible=true}
+        try{
+            method.invoke(AndroidSessionStore,context,JSONObject().put("accessToken",token).put("refreshToken","fixture-do-not-send").put("ownerId","restore-test").put("provider","vk"),"owner_session")
+            AndroidSessionStore.cancelPending()
+            val reopened=context.createPackageContext(context.packageName,0)
+            val result=kotlinx.coroutines.runBlocking{AndroidSessionStore.storedSession(reopened)}
+            assertTrue(result.getBoolean("hasSession"));assertEquals(token,result.getString("token"));assertEquals("vk",result.getString("provider"))
+            assertTrue(AndroidSessionStore.hasSession(reopened))
+        }finally{prefs.edit().clear().commit()}
+    }
+    @Test fun missingEncryptionKeyDoesNotRecreateKeyOrEraseSavedSession() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        assertFalse("Use only the empty emulator fixture",AndroidSessionStore.hasSession(context))
+        val prefs=context.getSharedPreferences("viht_secure_owner",android.content.Context.MODE_PRIVATE)
+        val method=AndroidSessionStore::class.java.getDeclaredMethod("write",android.content.Context::class.java,JSONObject::class.java,String::class.java).apply{isAccessible=true}
+        try{
+            method.invoke(AndroidSessionStore,context,JSONObject().put("accessToken","fixture").put("ownerId","restore-test").put("provider","vk"),"owner_session")
+            val envelope=prefs.getString("owner_session",null)
+            val keyStore=java.security.KeyStore.getInstance("AndroidKeyStore").apply{load(null)}
+            keyStore.deleteEntry("viht.owner.session.v1")
+            try{kotlinx.coroutines.runBlocking{AndroidSessionStore.storedSession(context)};fail("Missing key must report retryable failure")}
+            catch(failure:SessionFailure){assertFalse(failure.unauthorized)}
+            assertTrue(AndroidSessionStore.hasSession(context));assertEquals(envelope,prefs.getString("owner_session",null));assertFalse(keyStore.containsAlias("viht.owner.session.v1"))
+        }finally{prefs.edit().clear().commit()}
+    }
     @Test fun systemBackClosesWebDialogInsteadOfMinimizingTheApplication() {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val context=instrumentation.targetContext

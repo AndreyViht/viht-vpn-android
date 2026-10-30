@@ -30,7 +30,6 @@
     return () => current.delete(callback);
   }
   window.__vihtNativeEvent = function (type, data) {
-    if (type === 'auth-success' && data.restore && localStorage.getItem('viht_desktop_token') === data.token) return;
     const targets = listeners.get(type);
     if (!targets?.size) { if (type === 'owner-pair-scan' || type === 'guest-scan-result' || type === 'invite-open' || type === 'auth-success' || type === 'auth-error' || type === 'quick-connect' || type === 'open-updates' || type === 'announcement-open') queued.set(type, data); return; }
     for (const callback of [...targets]) callback(data);
@@ -48,6 +47,7 @@
     openVpnNotificationSettings: () => call('openVpnNotificationSettings'), onAppResumed: callback => subscribe('app-resumed',callback),
     getSystemInfo: () => call('getSystemInfo'), getAppVersion: () => call('getAppVersion'),
     getOwnerSession: options => call('getOwnerSession', [options || {}]),
+    getStoredOwnerSession: () => call('getStoredOwnerSession'),
     clearOwnerSession: () => { queued.delete('auth-success'); return call('clearOwnerSession'); },
     startAuthServer: provider => call('startAuthServer', [provider]), cancelAuthServer: () => call('cancelAuthServer'),
     onAuthSuccess: callback => subscribe('auth-success', callback), onAuthError: callback => subscribe('auth-error', callback),

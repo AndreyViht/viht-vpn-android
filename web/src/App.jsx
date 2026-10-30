@@ -1,4 +1,5 @@
 import IosDeviceAccess from './components/IosDeviceAccess.jsx';
+import {restoreStoredSession} from './services/sessionRestore';
 import {iosCabinetRequest} from './services/api';
 import UpdateBanner from './components/UpdateBanner';
 import {GuestMembership,JoinSubscription,OwnerPairConfirmation} from './components/SubscriptionInvite';
@@ -49,6 +50,9 @@ export default function App() {
   });
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
+  const [sessionRestoring,setSessionRestoring]=useState(()=>typeof window.electronAPI?.getStoredOwnerSession==='function');
+  const [sessionRestoreError,setSessionRestoreError]=useState('');
+  const sessionRestoreAttempt=useRef(0);
   const [profileRetry, setProfileRetry] = useState(0);
   const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
@@ -76,6 +80,20 @@ export default function App() {
   const keySyncInFlightRef = useRef(null);
   const settingsChangeRef = useRef(false);
   const lastKeySyncAtRef = useRef(0);
+
+  const restoreSession=useCallback(async()=>{
+    if(!window.electronAPI?.getStoredOwnerSession)return;
+    const attempt=++sessionRestoreAttempt.current,before=tokenRef.current;
+    setSessionRestoring(true);setSessionRestoreError('');
+    try{
+      const saved=await restoreStoredSession(window.electronAPI);
+      if(attempt!==sessionRestoreAttempt.current||before!==tokenRef.current)return;
+      if(saved){try{localStorage.setItem('viht_desktop_token',saved.token);localStorage.setItem('viht_chosen_provider',saved.provider)}catch{}tokenRef.current=saved.token;setToken(saved.token);setProfileRetry(v=>v+1)}
+      else{clearAccountStorage();tokenRef.current='';setToken('');setUser(null);setLoading(false)}
+    }catch(error){if(attempt===sessionRestoreAttempt.current)setSessionRestoreError(error.message)}
+    finally{if(attempt===sessionRestoreAttempt.current)setSessionRestoring(false)}
+  },[]);
+  useEffect(()=>{void restoreSession();return()=>{sessionRestoreAttempt.current++}},[restoreSession]);
 
   useEffect(() => {
     let active=true;
@@ -357,6 +375,7 @@ export default function App() {
     const authUnsubscribe = window.electronAPI?.onAuthSuccess?.((data) => {
       const resolvedToken = data?.originalToken || data?.token;
       if (!resolvedToken) { showToast('Не удалось получить сессию. Повторите вход.', 'error'); return; }
+      setSessionRestoreError('');setSessionRestoring(false);
       if (resolvedToken === tokenRef.current) { if (!data?.restore) setProfileRetry(value => value + 1); return; }
       if (sessionOwner(resolvedToken) && sessionOwner(resolvedToken) === sessionOwner(tokenRef.current)) { localStorage.setItem('viht_desktop_token',resolvedToken); setToken(resolvedToken); return; }
       clearAccountStorage();
@@ -897,6 +916,7 @@ export default function App() {
   const handleLogout = useCallback(async (skipGuestLeave=false) => {
     if(logoutBusy.current)return;logoutBusy.current=true;
     try{
+    sessionRestoreAttempt.current++;setSessionRestoring(false);setSessionRestoreError('');
     if(tokenRef.current.startsWith("vg_")&&skipGuestLeave!==true){
       await window.electronAPI?.vpnDisconnect?.();
       const left=await window.electronAPI?.cabinetRequest?.({action:"guest-leave",method:"POST",body:{}});
@@ -923,7 +943,7 @@ export default function App() {
   }, [applyServerList]);
 
   useEffect(() => {
-    const expired = () => { void handleLogout(true); };
+    const expired = event => { if(event.detail?.token&&event.detail.token!==tokenRef.current)return;void handleLogout(true); };
     window.addEventListener('viht-auth-required', expired);
     return () => window.removeEventListener('viht-auth-required', expired);
   }, [handleLogout]);
@@ -973,13 +993,15 @@ export default function App() {
       />
 
       <div className="fluent-window-body">
-        {loading ? (
+        {loading || sessionRestoring ? (
           <div className="fluent-splash">
             <Loader2 size={38} className="spinning fluent-spinner-glow" />
             <span className="fluent-splash-text">
               {currentLang === 'en' ? 'Loading Viht ID profile...' : 'Загрузка профиля Viht ID...'}
             </span>
           </div>
+        ) : sessionRestoreError ? (
+          <ProfileErrorScreen error={sessionRestoreError} onRetry={restoreSession} onLogout={handleLogout}/>
         ) : !token ? (
           <LoginScreen />
         ) : profileError ? (

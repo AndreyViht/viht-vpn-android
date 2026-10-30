@@ -42,7 +42,7 @@ async function cabinetRequest(token, action, { hwid, method = 'GET', body } = {}
   try {
     if (window.electronAPI?.cabinetRequest) {
       const result = await window.electronAPI.cabinetRequest({ action, hwid, method, body });
-      if (result?.unauthorized) window.dispatchEvent(new CustomEvent('viht-auth-required'));
+      if (result?.unauthorized) window.dispatchEvent(new CustomEvent('viht-auth-required', {detail:{token}}));
       return result;
     }
     const url = new URL(API_BASE + '/cabinet-api');
@@ -70,7 +70,7 @@ async function cabinetRequest(token, action, { hwid, method = 'GET', body } = {}
     if (!response.ok || !data) return { ok: false, error: data?.error || 'Ошибка сервиса: HTTP ' + response.status };
     return { ok: data.ok !== false, data, error: data.error };
   } catch (error) {
-    if (error.unauthorized) window.dispatchEvent(new CustomEvent('viht-auth-required'));
+    if (error.unauthorized) window.dispatchEvent(new CustomEvent('viht-auth-required', {detail:{token}}));
     return { ok: false, unauthorized: Boolean(error.unauthorized), error: error.name === 'TimeoutError' ? 'Сервис не ответил вовремя. Повторите попытку.' : error.message || 'Ошибка соединения' };
   }
 }
