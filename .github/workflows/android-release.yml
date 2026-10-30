@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_16k_diagnostic:
+        description: "Run additional 16 KB runtime diagnostics (known Go runtime failure)"
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -75,6 +80,19 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      # Existing 16 KB Go runtime failure is retained as an explicit diagnostic.
+      # This release was requested with that known limitation; normal runtime tests remain mandatory.
+      - name: Verify compressed core on 16 KB Android
+        if: github.event_name == 'workflow_dispatch' && inputs.run_16k_diagnostic
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          avd-name: viht-16kb
+          api-level: 35
+          arch: x86_64
+          target: google_apis_ps16k
+          disable-animations: true
+          emulator-options: -memory 4096 -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: bash tools/test-16k-core.sh
       - name: Start packaged core without a VPN tunnel
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -90,18 +108,20 @@ jobs:
           analyzer=$(find "$ANDROID_HOME" -path "*/bin/apkanalyzer" | head -1)
           "$analyzer" manifest permissions app/build/outputs/apk/debug/*.apk > release-apk/permissions.txt
           if grep -E "android.permission.(CAMERA|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|ACCESS_BACKGROUND_LOCATION|READ_MEDIA_IMAGES|READ_MEDIA_VIDEO|READ_MEDIA_VISUAL_USER_SELECTED|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE)" release-apk/permissions.txt; then echo "Unexpected sensitive permission in final APK"; exit 1; fi
-          cp app/build/outputs/apk/debug/*.apk release-apk/VihtVPN-1.4.26-test-universal.apk
+          "$analyzer" manifest print app/build/outputs/apk/debug/*.apk | grep 'extractNativeLibs="true"'
+          python3 tools/verify-native-packaging.py app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/debug/*.apk release-apk/VihtVPN-1.4.27-test-universal.apk
           sha256sum release-apk/*.apk > release-apk/SHA256SUMS.txt
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          "$signer" verify --verbose --print-certs release-apk/VihtVPN-1.4.26-test-universal.apk > release-apk/signature-verification.txt
+          "$signer" verify --verbose --print-certs release-apk/VihtVPN-1.4.27-test-universal.apk > release-apk/signature-verification.txt
           expected=$(keytool -exportcert -keystore "$VIHT_TEST_KEYSTORE" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f1)
-          actual=$(node tools/apk-signer-sha256.mjs release-apk/VihtVPN-1.4.26-test-universal.apk)
+          actual=$(node tools/apk-signer-sha256.mjs release-apk/VihtVPN-1.4.27-test-universal.apk)
           echo "Expected certificate: $expected; APK certificate: $actual"
           test "$expected" = "$actual"
           aligner=$(find "$ANDROID_HOME/build-tools" -name zipalign | sort -V | tail -1)
-          "$aligner" -c -P 16 -v 4 release-apk/VihtVPN-1.4.26-test-universal.apk > release-apk/alignment-verification.txt
+          "$aligner" -c -P 16 -v 4 release-apk/VihtVPN-1.4.27-test-universal.apk > release-apk/alignment-verification.txt
           for abi in arm64-v8a armeabi-v7a x86 x86_64; do
-            unzip -Z1 release-apk/VihtVPN-1.4.26-test-universal.apk | grep "^lib/$abi/.*\.so$" > /dev/null || exit 1
+            unzip -Z1 release-apk/VihtVPN-1.4.27-test-universal.apk | grep "^lib/$abi/.*\.so$" > /dev/null || exit 1
           done
       - uses: actions/upload-artifact@v4
         with:
