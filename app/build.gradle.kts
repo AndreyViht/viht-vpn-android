@@ -115,5 +115,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(files("libs/hev-socks5-tunnel.aar"))
 }
-
-}
+
+
