@@ -20,7 +20,7 @@ internal class XrayHevRuntime(private val context: Context) {
         fun executable(context: Context) = File(context.applicationInfo.nativeLibraryDir, "libvihtxray.so")
         fun available(context: Context, source: String): Boolean {
             val settings = JSONObject(context.getSharedPreferences("viht_ui_settings", Context.MODE_PRIVATE).getString("vpnSettings", "{}") ?: "{}")
-            return !settings.optBoolean("legacyVpnCore", false) && executable(context).isFile && XrayConfigBuilder.supported(source)
+            return android.os.Build.VERSION.SDK_INT >= 29 && !settings.optBoolean("legacyVpnCore", false) && executable(context).isFile && XrayConfigBuilder.supported(source)
         }
         fun hevConfig(port: Int, username: String, password: String): String {
             require(port in 1..65535)
@@ -47,6 +47,7 @@ internal class XrayHevRuntime(private val context: Context) {
     }
 
     private var process: java.lang.Process? = null
+    private var childPid: Long? = null
     private val directory = File(context.noBackupFilesDir, "xray-hev").apply { mkdirs() }
     private val configFile = File(directory, "config.json")
     private val hevFile = File(directory, "hev.yml")
@@ -79,8 +80,10 @@ internal class XrayHevRuntime(private val context: Context) {
         check(process == null)
         configFile.writeText(config.toString())
         try {
-            process = ProcessBuilder(executable(context).absolutePath, "run", "-config", configFile.absolutePath)
-                .redirectErrorStream(true).redirectOutput(File("/dev/null")).start()
+            // exec preserves the shell PID. Positional arguments avoid shell interpolation of paths.
+            process = ProcessBuilder("/system/bin/sh", "-c", "echo $$; exec \"\$1\" run -config \"\$2\" >/dev/null 2>&1", "viht-xray", executable(context).absolutePath, configFile.absolutePath)
+                .redirectError(File("/dev/null")).start()
+            childPid = process!!.inputStream.bufferedReader().use { it.readLine()?.toLongOrNull() }
             val deadline = SystemClock.elapsedRealtime() + 5000
             var ready = false
             while (SystemClock.elapsedRealtime() < deadline && process?.isAlive == true) {
@@ -108,7 +111,7 @@ internal class XrayHevRuntime(private val context: Context) {
     fun diagnosticSnapshot(): String {
         val running = process?.isAlive == true
         // Child RSS and CPU ticks are distinct from the main Android process's PSS/CPU.
-        val pid = if (android.os.Build.VERSION.SDK_INT >= 33) runCatching { process?.pid() }.getOrNull() else null
+        val pid = childPid
         val details = if (pid != null) runCatching {
             val status = File("/proc/$pid/status").readLines().filter { it.startsWith("VmRSS:") || it.startsWith("Threads:") }.joinToString("; ")
             val fields = File("/proc/$pid/stat").readText().substringAfterLast(") ").split(' ')
@@ -126,6 +129,7 @@ internal class XrayHevRuntime(private val context: Context) {
             if (!child.waitFor(1500, TimeUnit.MILLISECONDS)) child.destroyForcibly().waitFor(1500, TimeUnit.MILLISECONDS)
         }
         process = null
+        childPid = null
         configFile.delete(); hevFile.delete()
     }
 }
