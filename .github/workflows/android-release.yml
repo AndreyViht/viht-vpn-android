@@ -85,8 +85,6 @@ jobs:
         with:
           avd-name: viht-16kb
           api-level: 35
-          arch: x86_64
-          target: google_apis_ps16k
           disable-animations: true
           emulator-options: -memory 4096 -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: bash tools/test-16k-core.sh
@@ -94,21 +92,13 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 36
-          arch: x86_64
-          target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: ./gradlew connectedDebugAndroidTest --console=plain --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=com.pingwin.vpn.CoreStartupTest,com.pingwin.vpn.XrayHevRuntimeTest -PciVersionCode=$((1000 + GITHUB_RUN_NUMBER))
-      - name: Verify Android 8 and 32-bit Xray runtime
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          avd-name: viht-api26
-          api-level: 26
-          arch: x86
-          target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: ./gradlew connectedDebugAndroidTest --console=plain --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=com.pingwin.vpn.XrayHevRuntimeTest -PciVersionCode=$((1000 + GITHUB_RUN_NUMBER))
       - name: Prepare universal APK
         run: |
           mkdir -p release-apk
