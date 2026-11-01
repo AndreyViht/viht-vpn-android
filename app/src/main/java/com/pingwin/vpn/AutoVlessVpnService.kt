@@ -228,7 +228,7 @@ class AutoVlessVpnService :
 
         Libbox.setup(options)
 
-        Log.d(
+        if (BuildConfig.DEBUG) Log.d(
             TAG,
             "Libbox setup complete"
         )
@@ -344,7 +344,7 @@ class AutoVlessVpnService :
                     hasCommandServer = commandServer != null,
                     isStarting = isStarting
                 )) {
-                Log.d(
+                if (BuildConfig.DEBUG) Log.d(
                     TAG,
                     "VPN is already running or starting"
                 )
@@ -364,7 +364,7 @@ class AutoVlessVpnService :
             )
 
             try {
-                Log.d(
+                if (BuildConfig.DEBUG) Log.d(
                     TAG,
                     "Creating CommandServer"
                 )
@@ -378,21 +378,21 @@ class AutoVlessVpnService :
                 commandServer =
                     server
 
-                Log.d(
+                if (BuildConfig.DEBUG) Log.d(
                     TAG,
                     "Starting CommandServer"
                 )
 
                 server.start()
 
-                Log.d(
+                if (BuildConfig.DEBUG) Log.d(
                     TAG,
                     "Starting physical network monitor"
                 )
 
                 startPhysicalNetworkMonitor()
 
-                Log.d(
+                if (BuildConfig.DEBUG) Log.d(
                     TAG,
                     "Starting sing-box service"
                 )
@@ -418,7 +418,7 @@ class AutoVlessVpnService :
                         it.start()
                     }
 
-                Log.d(
+                if (BuildConfig.DEBUG) Log.d(
                     TAG,
                     "sing-box started"
                 )
@@ -559,6 +559,8 @@ class AutoVlessVpnService :
 
     private fun prepareAndroidConfig(source: String): Pair<String, Int> {
         val root = JSONObject(source)
+        // Per-connection info logs are costly under heavy traffic; keep them opt-in.
+        root.optJSONObject("log")?.put("level", if (DiagnosticLogStore.isDetailedEnabled(this)) "info" else "warn")
         // Also upgrade configurations saved before mandatory payment bypass existed.
         PaymentNetworkPolicy.apply(root)
         val network = physicalDefaultNetwork ?: choosePhysicalNetwork() ?: error("Нет физического подключения к сети")
@@ -652,7 +654,7 @@ class AutoVlessVpnService :
                     currentSessionStartId
                 )
             ) {
-                Log.d(
+                if (BuildConfig.DEBUG) Log.d(
                     TAG,
                     "Ignoring stale VPN stop for session $expectedSessionStartId; current session is $currentSessionStartId"
                 )
@@ -695,7 +697,7 @@ class AutoVlessVpnService :
                 )
             }
 
-            Log.d(
+            if (BuildConfig.DEBUG) Log.d(
                 TAG,
                 "VPN stopped"
             )
@@ -776,7 +778,7 @@ class AutoVlessVpnService :
     // ------------------------------------------------------------
 
     override fun usePlatformAutoDetectInterfaceControl(): Boolean {
-        Log.d(TAG, "usePlatformAutoDetectInterfaceControl CALLED -> true")
+        if (BuildConfig.DEBUG) Log.d(TAG, "usePlatformAutoDetectInterfaceControl CALLED -> true")
         return true
     }
 
@@ -786,7 +788,7 @@ class AutoVlessVpnService :
         val network =
             physicalDefaultNetwork
 
-        Log.d(
+        if (BuildConfig.DEBUG) Log.d(
             TAG,
             "autoDetectInterfaceControl: fd=$fd network=$network"
         )
@@ -809,7 +811,7 @@ class AutoVlessVpnService :
                 duplicate.fileDescriptor
             )
 
-            Log.d(
+            if (BuildConfig.DEBUG) Log.d(
                 TAG,
                 "Network.bindSocket OK: fd=$fd network=$network"
             )
@@ -948,7 +950,7 @@ class AutoVlessVpnService :
             tunDescriptor = descriptor
         }
 
-        Log.d(
+        if (BuildConfig.DEBUG) Log.d(
             TAG,
             "TUN established, fd=${descriptor.fd}"
         )
@@ -980,6 +982,8 @@ class AutoVlessVpnService :
 
     override fun systemCertificates(): StringIterator? =
         null
+
+    @Volatile private var lastOwnerFailureLog = -30_000L
 
     override fun findConnectionOwner(
         ipProtocol: Int,
@@ -1034,11 +1038,11 @@ class AutoVlessVpnService :
             }
 
         } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "findConnectionOwner failed",
-                e
-            )
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (DiagnosticLogStore.isDetailedEnabled(this) || now - lastOwnerFailureLog >= 30_000L) {
+                lastOwnerFailureLog = now
+                Log.e(TAG, "findConnectionOwner failed (further repeats limited to one per 30 seconds)", e)
+            }
 
             throw e
         }
@@ -1185,7 +1189,7 @@ class AutoVlessVpnService :
                     dnsServers.iterator()
                 )
 
-            Log.d(
+            if (BuildConfig.DEBUG) Log.d(
                 TAG,
                 "Interface from LinkProperties: " +
                         "$interfaceName " +
@@ -1200,7 +1204,7 @@ class AutoVlessVpnService :
             )
         }
 
-        Log.d(
+        if (BuildConfig.DEBUG) Log.d(
             TAG,
             "getInterfaces(): ${result.size} interfaces"
         )
@@ -1217,7 +1221,7 @@ class AutoVlessVpnService :
             return
         }
 
-        Log.d(
+        if (BuildConfig.DEBUG) Log.d(
             TAG,
             "libbox registered default interface listener"
         )
@@ -1243,7 +1247,7 @@ class AutoVlessVpnService :
     override fun closeDefaultInterfaceMonitor(
         listener: InterfaceUpdateListener?
     ) {
-        Log.d(
+        if (BuildConfig.DEBUG) Log.d(
             TAG,
             "libbox closed default interface listener"
         )
@@ -1279,7 +1283,7 @@ class AutoVlessVpnService :
                 physicalDefaultNetwork =
                     current
 
-                Log.d(
+                if (BuildConfig.DEBUG) Log.d(
                     TAG,
                     "Captured physical network before VPN: $current"
                 )
@@ -1324,7 +1328,7 @@ class AutoVlessVpnService :
                     if (physicalNetworkCallback !== this) return
                     physicalDefaultNetwork = network
 
-                    Log.d(
+                    if (BuildConfig.DEBUG) Log.d(
                         TAG,
                         "Physical network available: $network"
                     )
@@ -1345,7 +1349,7 @@ class AutoVlessVpnService :
                         return
                     }
 
-                    Log.d(
+                    if (BuildConfig.DEBUG) Log.d(
                         TAG,
                         "Physical link properties: " +
                                 "network=$network " +
@@ -1384,7 +1388,7 @@ class AutoVlessVpnService :
                         return
                     }
 
-                    Log.d(
+                    if (BuildConfig.DEBUG) Log.d(
                         TAG,
                         "Physical network lost: $network"
                     )
@@ -1414,7 +1418,7 @@ class AutoVlessVpnService :
                     mainHandler
                 )
 
-            Log.d(
+            if (BuildConfig.DEBUG) Log.d(
                 TAG,
                 "Registered best-matching physical network callback"
             )
@@ -1425,7 +1429,7 @@ class AutoVlessVpnService :
                     callback
                 )
 
-            Log.d(
+            if (BuildConfig.DEBUG) Log.d(
                 TAG,
                 "Registered physical network callback"
             )
@@ -1458,7 +1462,7 @@ class AutoVlessVpnService :
             }
 
         if (osIndex > 0) {
-            Log.d(
+            if (BuildConfig.DEBUG) Log.d(
                 TAG,
                 "Interface index from Os: " +
                         "$interfaceName index=$osIndex"
@@ -1474,7 +1478,7 @@ class AutoVlessVpnService :
                 val scopeId =
                     address.scopeId
 
-                Log.d(
+                if (BuildConfig.DEBUG) Log.d(
                     TAG,
                     "IPv6 scope candidate: " +
                             "$interfaceName " +
@@ -1483,7 +1487,7 @@ class AutoVlessVpnService :
                 )
 
                 if (scopeId > 0) {
-                    Log.d(
+                    if (BuildConfig.DEBUG) Log.d(
                         TAG,
                         "Interface index from IPv6 scope: " +
                                 "$interfaceName index=$scopeId"
@@ -1564,7 +1568,7 @@ class AutoVlessVpnService :
             return
         }
 
-        Log.d(
+        if (BuildConfig.DEBUG) Log.d(
             TAG,
             "Default physical interface BEFORE update: " +
                     "$interfaceName index=$interfaceIndex"
@@ -1582,7 +1586,7 @@ class AutoVlessVpnService :
             false
         )
 
-        Log.d(
+        if (BuildConfig.DEBUG) Log.d(
             TAG,
             "Default physical interface AFTER update: " +
                     "$interfaceName index=$interfaceIndex"
@@ -1616,7 +1620,7 @@ class AutoVlessVpnService :
     override fun sendNotification(
         notification: Notification?
     ) {
-        Log.d(
+        if (BuildConfig.DEBUG) Log.d(
             TAG,
             "libbox notification: " +
                     "${notification?.title}: " +
@@ -1643,7 +1647,7 @@ class AutoVlessVpnService :
             }
 
             override fun serviceReload() {
-                Log.d(
+                if (BuildConfig.DEBUG) Log.d(
                     TAG,
                     "serviceReload requested"
                 )
@@ -1661,7 +1665,7 @@ class AutoVlessVpnService :
             override fun writeDebugMessage(
                 message: String?
             ) {
-                Log.d(
+                if (BuildConfig.DEBUG) Log.d(
                     TAG,
                     message ?: ""
                 )
