@@ -619,7 +619,7 @@ function SettingsScreen({
                       <strong>v{clientVersion} (Android 8+)</strong>
                     </div>
                     <div className="fluent-about-row">
-                      <span>{currentLang === 'en' ? 'Network driver:' : 'Сетевой драйвер:'}</span>
+                      <span>{currentLang === 'en' ? 'Network adapter:' : 'Сетевой адаптер:'}</span>
                       <strong>{engineInfo?.adapter || 'Android VpnService / hev-socks5-tunnel 2.19.3'}</strong>
                     </div>
                     <div className="fluent-about-row">
