@@ -6,7 +6,6 @@ import android.os.Debug
 import android.os.PowerManager
 import android.os.Process
 import android.os.SystemClock
-import io.nekohasekai.libbox.Libbox
 
 /** Collected only when the owner explicitly exports diagnostics, never on a packet/timer. */
 internal object VpnPerformanceSnapshot {
@@ -18,7 +17,7 @@ internal object VpnPerformanceSnapshot {
         listOf(
             "--- Performance snapshot (not an instantaneous CPU percentage) ---",
             "Device: ${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE}",
-            "Core: ${Libbox.version()}; configured TUN stack: gvisor",
+            "Core: ${XrayHevRuntime.active?.diagnosticSnapshot() ?: XrayHevRuntime.lastEngine}",
             "VPN: ${VpnStatus.state.value}; UI foreground: ${AppVisibility.isForeground()}",
             "Process CPU cumulative ms: ${Process.getElapsedCpuTime()}",
             "Process elapsed ms: ${SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()}",

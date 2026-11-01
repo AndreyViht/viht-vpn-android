@@ -133,6 +133,7 @@ class AutoVlessVpnService :
 
     private var commandServer: CommandServer? = null
     private var singBoxLogClient: SingBoxLogClient? = null
+    private var xrayRuntime: XrayHevRuntime? = null
     @Volatile private var tunDescriptor: ParcelFileDescriptor? = null
     private val tunLock = Any()
 
@@ -171,19 +172,12 @@ class AutoVlessVpnService :
             getString(R.string.vpn_service_starting)
         )
 
-        notificationTask = recoveryTimer.scheduleWithFixedDelay({ if(!destroyed && VpnRunStore.desired(this) && VpnStatus.state.value in setOf(VpnConnectionState.CONNECTED,VpnConnectionState.CONNECTING)) runCatching { updateForegroundNotification("VPN работает") } },3,3,java.util.concurrent.TimeUnit.SECONDS)
-        try {
-            setupLibbox()
-        } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "Libbox setup failed",
-                e
-            )
-        }
+        notificationTask = recoveryTimer.scheduleWithFixedDelay({ if(!destroyed && VpnRunStore.desired(this) && VpnStatus.state.value in setOf(VpnConnectionState.CONNECTED,VpnConnectionState.CONNECTING)) runCatching { xrayRuntime?.publishTraffic(); updateForegroundNotification("VPN работает") } },3,3,java.util.concurrent.TimeUnit.SECONDS)
     }
 
+    private var libboxSetup = false
     private fun setupLibbox() {
+        if (libboxSetup) return
         val baseDir =
             File(filesDir, "sing-box").apply {
                 mkdirs()
@@ -227,6 +221,7 @@ class AutoVlessVpnService :
             }
 
         Libbox.setup(options)
+        libboxSetup = true
 
         if (BuildConfig.DEBUG) Log.d(
             TAG,
@@ -301,7 +296,7 @@ class AutoVlessVpnService :
                         if (destroyed || latestServiceStartId != startId || !VpnRunStore.desired(this)) return@execute
                         val settings = JSONObject(getSharedPreferences("viht_ui_settings", Context.MODE_PRIVATE).getString("vpnSettings", "{}") ?: "{}")
                         val config = VihtVpnConfig.build(ConnectionProfileParser.parse(selected.link), settings)
-                        LibboxValidator.validate(config).getOrThrow()
+                        if (!XrayHevRuntime.available(this, config)) LibboxValidator.validate(config).getOrThrow()
                         startVpn(config, selected.id, startId)
                     } catch (failure: Exception) {
                         if (latestServiceStartId == startId && !destroyed) {
@@ -341,7 +336,7 @@ class AutoVlessVpnService :
         synchronized(this) {
 
             if (!VpnLifecyclePolicy.canStart(
-                    hasCommandServer = commandServer != null,
+                    hasCommandServer = commandServer != null || xrayRuntime != null,
                     isStarting = isStarting
                 )) {
                 if (BuildConfig.DEBUG) Log.d(
@@ -369,11 +364,13 @@ class AutoVlessVpnService :
                     "Creating CommandServer"
                 )
 
+                val useXray = XrayHevRuntime.available(this, config)
+                if (!useXray) setupLibbox()
                 val server =
-                    CommandServer(
+                    if (!useXray) CommandServer(
                         createCommandServerHandler(startId),
                         this
-                    )
+                    ) else null
 
                 commandServer =
                     server
@@ -383,7 +380,7 @@ class AutoVlessVpnService :
                     "Starting CommandServer"
                 )
 
-                server.start()
+                server?.start()
 
                 if (BuildConfig.DEBUG) Log.d(
                     TAG,
@@ -398,10 +395,16 @@ class AutoVlessVpnService :
                 )
 
                 val prepared = prepareAndroidConfig(config)
-                server.startOrReloadService(
-                    prepared.first,
-                    OverrideOptions()
-                )
+                if (useXray) {
+                    xrayRuntime = XrayHevRuntime(this).also { runtime ->
+                        runtime.start(prepared.first, prepared.second) { openXrayTun() }
+                    }
+                    physicalDefaultNetwork?.let { notifyDefaultInterface(it) }
+                } else {
+                    DiagnosticLogStore.append(this, "VPN engine: sing-box/gVisor (legacy protocol or 32-bit device)")
+                    server!!.startOrReloadService(prepared.first, OverrideOptions())
+                    XrayHevRuntime.lastEngine = "sing-box ${Libbox.version()} / gVisor (legacy)"
+                }
 
                 check(tunDescriptor != null) { "VPN interface was not established" }
                 check(probeHealthy(prepared.second)) { "VPN не подтвердил передачу трафика" }
@@ -414,9 +417,9 @@ class AutoVlessVpnService :
                 }
 
                 singBoxLogClient =
-                    SingBoxLogClient(this).also {
+                    if (!useXray) SingBoxLogClient(this).also {
                         it.start()
-                    }
+                    } else null
 
                 if (BuildConfig.DEBUG) Log.d(
                     TAG,
@@ -604,6 +607,8 @@ class AutoVlessVpnService :
     private fun releaseVpnResources() {
         coreEpoch.incrementAndGet()
         healthTask?.cancel(false); healthTask = null
+        runCatching { xrayRuntime?.stop() }
+        xrayRuntime = null
         // Release the Android-owned interface before waiting for native workers.
         val descriptor = synchronized(tunLock) { tunDescriptor.also { tunDescriptor = null } }
         runCatching { descriptor?.close() }
@@ -834,6 +839,26 @@ class AutoVlessVpnService :
         } finally {
             duplicate.close()
         }
+    }
+
+    private fun openXrayTun(): Int {
+        check(!destroyed && latestServiceStartId == currentSessionStartId) { "Запуск VPN отменён" }
+        check(prepare(this) == null) { "VPN permission has not been granted" }
+        val settings = JSONObject(getSharedPreferences("viht_ui_settings", Context.MODE_PRIVATE).getString("vpnSettings", "{}") ?: "{}")
+        val builder = Builder().setSession("Viht · Xray test").setMtu(1400)
+            .addAddress("172.19.0.1", 30).addAddress("fdfe:dcba:9876::1", 126)
+            .addRoute("0.0.0.0", 0).addRoute("::", 0)
+            .addDnsServer(if (settings.optBoolean("dnsAdblock", true)) "94.140.14.14" else "1.1.1.1")
+        // Includes our UID: Xray's child sockets must never be captured by our TUN.
+        AppRoutingConfigurator.apply(this, builder, RoutingSettingsStore.load(this))
+        val network = physicalDefaultNetwork ?: error("Нет физического подключения к сети")
+        builder.setUnderlyingNetworks(arrayOf(network))
+        val descriptor = builder.establish() ?: error("Android failed to establish VPN interface")
+        synchronized(tunLock) {
+            if (destroyed || latestServiceStartId != currentSessionStartId) { descriptor.close(); error("Запуск VPN отменён") }
+            tunDescriptor = descriptor
+        }
+        return descriptor.fd
     }
 
     override fun openTun(
@@ -1516,9 +1541,8 @@ class AutoVlessVpnService :
     private fun notifyDefaultInterface(
         network: Network
     ) {
-        val listener =
-            interfaceListener
-                ?: return
+        val listener = interfaceListener
+        if (listener == null && xrayRuntime == null) return
 
         val properties =
             connectivityManager
@@ -1587,7 +1611,7 @@ class AutoVlessVpnService :
         networkSignature = signature
         runCatching { setUnderlyingNetworks(arrayOf(network)) }
         if (changed && everConnected && VpnStatus.state.value == VpnConnectionState.CONNECTED) requestRecovery(latestServiceStartId)
-        listener.updateDefaultInterface(
+        listener?.updateDefaultInterface(
             interfaceName,
             interfaceIndex,
             false,

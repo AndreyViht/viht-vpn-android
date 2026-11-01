@@ -23,7 +23,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 9
-        versionName = "1.4.32"
+        versionName = "1.4.33"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -114,6 +114,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 	implementation(files("libs/libbox.aar"))
+    implementation(files("libs/hev-socks5-tunnel.aar"))
 }
 
 val verifyLibbox = tasks.register("verifyLibbox") {

@@ -20,7 +20,7 @@ class CoreStartupTest {
         assertFalse(snapshot, snapshot.startsWith("Performance snapshot unavailable"))
         assertTrue(snapshot.contains("Process CPU cumulative ms:"))
         assertTrue(snapshot.contains("Process PSS KiB:"))
-        assertTrue(snapshot.contains("Core: ${Libbox.version()}"))
+        assertTrue(snapshot.contains("Core: "))
     }
 
     @Test fun expiredOwnerSessionRestoresLocallyWithoutRefreshOrBrowserStorage() {

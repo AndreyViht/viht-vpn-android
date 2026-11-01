@@ -174,7 +174,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             require(link.isNotBlank()) { "Нет актуального ключа. Синхронизируйте подписку." }
             val profile = ConnectionProfileParser.parse(link)
             val config = VihtVpnConfig.build(profile, settings)
-            LibboxValidator.validate(config).getOrThrow()
+            if (!XrayHevRuntime.available(activity, config)) LibboxValidator.validate(config).getOrThrow()
             val intent = VpnService.prepare(activity)
             if (intent != null) {
                 val waiting = CompletableDeferred<Boolean>(); permission = waiting

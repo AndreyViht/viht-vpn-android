@@ -1,0 +1,13 @@
+Experimental engine in Viht Android 1.4.33-test:
+
+Xray-core 26.10.31 — unmodified official Android executables, MPL-2.0.
+Source and release: https://github.com/XTLS/Xray-core/tree/v26.10.31
+https://github.com/XTLS/Xray-core/releases/tag/v26.10.31
+
+hev-socks5-tunnel 2.19.3 — unmodified official Android AAR, MIT.
+Source and release: https://github.com/heiher/hev-socks5-tunnel/tree/2.19.3
+https://github.com/heiher/hev-socks5-tunnel/releases/tag/2.19.3
+
+The existing libbox engine remains for legacy protocols and 32-bit devices.
+The experimental Xray path is enabled only on supported 64-bit Android builds
+and supported configurations. Diagnostics explicitly identify the engine used.
