@@ -78,8 +78,6 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      # Existing 16 KB Go runtime failure is retained as an explicit diagnostic.
-      # This release was requested with that known limitation; normal runtime tests remain mandatory.
       - name: Verify compressed core on 16 KB Android
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -103,6 +101,8 @@ jobs:
         run: |
           mkdir -p release-apk
           analyzer=$(find "$ANDROID_HOME" -path "*/bin/apkanalyzer" | head -1)
+          test "$("$analyzer" manifest version-name app/build/outputs/apk/debug/app-debug.apk)" = "1.5.2"
+          test "$("$analyzer" manifest application-id app/build/outputs/apk/debug/app-debug.apk)" = "ru.anviht.vpn.test"
           "$analyzer" manifest permissions app/build/outputs/apk/debug/*.apk > release-apk/permissions.txt
           if grep -E "android.permission.(CAMERA|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|ACCESS_BACKGROUND_LOCATION|READ_MEDIA_IMAGES|READ_MEDIA_VIDEO|READ_MEDIA_VISUAL_USER_SELECTED|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE)" release-apk/permissions.txt; then echo "Unexpected sensitive permission in final APK"; exit 1; fi
           "$analyzer" manifest print app/build/outputs/apk/debug/*.apk | grep 'extractNativeLibs="true"'
