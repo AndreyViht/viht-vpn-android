@@ -14,10 +14,14 @@ import java.util.concurrent.TimeUnit
 /** Xray runs in its own process: no competing gomobile runtimes in the UI process. */
 internal class XrayHevRuntime(private val context: Context) {
     companion object {
-        @Volatile var lastEngine = "Xray 26.10.31 + hev-socks5-tunnel 2.19.3"
+        @Volatile var lastEngine = "VPN engine has not started in this process"
         @Volatile var active: XrayHevRuntime? = null
             private set
-        fun available(context: Context, source: String) = XrayConfigBuilder.supported(source)
+        fun executable(context: Context) = File(context.applicationInfo.nativeLibraryDir, "libvihtxray.so")
+        fun available(context: Context, source: String): Boolean {
+            val settings = JSONObject(context.getSharedPreferences("viht_ui_settings", Context.MODE_PRIVATE).getString("vpnSettings", "{}") ?: "{}")
+            return android.os.Build.VERSION.SDK_INT >= 29 && !settings.optBoolean("legacyVpnCore", false) && executable(context).isFile && XrayConfigBuilder.supported(source)
+        }
         fun hevConfig(port: Int, username: String, password: String): String {
             require(port in 1..65535)
             require(username.matches(Regex("[A-Za-z0-9]+")) && password.matches(Regex("[A-Za-z0-9]+")))
@@ -42,8 +46,8 @@ internal class XrayHevRuntime(private val context: Context) {
         }
     }
 
-    @Volatile private var coreBinder: android.os.IBinder? = null
-    private var binding: android.content.ServiceConnection? = null
+    private var process: java.lang.Process? = null
+    private var childPid: Long? = null
     private val directory = File(context.noBackupFilesDir, "xray-hev").apply { mkdirs() }
     private val configFile = File(directory, "config.json")
     private val hevFile = File(directory, "hev.yml")
@@ -66,37 +70,29 @@ internal class XrayHevRuntime(private val context: Context) {
             check(TProxyService.TProxyIsRunning()) { "hev tunnel завершился при запуске" }
             lastTime = SystemClock.elapsedRealtime()
             active = this
-            lastEngine = "Xray 26.10.31 + hev-socks5-tunnel 2.19.3 "
-            DiagnosticLogStore.append(context, "VPN engine: Xray 26.10.31 + hev-socks5-tunnel 2.19.3 ")
+            lastEngine = "Xray 26.10.31 + hev-socks5-tunnel 2.19.3 (experimental)"
+            DiagnosticLogStore.append(context, "VPN engine: Xray 26.10.31 + hev-socks5-tunnel 2.19.3 (experimental)")
         } catch (failure: Exception) { stop(); throw failure }
     }
 
     /** Also used by the isolated runtime test; no Android VPN/TUN is established here. */
     fun startCore(config: JSONObject, readyPort: Int) {
-        check(binding == null)
-        val connected = java.util.concurrent.CountDownLatch(1)
-        val service = object : android.content.ServiceConnection {
-            override fun onServiceConnected(name: android.content.ComponentName?, binder: android.os.IBinder?) { coreBinder = binder; connected.countDown() }
-            override fun onServiceDisconnected(name: android.content.ComponentName?) { coreBinder = null }
-        }
-        binding = service
+        check(process == null)
+        configFile.writeText(config.toString())
         try {
-            check(context.bindService(android.content.Intent(context, XrayCoreService::class.java), service, Context.BIND_AUTO_CREATE)) { "Не удалось запустить Xray" }
-            check(connected.await(8, TimeUnit.SECONDS)) { "Xray не ответил при запуске" }
-            transact(1, config.toString())
-            Socket().use { it.connect(InetSocketAddress("127.0.0.1", readyPort), 1500) }
+            // exec preserves the shell PID. Positional arguments avoid shell interpolation of paths.
+            process = ProcessBuilder("/system/bin/sh", "-c", "echo $$; exec \"\$1\" run -config \"\$2\" >/dev/null 2>&1", "viht-xray", executable(context).absolutePath, configFile.absolutePath)
+                .redirectError(File("/dev/null")).start()
+            childPid = process!!.inputStream.bufferedReader().use { it.readLine()?.toLongOrNull() }
+            val deadline = SystemClock.elapsedRealtime() + 5000
+            var ready = false
+            while (SystemClock.elapsedRealtime() < deadline && process?.isAlive == true) {
+                ready = runCatching { Socket().use { it.connect(InetSocketAddress("127.0.0.1", readyPort), 150) }; true }.getOrDefault(false)
+                if (ready) break
+                SystemClock.sleep(30)
+            }
+            check(ready && process?.isAlive == true) { "Новое ядро Xray не запустилось; требуется диагностика тестовой версии" }
         } catch (failure: Exception) { stop(); throw failure }
-    }
-
-    private fun transact(code: Int, config: String? = null): String? {
-        val data = android.os.Parcel.obtain(); val reply = android.os.Parcel.obtain()
-        try {
-            data.writeInterfaceToken("ru.anviht.xray")
-            if (config != null) data.writeString(config)
-            check(coreBinder?.transact(code, data, reply, 0) == true) { "Нет связи с Xray" }
-            reply.readException()
-            return if (code == 3) reply.readString() else null
-        } finally { data.recycle(); reply.recycle() }
     }
 
     fun publishTraffic() {
@@ -112,15 +108,28 @@ internal class XrayHevRuntime(private val context: Context) {
         lastTime = now; lastUp = up; lastDown = down
     }
 
-    fun diagnosticSnapshot(): String = runCatching { transact(3) ?: "Xray" }.getOrDefault("Xray недоступен")
+    fun diagnosticSnapshot(): String {
+        val running = process?.isAlive == true
+        // Child RSS and CPU ticks are distinct from the main Android process's PSS/CPU.
+        val pid = childPid
+        val details = if (pid != null) runCatching {
+            val status = File("/proc/$pid/status").readLines().filter { it.startsWith("VmRSS:") || it.startsWith("Threads:") }.joinToString("; ")
+            val fields = File("/proc/$pid/stat").readText().substringAfterLast(") ").split(' ')
+            "pid=$pid; $status; CPU ticks=${fields[11].toLong() + fields[12].toLong()}; clock ticks/sec=${android.system.Os.sysconf(android.system.OsConstants._SC_CLK_TCK)}"
+        }.getOrElse { "child counters unavailable" } else "child counters unavailable on this Android version"
+        return "Xray + hev active: $running; $details"
+    }
 
     fun stop() {
         if (active === this) active = null
         if (hevStarted) runCatching { TProxyService.TProxyStopService() }
         hevStarted = false
-        runCatching { if (coreBinder != null) transact(2) }
-        coreBinder = null
-        binding?.let { runCatching { context.unbindService(it) } }; binding = null
+        process?.let { child ->
+            child.destroy()
+            if (!child.waitFor(1500, TimeUnit.MILLISECONDS)) child.destroyForcibly().waitFor(1500, TimeUnit.MILLISECONDS)
+        }
+        process = null
+        childPid = null
         configFile.delete(); hevFile.delete()
     }
 }

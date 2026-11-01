@@ -21,6 +21,21 @@ import android.system.OsConstants
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.annotation.RequiresApi
+import io.nekohasekai.libbox.CommandServer
+import io.nekohasekai.libbox.CommandServerHandler
+import io.nekohasekai.libbox.ConnectionOwner
+import io.nekohasekai.libbox.InterfaceUpdateListener
+import io.nekohasekai.libbox.Libbox
+import io.nekohasekai.libbox.LocalDNSTransport
+import io.nekohasekai.libbox.NetworkInterfaceIterator
+import io.nekohasekai.libbox.Notification
+import io.nekohasekai.libbox.OverrideOptions
+import io.nekohasekai.libbox.PlatformInterface
+import io.nekohasekai.libbox.SetupOptions
+import io.nekohasekai.libbox.StringIterator
+import io.nekohasekai.libbox.SystemProxyStatus
+import io.nekohasekai.libbox.TunOptions
+import io.nekohasekai.libbox.WIFIState
 import java.io.File
 import java.net.Inet6Address
 import java.net.InetSocketAddress
@@ -32,9 +47,11 @@ import java.net.URL
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.Executors
+import io.nekohasekai.libbox.NetworkInterface as LibboxNetworkInterface
 
 class AutoVlessVpnService :
-    VpnService() {
+    VpnService(),
+    PlatformInterface {
 
     companion object {
         private const val TAG = "VihtVPN"
@@ -114,6 +131,8 @@ class AutoVlessVpnService :
                 ConnectivityManager::class.java
             )
 
+    private var commandServer: CommandServer? = null
+    private var singBoxLogClient: SingBoxLogClient? = null
     private var xrayRuntime: XrayHevRuntime? = null
     @Volatile private var tunDescriptor: ParcelFileDescriptor? = null
     private val tunLock = Any()
@@ -127,6 +146,9 @@ class AutoVlessVpnService :
     private var physicalNetworkCallback:
             ConnectivityManager.NetworkCallback? = null
 
+    @Volatile
+    private var interfaceListener:
+            InterfaceUpdateListener? = null
 
     @Volatile
     private var destroyed = false
@@ -151,6 +173,60 @@ class AutoVlessVpnService :
         )
 
         notificationTask = recoveryTimer.scheduleWithFixedDelay({ if(!destroyed && VpnRunStore.desired(this) && VpnStatus.state.value in setOf(VpnConnectionState.CONNECTED,VpnConnectionState.CONNECTING)) runCatching { xrayRuntime?.publishTraffic(); updateForegroundNotification("VPN работает") } },3,3,java.util.concurrent.TimeUnit.SECONDS)
+    }
+
+    private var libboxSetup = false
+    private fun setupLibbox() {
+        if (libboxSetup) return
+        val baseDir =
+            File(filesDir, "sing-box").apply {
+                mkdirs()
+            }
+
+        val workingDir =
+            File(baseDir, "working").apply {
+                mkdirs()
+            }
+
+        val tempDir =
+            File(cacheDir, "sing-box").apply {
+                mkdirs()
+            }
+
+        val options =
+            SetupOptions().apply {
+                basePath =
+                    baseDir.absolutePath
+
+                workingPath =
+                    workingDir.absolutePath
+
+                tempPath =
+                    tempDir.absolutePath
+
+                fixAndroidStack =
+                    true
+
+                commandServerListenPort =
+                    0
+
+                commandServerSecret =
+                    Libbox.randomHex(32).value
+
+                logMaxLines =
+                    500
+
+                debug =
+                    BuildConfig.DEBUG
+            }
+
+        Libbox.setup(options)
+        libboxSetup = true
+
+        if (BuildConfig.DEBUG) Log.d(
+            TAG,
+            "Libbox setup complete"
+        )
     }
 
     override fun onStartCommand(
@@ -197,7 +273,7 @@ class AutoVlessVpnService :
                 } else {
                     Log.e(
                         TAG,
-                        "Missing Xray config"
+                        "Missing sing-box config"
                     )
 
                     executor.execute {
@@ -220,7 +296,7 @@ class AutoVlessVpnService :
                         if (destroyed || latestServiceStartId != startId || !VpnRunStore.desired(this)) return@execute
                         val settings = JSONObject(getSharedPreferences("viht_ui_settings", Context.MODE_PRIVATE).getString("vpnSettings", "{}") ?: "{}")
                         val config = VihtVpnConfig.build(ConnectionProfileParser.parse(selected.link), settings)
-                        check(XrayConfigBuilder.supported(config)) { "Новое ядро не поддерживает этот формат подключения" }
+                        if (!XrayHevRuntime.available(this, config)) LibboxValidator.validate(config).getOrThrow()
                         startVpn(config, selected.id, startId)
                     } catch (failure: Exception) {
                         if (latestServiceStartId == startId && !destroyed) {
@@ -260,7 +336,7 @@ class AutoVlessVpnService :
         synchronized(this) {
 
             if (!VpnLifecyclePolicy.canStart(
-                    hasCommandServer = xrayRuntime != null,
+                    hasCommandServer = commandServer != null || xrayRuntime != null,
                     isStarting = isStarting
                 )) {
                 if (BuildConfig.DEBUG) Log.d(
@@ -288,11 +364,47 @@ class AutoVlessVpnService :
                     "Creating CommandServer"
                 )
 
-                check(XrayConfigBuilder.supported(config)) { "Новое ядро не поддерживает этот формат подключения" }
+                val useXray = XrayHevRuntime.available(this, config)
+                if (!useXray) setupLibbox()
+                val server =
+                    if (!useXray) CommandServer(
+                        createCommandServerHandler(startId),
+                        this
+                    ) else null
+
+                commandServer =
+                    server
+
+                if (BuildConfig.DEBUG) Log.d(
+                    TAG,
+                    "Starting CommandServer"
+                )
+
+                server?.start()
+
+                if (BuildConfig.DEBUG) Log.d(
+                    TAG,
+                    "Starting physical network monitor"
+                )
+
                 startPhysicalNetworkMonitor()
+
+                if (BuildConfig.DEBUG) Log.d(
+                    TAG,
+                    "Starting sing-box service"
+                )
+
                 val prepared = prepareAndroidConfig(config)
-                xrayRuntime = XrayHevRuntime(this).also { runtime -> runtime.start(prepared.first, prepared.second) { openXrayTun() } }
-                physicalDefaultNetwork?.let { notifyDefaultInterface(it) }
+                if (useXray) {
+                    xrayRuntime = XrayHevRuntime(this).also { runtime ->
+                        runtime.start(prepared.first, prepared.second) { openXrayTun() }
+                    }
+                    physicalDefaultNetwork?.let { notifyDefaultInterface(it) }
+                } else {
+                    DiagnosticLogStore.append(this, "VPN engine: sing-box/gVisor (legacy protocol or 32-bit device)")
+                    server!!.startOrReloadService(prepared.first, OverrideOptions())
+                    XrayHevRuntime.lastEngine = "sing-box ${Libbox.version()} / gVisor (legacy)"
+                }
 
                 check(tunDescriptor != null) { "VPN interface was not established" }
                 check(probeHealthy(prepared.second)) { "VPN не подтвердил передачу трафика" }
@@ -304,9 +416,14 @@ class AutoVlessVpnService :
                     return
                 }
 
+                singBoxLogClient =
+                    if (!useXray) SingBoxLogClient(this).also {
+                        it.start()
+                    } else null
+
                 if (BuildConfig.DEBUG) Log.d(
                     TAG,
-                    "Xray started"
+                    "sing-box started"
                 )
 
                 DiagnosticLogStore.append(
@@ -339,7 +456,7 @@ class AutoVlessVpnService :
 
                 Log.e(
                     TAG,
-                    "Failed to start Xray",
+                    "Failed to start sing-box",
                     e
                 )
 
@@ -497,6 +614,38 @@ class AutoVlessVpnService :
         runCatching { descriptor?.close() }
         stopPhysicalNetworkMonitor()
 
+        singBoxLogClient
+            ?.stop()
+
+        singBoxLogClient =
+            null
+
+        try {
+            commandServer
+                ?.closeService()
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "closeService failed",
+                e
+            )
+        }
+
+        try {
+            commandServer
+                ?.close()
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "CommandServer close failed",
+                e
+            )
+        }
+
+        commandServer =
+            null
+
+
     }
 
     private fun stopVpn(
@@ -642,6 +791,56 @@ class AutoVlessVpnService :
     // PlatformInterface
     // ------------------------------------------------------------
 
+    override fun usePlatformAutoDetectInterfaceControl(): Boolean {
+        if (BuildConfig.DEBUG) Log.d(TAG, "usePlatformAutoDetectInterfaceControl CALLED -> true")
+        return true
+    }
+
+    override fun autoDetectInterfaceControl(
+        fd: Int
+    ) {
+        val network =
+            physicalDefaultNetwork
+
+        if (BuildConfig.DEBUG) Log.d(
+            TAG,
+            "autoDetectInterfaceControl: fd=$fd network=$network"
+        )
+
+        check(protect(fd)) { "Android не разрешил исключить исходящий сокет из VPN" }
+
+        if (network == null) {
+            Log.e(
+                TAG,
+                "autoDetectInterfaceControl: no physical network for fd=$fd"
+            )
+            error("Нет физической сети для подключения VPN")
+        }
+
+        val duplicate =
+            ParcelFileDescriptor.fromFd(fd)
+
+        try {
+            network.bindSocket(
+                duplicate.fileDescriptor
+            )
+
+            if (BuildConfig.DEBUG) Log.d(
+                TAG,
+                "Network.bindSocket OK: fd=$fd network=$network"
+            )
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "Network.bindSocket failed: fd=$fd network=$network",
+                e
+            )
+            throw e
+        } finally {
+            duplicate.close()
+        }
+    }
+
     private fun openXrayTun(): Int {
         check(!destroyed && latestServiceStartId == currentSessionStartId) { "Запуск VPN отменён" }
         check(prepare(this) == null) { "VPN permission has not been granted" }
@@ -660,6 +859,439 @@ class AutoVlessVpnService :
             tunDescriptor = descriptor
         }
         return descriptor.fd
+    }
+
+    override fun openTun(
+        options: TunOptions
+    ): Int {
+        check(!destroyed && latestServiceStartId == currentSessionStartId) { "Запуск VPN отменён" }
+        if (
+            prepare(this) != null
+        ) {
+            error(
+                "VPN permission has not been granted"
+            )
+        }
+
+        val builder =
+            Builder()
+                .setSession(
+                    "Viht"
+                )
+                .setMtu(
+                    options.mtu
+                )
+
+        val ipv4 =
+            options.inet4Address
+
+        while (ipv4.hasNext()) {
+            val address =
+                ipv4.next()
+
+            builder.addAddress(
+                address.address(),
+                address.prefix()
+            )
+        }
+
+        val ipv6 =
+            options.inet6Address
+
+        while (ipv6.hasNext()) {
+            val address =
+                ipv6.next()
+
+            builder.addAddress(
+                address.address(),
+                address.prefix()
+            )
+        }
+
+        if (
+            options.autoRoute
+        ) {
+
+            val ipv4Routes =
+                options.inet4RouteRange
+
+            if (
+                ipv4Routes.hasNext()
+            ) {
+
+                while (
+                    ipv4Routes.hasNext()
+                ) {
+                    val route =
+                        ipv4Routes.next()
+
+                    builder.addRoute(
+                        route.address(),
+                        route.prefix()
+                    )
+                }
+
+            } else {
+
+                builder.addRoute(
+                    "0.0.0.0",
+                    0
+                )
+            }
+
+            val ipv6Routes =
+                options.inet6RouteRange
+
+            if (
+                ipv6Routes.hasNext()
+            ) {
+
+                while (
+                    ipv6Routes.hasNext()
+                ) {
+                    val route =
+                        ipv6Routes.next()
+
+                    builder.addRoute(
+                        route.address(),
+                        route.prefix()
+                    )
+                }
+            }
+        }
+
+        // Capture IPv6 too; a missing IPv6 route must not bypass the VPN.
+        builder.addRoute("::", 0)
+
+        builder.addDnsServer(
+            "1.1.1.1"
+        )
+
+        AppRoutingConfigurator.apply(
+            this,
+            builder,
+            RoutingSettingsStore.load(this)
+        )
+
+        val descriptor =
+            builder.establish()
+                ?: error(
+                    "Android failed to establish VPN interface"
+                )
+
+        synchronized(tunLock) {
+            if (destroyed || latestServiceStartId != currentSessionStartId) { descriptor.close(); error("Запуск VPN отменён") }
+            tunDescriptor = descriptor
+        }
+
+        if (BuildConfig.DEBUG) Log.d(
+            TAG,
+            "TUN established, fd=${descriptor.fd}"
+        )
+
+        return descriptor.fd
+    }
+
+    /*
+     * On Android, do not use /proc to determine
+     * the process that created the connection.
+     */
+    override fun useProcFS(): Boolean =
+        false
+
+    override fun includeAllNetworks(): Boolean =
+        false
+
+    override fun underNetworkExtension(): Boolean =
+        false
+
+    override fun clearDNSCache() {
+    }
+
+    override fun readWIFIState(): WIFIState? =
+        null
+
+    override fun localDNSTransport(): LocalDNSTransport? =
+        null
+
+    override fun systemCertificates(): StringIterator? =
+        null
+
+    @Volatile private var lastOwnerFailureLog = -30_000L
+
+    private val uidPackageCache = UidPackageCache(
+        now = { android.os.SystemClock.elapsedRealtime() },
+        lookup = { uid -> packageManager.getPackagesForUid(uid)?.toList().orEmpty() }
+    )
+
+    override fun findConnectionOwner(
+        ipProtocol: Int,
+        sourceAddress: String,
+        sourcePort: Int,
+        destinationAddress: String,
+        destinationPort: Int
+    ): ConnectionOwner {
+        if (Build.VERSION.SDK_INT < 29) return ConnectionOwner().apply { userId = Process.INVALID_UID; userName = ""; setAndroidPackageNames(StringArray(emptyList<String>().iterator())) }
+        try {
+            val uid =
+                connectivityManager.getConnectionOwnerUid(
+                    ipProtocol,
+                    InetSocketAddress(
+                        sourceAddress,
+                        sourcePort
+                    ),
+                    InetSocketAddress(
+                        destinationAddress,
+                        destinationPort
+                    )
+                )
+
+            if (uid == Process.INVALID_UID) {
+                error(
+                    "android: connection owner not found"
+                )
+            }
+
+            val packages =
+                uidPackageCache.packages(uid)
+
+            return ConnectionOwner().apply {
+                userId =
+                    uid
+
+                userName =
+                    packages.firstOrNull()
+                        ?: ""
+
+                setAndroidPackageNames(
+                    StringArray(
+                        packages.iterator()
+                    )
+                )
+            }
+
+        } catch (e: Exception) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (DiagnosticLogStore.isDetailedEnabled(this) || now - lastOwnerFailureLog >= 30_000L) {
+                lastOwnerFailureLog = now
+                Log.e(TAG, "findConnectionOwner failed (further repeats limited to one per 30 seconds)", e)
+            }
+
+            throw e
+        }
+    }
+
+    override fun getInterfaces(): NetworkInterfaceIterator {
+
+        val result =
+            mutableListOf<LibboxNetworkInterface>()
+
+        for (
+        network in
+        connectivityManager.allNetworks
+        ) {
+
+            val properties =
+                connectivityManager
+                    .getLinkProperties(network)
+                    ?: continue
+
+            val capabilities =
+                connectivityManager
+                    .getNetworkCapabilities(network)
+                    ?: continue
+
+            val interfaceName =
+                properties.interfaceName
+                    ?: continue
+
+            if (
+                interfaceName.startsWith("tun") ||
+                capabilities.hasTransport(
+                    NetworkCapabilities.TRANSPORT_VPN
+                )
+            ) {
+                continue
+            }
+
+            val interfaceIndex =
+                resolveInterfaceIndex(
+                    properties,
+                    interfaceName
+                )
+
+            if (interfaceIndex <= 0) {
+                Log.w(
+                    TAG,
+                    "Skipping interface $interfaceName: " +
+                            "unable to resolve interface index"
+                )
+                continue
+            }
+
+            val boxInterface =
+                LibboxNetworkInterface()
+
+            boxInterface.name =
+                interfaceName
+
+            boxInterface.index =
+                interfaceIndex
+
+            boxInterface.mtu =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && properties.mtu > 0) {
+                    properties.mtu
+                } else {
+                    1500
+                }
+
+            boxInterface.type =
+                when {
+
+                    capabilities.hasTransport(
+                        NetworkCapabilities.TRANSPORT_WIFI
+                    ) ->
+                        Libbox.InterfaceTypeWIFI
+
+                    capabilities.hasTransport(
+                        NetworkCapabilities.TRANSPORT_CELLULAR
+                    ) ->
+                        Libbox.InterfaceTypeCellular
+
+                    capabilities.hasTransport(
+                        NetworkCapabilities.TRANSPORT_ETHERNET
+                    ) ->
+                        Libbox.InterfaceTypeEthernet
+
+                    else ->
+                        Libbox.InterfaceTypeOther
+                }
+
+            boxInterface.metered =
+                !capabilities.hasCapability(
+                    NetworkCapabilities
+                        .NET_CAPABILITY_NOT_METERED
+                )
+
+            var flags = 0
+
+            if (
+                capabilities.hasCapability(
+                    NetworkCapabilities
+                        .NET_CAPABILITY_INTERNET
+                )
+            ) {
+                flags =
+                    flags or
+                            OsConstants.IFF_UP or
+                            OsConstants.IFF_RUNNING
+            }
+
+            boxInterface.flags =
+                flags
+
+            val addresses =
+                properties
+                    .linkAddresses
+                    .mapNotNull { linkAddress ->
+                        val host =
+                            linkAddress.address.hostAddress
+                                ?.substringBefore("%")
+
+                        if (host.isNullOrBlank()) {
+                            null
+                        } else {
+                            "$host/${linkAddress.prefixLength}"
+                        }
+                    }
+
+            boxInterface.addresses =
+                StringArray(
+                    addresses.iterator()
+                )
+
+            val dnsServers =
+                properties
+                    .dnsServers
+                    .mapNotNull {
+                        it.hostAddress
+                    }
+
+            boxInterface.dnsServer =
+                StringArray(
+                    dnsServers.iterator()
+                )
+
+            if (BuildConfig.DEBUG) Log.d(
+                TAG,
+                "Interface from LinkProperties: " +
+                        "$interfaceName " +
+                        "index=$interfaceIndex " +
+                        "mtu=${boxInterface.mtu} " +
+                        "type=${boxInterface.type} " +
+                        "addresses=${addresses.size}"
+            )
+
+            result.add(
+                boxInterface
+            )
+        }
+
+        if (BuildConfig.DEBUG) Log.d(
+            TAG,
+            "getInterfaces(): ${result.size} interfaces"
+        )
+
+        return InterfaceArray(
+            result.iterator()
+        )
+    }
+
+    override fun startDefaultInterfaceMonitor(
+        listener: InterfaceUpdateListener?
+    ) {
+        if (listener == null) {
+            return
+        }
+
+        if (BuildConfig.DEBUG) Log.d(
+            TAG,
+            "libbox registered default interface listener"
+        )
+
+        interfaceListener =
+            listener
+
+        val network =
+            physicalDefaultNetwork
+
+        if (network != null) {
+            notifyDefaultInterface(
+                network
+            )
+        } else {
+            Log.w(
+                TAG,
+                "No physical default network yet when libbox listener registered"
+            )
+        }
+    }
+
+    override fun closeDefaultInterfaceMonitor(
+        listener: InterfaceUpdateListener?
+    ) {
+        if (BuildConfig.DEBUG) Log.d(
+            TAG,
+            "libbox closed default interface listener"
+        )
+
+        if (
+            interfaceListener === listener ||
+            listener == null
+        ) {
+            interfaceListener =
+                null
+        }
     }
 
     private fun startPhysicalNetworkMonitor() {
@@ -801,7 +1433,7 @@ class AutoVlessVpnService :
 
                     val replacement = physicalDefaultNetwork
                     if (replacement != null) notifyDefaultInterface(replacement)
-
+                    else interfaceListener?.updateDefaultInterface("",-1,false,false)
                 }
             }
 
@@ -844,10 +1476,155 @@ class AutoVlessVpnService :
             }
     }
 
-    private fun notifyDefaultInterface(network: Network) {
-        val properties = connectivityManager.getLinkProperties(network) ?: return
-        val name = properties.interfaceName ?: return
-        if (!name.startsWith("tun")) updatePhysicalNetworkSignature(network, properties, name)
+    private fun resolveInterfaceIndex(
+        properties: LinkProperties,
+        interfaceName: String
+    ): Int {
+        val osIndex =
+            try {
+                Os.if_nametoindex(
+                    interfaceName
+                )
+            } catch (e: Exception) {
+                Log.w(
+                    TAG,
+                    "Os.if_nametoindex($interfaceName) failed",
+                    e
+                )
+                0
+            }
+
+        if (osIndex > 0) {
+            if (BuildConfig.DEBUG) Log.d(
+                TAG,
+                "Interface index from Os: " +
+                        "$interfaceName index=$osIndex"
+            )
+            return osIndex
+        }
+
+        for (linkAddress in properties.linkAddresses) {
+            val address =
+                linkAddress.address
+
+            if (address is Inet6Address) {
+                val scopeId =
+                    address.scopeId
+
+                if (BuildConfig.DEBUG) Log.d(
+                    TAG,
+                    "IPv6 scope candidate: " +
+                            "$interfaceName " +
+                            "address=${address.hostAddress} " +
+                            "scopeId=$scopeId"
+                )
+
+                if (scopeId > 0) {
+                    if (BuildConfig.DEBUG) Log.d(
+                        TAG,
+                        "Interface index from IPv6 scope: " +
+                                "$interfaceName index=$scopeId"
+                    )
+                    return scopeId
+                }
+            }
+        }
+
+        Log.e(
+            TAG,
+            "Unable to resolve interface index for $interfaceName"
+        )
+
+        return 0
+    }
+
+    private fun notifyDefaultInterface(
+        network: Network
+    ) {
+        val listener = interfaceListener
+        if (listener == null && xrayRuntime == null) return
+
+        val properties =
+            connectivityManager
+                .getLinkProperties(network)
+                ?: run {
+                    Log.w(
+                        TAG,
+                        "Default interface: LinkProperties unavailable " +
+                                "for network=$network"
+                    )
+                    return
+                }
+
+        val interfaceName =
+            properties.interfaceName
+
+        if (interfaceName.isNullOrBlank()) {
+            Log.w(
+                TAG,
+                "Default interface: interfaceName unavailable " +
+                        "for network=$network"
+            )
+            return
+        }
+
+        if (
+            interfaceName.startsWith("tun")
+        ) {
+            Log.w(
+                TAG,
+                "Ignoring VPN interface as physical default: $interfaceName"
+            )
+            return
+        }
+
+        if (listener == null) {
+            // Xray uses the Android network and does not need a libbox interface index.
+            updatePhysicalNetworkSignature(network, properties, interfaceName)
+            return
+        }
+
+        /*
+         * On some Honor devices, the rmnet interface name is visible via
+         * ConnectivityManager, while NetworkInterface and if_nametoindex()
+         * do not provide an index. In that case, use the numeric scopeId
+         * of the IPv6 address from LinkProperties. For link-local IPv6,
+         * it corresponds to the system interface index.
+         */
+        val interfaceIndex =
+            resolveInterfaceIndex(
+                properties,
+                interfaceName
+            )
+
+        if (interfaceIndex <= 0) {
+            Log.e(
+                TAG,
+                "Default interface unresolved: " +
+                        "$interfaceName ifindex=$interfaceIndex"
+            )
+            return
+        }
+
+        if (BuildConfig.DEBUG) Log.d(
+            TAG,
+            "Default physical interface BEFORE update: " +
+                    "$interfaceName index=$interfaceIndex"
+        )
+
+        updatePhysicalNetworkSignature(network, properties, interfaceName)
+        listener?.updateDefaultInterface(
+            interfaceName,
+            interfaceIndex,
+            false,
+            false
+        )
+
+        if (BuildConfig.DEBUG) Log.d(
+            TAG,
+            "Default physical interface AFTER update: " +
+                    "$interfaceName index=$interfaceIndex"
+        )
     }
 
     private fun updatePhysicalNetworkSignature(network: Network, properties: LinkProperties, interfaceName: String) {
@@ -877,6 +1654,96 @@ class AutoVlessVpnService :
 
         physicalDefaultNetwork =
             null
+
+        interfaceListener =
+            null
+    }
+
+    override fun sendNotification(
+        notification: Notification?
+    ) {
+        if (BuildConfig.DEBUG) Log.d(
+            TAG,
+            "libbox notification: " +
+                    "${notification?.title}: " +
+                    "${notification?.body}"
+        )
+    }
+
+    // ------------------------------------------------------------
+    // CommandServerHandler
+    // ------------------------------------------------------------
+
+    private fun createCommandServerHandler(
+        sessionStartId: Int
+    ): CommandServerHandler =
+        object : CommandServerHandler {
+            private val handlerEpoch = coreEpoch.get()
+            override fun serviceStop() {
+                if (handlerEpoch != coreEpoch.get()) return
+                val stopStartId =
+                    latestServiceStartId
+
+                if (everConnected && VpnRecoveryPolicy.allowed(VpnRunStore.desired(this@AutoVlessVpnService),destroyed,sessionStartId,latestServiceStartId)) requestRecovery(sessionStartId)
+                else executor.execute { stopVpn(stopStartId, sessionStartId) }
+            }
+
+            override fun serviceReload() {
+                if (BuildConfig.DEBUG) Log.d(
+                    TAG,
+                    "serviceReload requested"
+                )
+            }
+
+            override fun getSystemProxyStatus():
+                    SystemProxyStatus? =
+                null
+
+            override fun setSystemProxyEnabled(
+                isEnabled: Boolean
+            ) {
+            }
+
+            override fun writeDebugMessage(
+                message: String?
+            ) {
+                if (BuildConfig.DEBUG) Log.d(
+                    TAG,
+                    message ?: ""
+                )
+            }
+        }
+
+    // ------------------------------------------------------------
+    // libbox iterators
+    // ------------------------------------------------------------
+
+    private class InterfaceArray(
+        private val iterator:
+        Iterator<LibboxNetworkInterface>
+    ) : NetworkInterfaceIterator {
+
+        override fun hasNext(): Boolean =
+            iterator.hasNext()
+
+        override fun next():
+                LibboxNetworkInterface =
+            iterator.next()
+    }
+
+    private class StringArray(
+        private val iterator:
+        Iterator<String>
+    ) : StringIterator {
+
+        override fun len(): Int =
+            0
+
+        override fun hasNext(): Boolean =
+            iterator.hasNext()
+
+        override fun next(): String =
+            iterator.next()
     }
 
 }
