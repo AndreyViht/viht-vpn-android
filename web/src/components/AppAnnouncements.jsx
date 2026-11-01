@@ -7,7 +7,7 @@ export default function AppAnnouncements({accountId,enabled,onUnreadChange}){
  const [items,setItems]=useState([]),[open,setOpen]=useState(false),[selected,setSelected]=useState(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
  const busy=useRef(false),alive=useRef(true),requested=useRef(null);
  const load=useCallback(async()=>{
-  if(busy.current||document.hidden||!window.electronAPI?.getAnnouncements)return;
+  if(busy.current||(document.hidden || window.__vihtUiBackground === true)||!window.electronAPI?.getAnnouncements)return;
   busy.current=true;setLoading(true);
   try{const result=await window.electronAPI.getAnnouncements();if(!alive.current)return;if(!result?.ok){setError('Новости пока недоступны. Повторите позже.');return;}
    const list=result.announcements||[];setItems(list);setError('');

@@ -22,7 +22,7 @@ export const SessionTimer=React.memo(function SessionTimer({connectedAt}) {
   useEffect(()=>{
     let timer;
     const update=()=>setNow(Date.now());
-    const visibility=()=>{clearInterval(timer);if(!document.hidden){update();timer=setInterval(update,1000)}};
+    const visibility=()=>{clearInterval(timer);if(!(document.hidden || window.__vihtUiBackground === true)){update();timer=setInterval(update,1000)}};
     visibility();document.addEventListener('visibilitychange',visibility);
     return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',visibility)};
   },[]);

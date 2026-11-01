@@ -37,7 +37,7 @@ function MainVpnScreen({
   const isDisconnecting = connectionState === 'disconnecting';
   const isError = connectionState === 'error';
   const [,refreshSubscriptionTime]=useState(0);
-  useEffect(()=>{const timer=setInterval(()=>{if(!document.hidden)refreshSubscriptionTime(value=>value+1)},60000);return()=>clearInterval(timer)},[]);
+  useEffect(()=>{const timer=setInterval(()=>{if(!(document.hidden || window.__vihtUiBackground === true))refreshSubscriptionTime(value=>value+1)},60000);return()=>clearInterval(timer)},[]);
 
   // Subscription calculation
   const getDaysLeft = (u) => {

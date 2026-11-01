@@ -71,7 +71,19 @@ class MainActivity : ComponentActivity() {
     }
     override fun attachBaseContext(newBase: Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
     override fun onStart() { super.onStart(); AppVisibility.setForeground(true); UpdateScheduler.sync(this); AppAnnouncements.schedule(this) }
-    override fun onResume() { super.onResume(); if (::bridge.isInitialized && isUiReady) bridge.pageReady() }
+    override fun onResume() {
+        super.onResume()
+        if (::webView.isInitialized) webView.onResume()
+        if (::bridge.isInitialized && isUiReady) {
+            bridge.emit("app-visibility", org.json.JSONObject().put("background", false))
+            bridge.pageReady()
+        }
+    }
+    override fun onPause() {
+        if (::bridge.isInitialized && isUiReady) bridge.emit("app-visibility", org.json.JSONObject().put("background", true))
+        if (::webView.isInitialized) webView.onPause()
+        super.onPause()
+    }
     override fun onStop() { AppVisibility.setForeground(false); super.onStop() }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (::bridge.isInitialized) bridge.completeBrowserAuth(intent.data); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
     suspend fun addQuickTile(): org.json.JSONObject {

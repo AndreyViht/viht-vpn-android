@@ -805,6 +805,7 @@ export default function App() {
   useEffect(() => {
     if (activeTab !== 'servers' || !token || !hwid) return;
     const refresh = () => {
+      if (document.hidden || window.__vihtUiBackground === true) return;
       if (Date.now() - lastKeySyncAtRef.current >= 60000) void synchronizeKeys(true);
     };
     refresh();

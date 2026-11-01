@@ -27,3 +27,16 @@ test('OAuth event arriving before React subscribes is delivered once', async () 
   const unsubscribe=w.electronAPI.onAuthSuccess(data => {assert.equal(data.token,'test');count++;});
   await Promise.resolve(); unsubscribe(); w.__vihtNativeEvent('auth-success',{token:'test'}); assert.equal(count,1);
 });
+
+
+test('native background state pauses UI work without touching VPN and resumes cleanly', () => {
+  const requests = [], classes = new Set(), events = [];
+  const window = {VihtNative:{request:(...args)=>requests.push(args)}, addEventListener(){}};
+  const document = {documentElement:{classList:{toggle(name,on){on?classes.add(name):classes.delete(name)}}},dispatchEvent(event){events.push(event.type)}};
+  vm.runInNewContext(source,{window,document,Event:class{constructor(type){this.type=type}},localStorage:{getItem:()=>null},setTimeout,clearTimeout,queueMicrotask});
+  window.__vihtNativeEvent('app-visibility',{background:true});
+  assert.equal(window.__vihtUiBackground,true); assert(classes.has('viht-ui-background'));
+  window.__vihtNativeEvent('app-visibility',{background:false});
+  assert.equal(window.__vihtUiBackground,false);assert(!classes.has('viht-ui-background'));
+  assert.deepEqual(events,['visibilitychange','visibilitychange']);assert.equal(requests.length,0);
+});

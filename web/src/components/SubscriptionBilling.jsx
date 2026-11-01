@@ -79,7 +79,7 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
     let active=true,timer;
     const saveHistory=items=>{historyRef.current=items;localStorage.setItem(storageKey+':history',JSON.stringify(items));setHistory(items);};
     const check=async(force=false)=>{
-      if(inFlight.current||document.hidden)return;
+      if(inFlight.current||(document.hidden || window.__vihtUiBackground === true))return;
       const paused=paymentPollDelay(order)===null;
       setTrackingPaused(paused);
       if(paused&&!force)return;

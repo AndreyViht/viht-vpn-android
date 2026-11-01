@@ -285,6 +285,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     private var lastUpdateCheck = 0L
     fun deliverPendingScans(){if(!activity.isUiReady)return;scope.launch{AndroidSessionStore.pendingScan(activity)?.let{emit(if(it.optString("purpose")=="owner-pair")"owner-pair-scan" else "guest-scan-result",it)}}}
     fun pageReady() {
+        emit("app-visibility", JSONObject().put("background", !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)))
         deliverPendingScans()
         deliverInvite()
         scope.launch {AndroidSessionStore.pendingGuest(activity)?.let { pending -> runCatching { GuestInviteApi.request(activity,"accept",pending.getString("invite")) }.getOrNull()?.let { accepted -> preferences.edit().putString("provider","guest").apply();emit("auth-success",JSONObject().put("token",accepted.getString("token")).put("provider","guest")) } }}

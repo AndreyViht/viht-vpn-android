@@ -92,7 +92,7 @@ function SettingsScreen({
     if (!isAndroid || updateStatus !== 'downloading') return;
     let active = true, busy = false;
     const poll = async () => {
-      if (busy) return; busy = true;
+      if (busy || document.hidden || window.__vihtUiBackground === true) return; busy = true;
       try { const status=await window.electronAPI?.getUpdateStatus?.(); if(active)restoreDownloadStatus(status); }
       catch(error){if(active)setUpdateError(error.message || 'Не удалось проверить загрузку');}
       finally{busy=false;}

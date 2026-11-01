@@ -5700,3 +5700,8 @@ svg.spinning,
 }
 
 
+
+/* Preserve the visible design; suspended screens must not animate in the background. */
+html.viht-ui-background *, html.viht-ui-background *::before, html.viht-ui-background *::after {
+  animation-play-state: paused !important;
+}

@@ -19,7 +19,7 @@ export default function IosDeviceAccess({enabled,request,qrForLink,onChanged,all
   if(!enabled){setView('');setPending([]);return;}
   let alive=true,running=false;
   async function poll(){
-   if(running||document.hidden)return;running=true;
+   if(running||(document.hidden || window.__vihtUiBackground === true))return;running=true;
    try{const r=await ask('ios-requests');if(!alive)return;
     const rows=r.requests||[],waiting=rows.filter(row=>row.state==='pending'&&Date.parse(row.expires_at)>Date.now());setPending(waiting);
     const own=rows.find(row=>row.id===inviteRef.current?.id),current=rows.find(row=>row.id===selectionRef.current?.id);

@@ -30,6 +30,12 @@
     return () => current.delete(callback);
   }
   window.__vihtNativeEvent = function (type, data) {
+    if (type === 'app-visibility') {
+      window.__vihtUiBackground = data?.background === true;
+      document.documentElement.classList.toggle('viht-ui-background', window.__vihtUiBackground);
+      document.dispatchEvent(new Event('visibilitychange'));
+      return;
+    }
     const targets = listeners.get(type);
     if (!targets?.size) { if (type === 'owner-pair-scan' || type === 'guest-scan-result' || type === 'invite-open' || type === 'auth-success' || type === 'auth-error' || type === 'quick-connect' || type === 'open-updates' || type === 'announcement-open') queued.set(type, data); return; }
     for (const callback of [...targets]) callback(data);
