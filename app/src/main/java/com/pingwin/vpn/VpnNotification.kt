@@ -12,8 +12,11 @@ import java.util.Locale
 
 object VpnNotification {
     const val CHANNEL = "autovless_vpn"
-    fun ensureChannel(context: Context) {
+    @Volatile private var channelCreated = false
+    @Synchronized fun ensureChannel(context: Context) {
+        if (channelCreated) return
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,"Состояние VPN",NotificationManager.IMPORTANCE_LOW).apply { description="Сервер, скорость передачи данных и отключение VPN"; setShowBadge(false) })
+        channelCreated = true
     }
     fun enabled(context: Context): Boolean {
         ensureChannel(context)

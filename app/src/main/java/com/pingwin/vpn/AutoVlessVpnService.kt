@@ -748,18 +748,26 @@ class AutoVlessVpnService :
 
     private fun createNotificationChannel() { VpnNotification.ensureChannel(this) }
 
-    private fun startForegroundNotification(
+    @Synchronized private fun startForegroundNotification(
         text: String
     ) {
+        lastNotificationContent = null
         startForeground(
             NOTIFICATION_ID,
             buildNotification(text)
         )
     }
 
-    private fun updateForegroundNotification(
+    private var lastNotificationContent: Pair<String, String>? = null
+
+    @Synchronized private fun updateForegroundNotification(
         text: String
     ) {
+        val notification = buildNotification(text)
+        val content = notification.extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString() to
+            notification.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString()
+        // Sending an identical notification still crosses Binder and wakes System UI.
+        if (content == lastNotificationContent) return
         val manager =
             getSystemService(
                 NotificationManager::class.java
@@ -767,8 +775,9 @@ class AutoVlessVpnService :
 
         manager.notify(
             NOTIFICATION_ID,
-            buildNotification(text)
+            notification
         )
+        lastNotificationContent = content
     }
 
     private fun buildNotification(text: String): android.app.Notification = VpnNotification.build(this,text)
@@ -985,6 +994,11 @@ class AutoVlessVpnService :
 
     @Volatile private var lastOwnerFailureLog = -30_000L
 
+    private val uidPackageCache = UidPackageCache(
+        now = { android.os.SystemClock.elapsedRealtime() },
+        lookup = { uid -> packageManager.getPackagesForUid(uid)?.toList().orEmpty() }
+    )
+
     override fun findConnectionOwner(
         ipProtocol: Int,
         sourceAddress: String,
@@ -1014,25 +1028,19 @@ class AutoVlessVpnService :
             }
 
             val packages =
-                packageManager.getPackagesForUid(
-                    uid
-                )
+                uidPackageCache.packages(uid)
 
             return ConnectionOwner().apply {
                 userId =
                     uid
 
                 userName =
-                    packages?.firstOrNull()
+                    packages.firstOrNull()
                         ?: ""
 
                 setAndroidPackageNames(
                     StringArray(
-                        packages
-                            ?.toList()
-                            ?.iterator()
-                            ?: emptyList<String>()
-                                .iterator()
+                        packages.iterator()
                     )
                 )
             }
