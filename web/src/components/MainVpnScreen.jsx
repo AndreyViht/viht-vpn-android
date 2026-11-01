@@ -35,7 +35,7 @@ function MainVpnScreen({
   const [livePing,setLivePing]=useState(null);
   useEffect(()=>{let alive=true,busy=false;const id=currentServer?.id;
     const probe=async()=>{if(!id||busy||document.hidden||window.__vihtUiBackground||!window.electronAPI?.pingServers)return;busy=true;
-      try{const result=await window.electronAPI.pingServers([currentServer]);if(alive){const value=result?.[id];setLivePing({id,ping:Number.isFinite(value)&&value>=0?value:null,pingStatus:Number.isFinite(value)&&value>=0?'measured':'unreachable'});}}catch{if(alive)setLivePing({id,ping:null,pingStatus:'unreachable'});}finally{busy=false;}};
+      try{const result=await window.electronAPI.pingServers([{...currentServer,attempts:1,timeoutMs:1800}]);if(alive){const value=result?.[id];setLivePing({id,ping:Number.isFinite(value)&&value>=0?value:null,pingStatus:Number.isFinite(value)&&value>=0?'measured':'unreachable'});}}catch{if(alive)setLivePing({id,ping:null,pingStatus:'unreachable'});}finally{busy=false;}};
     void probe();const timer=setInterval(probe,3000);return()=>{alive=false;clearInterval(timer)};
   },[currentServer?.id,currentServer?.vless_uri]);
   const pingServer=livePing?.id===currentServer?.id?{...currentServer,...livePing}:currentServer;

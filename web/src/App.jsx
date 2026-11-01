@@ -9,7 +9,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import TitleBar from './components/TitleBar';
 import MainVpnScreen from './components/MainVpnScreen';
 import ServersScreen from './components/ServersScreen';
-import DevicesScreen from './components/DevicesScreen';
+import DevicesScreen, {prefetchDevices} from './components/DevicesScreen';
 import ProfileScreen from './components/ProfileScreen';
 import SettingsScreen from './components/SettingsScreen';
 import LoginScreen from './components/LoginScreen';
@@ -713,44 +713,23 @@ export default function App() {
   };
 
   // 7. Safe Server Selection (Requirement 10)
-  const handleSelectServer = useCallback(async (srv) => {
-    if (!srv) return;
-    if (srv.id === currentServerRef.current?.id) return;
-    setCurrentServer(srv);currentServerRef.current=srv;
-
-    if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
-    }
-    reconnectAttemptsRef.current = 0;
-
-    if (connectionStateRef.current === 'connected' || connectionStateRef.current === 'connecting') {
-      manualDisconnectRef.current = true; // Mark as intentional disconnect to avoid auto-reconnecting to previous server
-      hadConnectedSessionRef.current = false;
-      clearTimeout(stableConnectionTimerRef.current);
-      showToast(`Переключение на ${srv.name}...`, 'ping');
-      setConnectionState('disconnecting');
-      try {
-        await window.electronAPI?.vpnDisconnect();
-        setCurrentServer(srv);
-        currentServerRef.current = srv;
-        manualDisconnectRef.current = false;
-        setConnectionState('connecting');
-        const res = await window.electronAPI?.vpnConnect(srv, settingsRef.current);
-        if (!res?.ok) {
-          setConnectionState('error');
-          showToast(res?.error || 'Ошибка подключения к новому серверу', 'error');
-        }
-      } catch (e) {
-        setConnectionState('error');
-        showToast('Ошибка при переключении сервера', 'error');
-      }
-    } else {
-      setCurrentServer(srv);
-      currentServerRef.current = srv;
-      showToast(`Выбран сервер: ${srv.name}`, 'success');
-    }
-  }, []);
+  const serverSelectionEpoch = useRef(0),serverHandover = useRef(false);
+  const handleSelectServer = useCallback(async srv => {
+    if(!srv||srv.id===currentServerRef.current?.id)return;
+    const epoch=++serverSelectionEpoch.current;
+    const handover=serverHandover.current||['connected','connecting'].includes(connectionStateRef.current);
+    serverHandover.current=handover;setCurrentServer(srv);currentServerRef.current=srv;
+    clearTimeout(reconnectTimerRef.current);reconnectTimerRef.current=null;reconnectAttemptsRef.current=0;
+    if(!handover){showToast('Выбран сервер: '+srv.name,'success');return;}
+    manualDisconnectRef.current=true;hadConnectedSessionRef.current=false;clearTimeout(stableConnectionTimerRef.current);setConnectionState('disconnecting');
+    try{await window.electronAPI?.vpnDisconnect();if(epoch!==serverSelectionEpoch.current)return;
+      manualDisconnectRef.current=false;setConnectionState('connecting');
+      const result=await window.electronAPI?.vpnConnect(srv,settingsRef.current);if(epoch!==serverSelectionEpoch.current)return;
+      if(!result?.ok){setConnectionState('error');showToast(result?.error||'Ошибка подключения к серверу','error');}
+    }catch(error){if(epoch===serverSelectionEpoch.current){setConnectionState('error');showToast('Ошибка при переключении сервера','error');}}
+    finally{if(epoch===serverSelectionEpoch.current)serverHandover.current=false;}
+  },[]);
+  useEffect(()=>{if(!token||!user||user.is_guest)return;const timer=setTimeout(()=>{void prefetchDevices(token,hwid).catch(()=>{});},250);return()=>clearTimeout(timer);},[token,hwid,!!user,user?.is_guest]);
 
   handleSelectServerRef.current = handleSelectServer;
   handleToggleConnectionRef.current = handleToggleConnection;

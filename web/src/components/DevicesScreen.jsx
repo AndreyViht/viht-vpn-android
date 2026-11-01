@@ -25,10 +25,14 @@ import vihtLogo from '../assets/viht-logo.png';
 import { t, fixMojibake } from '../utils/i18n';
 import { springs, buttonPress } from '../utils/motion';
 
-const deviceSnapshots=new Map();
+const deviceSnapshots=new Map(),deviceRequests=new Map();
+export function prefetchDevices(token,hwid){
+ if(!token)return Promise.resolve(null);const key=token+':'+hwid;if(deviceRequests.has(key))return deviceRequests.get(key);
+ const request=fetchActiveDevices(token,hwid).then(result=>{if(result?.ok){deviceSnapshots.set(token,{devices:result.devices||[],limits:result.limits});if(deviceSnapshots.size>8)deviceSnapshots.delete(deviceSnapshots.keys().next().value);}return result;}).finally(()=>deviceRequests.delete(key));deviceRequests.set(key,request);return request;
+}
 function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBindingChanged }) {
   const [devices, setDevices] = useState([]);
-  const [limits, setLimits] = useState(() => propLimits || { total_slots: 0, active_count: 0, slot_price: 0 });
+  const [limits, setLimits] = useState(() => deviceSnapshots.get(token)?.limits || propLimits || { total_slots: 0, active_count: 0, slot_price: 0 });
   const [loading, setLoading] = useState(true);
   const [unidentified, setUnidentified] = useState([]);
   const [bindingDevice, setBindingDevice] = useState(null);
@@ -62,7 +66,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
     else setRefreshing(true);
 
     try {
-      const res = await fetchActiveDevices(token, hwid);
+      const res = await prefetchDevices(token, hwid);
       if (epoch !== responseEpoch.current) return;
       if (res && res.ok) {
         const devList = res.devices || [];

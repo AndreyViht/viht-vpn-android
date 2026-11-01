@@ -263,10 +263,10 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                 val port = server.optInt("port", if (uri.port < 0) 443 else uri.port)
                 val addresses = network.getAllByName(host)
                 val address = addresses.firstOrNull { it is java.net.Inet4Address } ?: addresses.first()
-                (1..2).mapNotNull {
+                (1..server.optInt("attempts",2).coerceIn(1,2)).mapNotNull {
                     runCatching {
                         val start = System.nanoTime()
-                        network.socketFactory.createSocket().use { socket -> socket.connect(InetSocketAddress(address, port), 2500) }
+                        network.socketFactory.createSocket().use { socket -> socket.connect(InetSocketAddress(address, port), server.optInt("timeoutMs",2500).coerceIn(500,2500)) }
                         maxOf(1, ((System.nanoTime() - start) / 1_000_000).toInt())
                     }.getOrNull()
                 }.minOrNull()
