@@ -29,3 +29,7 @@ release-apk/
 app/build/
 push_to_github.js
 tools/repair-baseline.json
+
+.codex-remote-attachments/
+
+**/*firebase-adminsdk*.json

@@ -41,3 +41,19 @@ body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 .fluent-device-toast,.fluent-profile-toast{left:10px!important;right:10px!important;width:calc(100% - 20px)!important;max-width:560px!important;transform:none!important;margin:auto!important;box-sizing:border-box;padding:14px!important;border-radius:18px!important;white-space:normal!important;line-height:1.45!important}
 
 .liquid-window.is-android .fluent-server-card__ping{display:flex!important;white-space:nowrap;min-width:58px}.liquid-window.is-android .fluent-morph-aura,.liquid-window.is-android .fluent-ring-ambient{animation:none!important;filter:none!important}.liquid-window.is-android .fluent-card,.liquid-window.is-android .fluent-device-row,.liquid-window.is-android .fluent-server-row,.fluent-server-selected-glow{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}.fluent-server-selected-glow{filter:none!important}.fluent-servers-list{max-width:520px;margin-inline:auto;width:100%}
+
+.viht-release-history{display:grid;gap:12px;margin-top:14px;padding:14px;border:1px solid #ffffff14;border-radius:16px;background:#ffffff04;font-size:12px;line-height:1.6}.viht-release-history ul{padding-left:18px;margin:8px 0}.fluent-about-update-action{border-top:1px solid #ffffff12;padding-top:16px;margin-top:14px}.fluent-about-update-action>.settings-update-card{width:100%;box-sizing:border-box}.viht-profile-compact .viht-profile-account{padding:10px 0}.viht-profile-compact .viht-profile-action{padding:14px!important}
+
+
+/* Keep VPN feedback composited: no blur/shadow interpolation or competing transform transitions. */
+.liquid-window.is-android .fluent-power-btn{backdrop-filter:none;transition:border-color .12s ease,color .12s ease;touch-action:manipulation;box-shadow:inset 0 1px 2px #ffffff20,0 8px 20px #0003}
+.liquid-window.is-android .fluent-power-btn:hover,.liquid-window.is-android .fluent-power-btn:active{transform:none;box-shadow:inset 0 1px 2px #ffffff20,0 8px 20px #0003}
+.liquid-window.is-android .fluent-power-btn:disabled{opacity:1;cursor:wait}
+.liquid-window.is-android .fluent-power-icon{filter:none;animation:none;transition:color .12s ease}
+.liquid-window.is-android .fluent-ring-spinner{filter:none;will-change:transform;border-top-color:#a7ecd4;border-right-color:transparent}
+.viht-power-symbol{display:grid;place-items:center;width:54px;height:54px}
+@media(prefers-reduced-motion:reduce){.liquid-window.is-android .fluent-ring-spinner{animation:none}}
+
+
+.viht-update-actions-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;width:100%;align-items:stretch}.viht-update-actions-row>.btn{width:100%;justify-content:center;min-height:42px;box-sizing:border-box}.viht-update-result{grid-column:1/-1;display:flex!important;align-items:center;gap:7px;width:100%;min-height:42px;box-sizing:border-box;padding:11px 13px;border-radius:14px;line-height:1.4}.viht-about-update-action .settings-update-card{grid-column:1/-1;width:100%;margin-top:0!important}.viht-about-update-action .settings-update-card .settings-update-action-btn{width:100%;justify-content:center;min-height:44px}.viht-release-history{width:100%;box-sizing:border-box}@media(max-width:340px){.viht-update-actions-row{grid-template-columns:1fr}.viht-update-result{grid-column:auto}}
+

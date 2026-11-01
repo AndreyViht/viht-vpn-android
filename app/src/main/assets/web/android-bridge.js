@@ -30,23 +30,35 @@
     return () => current.delete(callback);
   }
   window.__vihtNativeEvent = function (type, data) {
-    if (type === 'auth-success' && data.restore && localStorage.getItem('viht_desktop_token') === data.token) return;
+    if (type === 'app-visibility') {
+      window.__vihtUiBackground = data?.background === true;
+      document.documentElement.classList.toggle('viht-ui-background', window.__vihtUiBackground);
+      document.dispatchEvent(new Event('visibilitychange'));
+      return;
+    }
     const targets = listeners.get(type);
-    if (!targets?.size) { if (type === 'auth-success' || type === 'auth-error' || type === 'quick-connect' || type === 'open-updates') queued.set(type, data); return; }
+    if (!targets?.size) { if (type === 'owner-pair-scan' || type === 'guest-scan-result' || type === 'invite-open' || type === 'auth-success' || type === 'auth-error' || type === 'quick-connect' || type === 'open-updates' || type === 'announcement-open') queued.set(type, data); return; }
     for (const callback of [...targets]) callback(data);
   };
   window.electronAPI = Object.freeze({
+    onOwnerPairScan:callback=>subscribe('owner-pair-scan',callback), onGuestScan:callback=>subscribe('guest-scan-result',callback), ackScanResult:id=>call('ackScanResult',[id]),
+    onInviteOpen:callback=>subscribe('invite-open',callback),
+    scanInvite:options=>call('scanInvite',[options||{}],180000), guestInvite:(action,invite)=>call('guestInvite',[action,invite]), inviteQr:url=>call('inviteQr',[url]),
     openExternal: url => call('openExternal', [url]),
+    openPayment: url => call('openPayment', [url]),
+    getAnnouncements: () => call('getAnnouncements'), readAnnouncement: (id,revision) => call('readAnnouncement',[id,revision]),
+    onAnnouncementOpen: callback => subscribe('announcement-open',callback),
     getUiSnapshot: () => call('getUiSnapshot'), cacheUiSnapshot: value => call('cacheUiSnapshot',[value]),
-    getInstalledApps: () => call('getInstalledApps'), getVpnNotificationSettings: () => call('getVpnNotificationSettings'),
+    getInstalledApps: () => call('getInstalledApps'), getVpnNotificationSettings: () => call('getVpnNotificationSettings'), getVpnEngineInfo: () => call('getVpnEngineInfo'),
     openVpnNotificationSettings: () => call('openVpnNotificationSettings'), onAppResumed: callback => subscribe('app-resumed',callback),
     getSystemInfo: () => call('getSystemInfo'), getAppVersion: () => call('getAppVersion'),
     getOwnerSession: options => call('getOwnerSession', [options || {}]),
+    getStoredOwnerSession: () => call('getStoredOwnerSession'),
     clearOwnerSession: () => { queued.delete('auth-success'); return call('clearOwnerSession'); },
     startAuthServer: provider => call('startAuthServer', [provider]), cancelAuthServer: () => call('cancelAuthServer'),
     onAuthSuccess: callback => subscribe('auth-success', callback), onAuthError: callback => subscribe('auth-error', callback),
     cabinetRequest: options => call('cabinetRequest', [options], 65000),
-    fetchSubscription: token => call('fetchSubscription', [token]), syncServers: servers => call('syncServers', [servers]),
+    fetchSubscription: token => call('fetchSubscription', [token], token==='guest'?75000:30000), syncServers: servers => call('syncServers', [servers]),
     pingServers: servers => call('pingServers', [servers], 7000),
     vpnConnect: (server, settings) => call('vpnConnect', [server, settings], 95000),
     vpnDisconnect: () => call('vpnDisconnect', [], 20000), vpnUpdateSettings: settings => call('vpnUpdateSettings', [settings], 60000),

@@ -57,7 +57,7 @@ export default function App() {
   const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
   const [hwid, setHwid] = useState('');
-  const [appVersion, setAppVersion] = useState('1.5.2');
+  const [appVersion, setAppVersion] = useState('1.5.3');
   const [manualConnectOnly, setManualConnectOnly] = useState(true);
   const [toast, setToast] = useState(null); // { id, message, type: 'success' | 'ping' | 'error' }
   const [foreignVpnWarning, setForeignVpnWarning] = useState(null);
@@ -652,7 +652,11 @@ export default function App() {
   }, [loading, manualConnectOnly, user, token, settings.autoConnect, currentServer, servers]);
 
   // 6. Connect / Disconnect Action
+  const toggleInFlight = useRef(false);
   const handleToggleConnection = async () => {
+    if (toggleInFlight.current || ['connecting','disconnecting'].includes(connectionStateRef.current)) return;
+    toggleInFlight.current = true;
+    try {
     if (connectionState === 'disconnected' || connectionState === 'error') {
       hadConnectedSessionRef.current = false;
       clearTimeout(stableConnectionTimerRef.current);
@@ -710,6 +714,7 @@ export default function App() {
         setConnectionState('disconnected');
       }
     }
+    } finally { toggleInFlight.current = false; }
   };
 
   // 7. Safe Server Selection (Requirement 10)

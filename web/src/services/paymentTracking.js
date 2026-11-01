@@ -5,7 +5,8 @@ export function normalizePayment(value, now = Date.now()) {
   return { ...value, createdAt: Number.isFinite(createdAt) && createdAt > 0 && createdAt <= now ? createdAt : now };
 }
 export function paymentPollDelay(order, now = Date.now()) {
-  if (!order || now - order.createdAt >= PAYMENT_POLL_LIMIT) return null;
+  if (!order) return null;
+  if (now - order.createdAt >= PAYMENT_POLL_LIMIT) return 60000;
   return now - order.createdAt < 120000 ? 10000 : 30000;
 }
 export function archivePayment(history, order) {

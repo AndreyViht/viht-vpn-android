@@ -52,7 +52,7 @@ function FluentSwitch({ checked, onChange, label }) {
 function SettingsScreen({
   settings,
   onUpdateSetting,
-  clientVersion = '1.5.2',
+  clientVersion = '1.5.3',
   hwid,
   initialCategory = 'connection',
 }) {
@@ -84,6 +84,20 @@ function SettingsScreen({
   const [installingUpdate, setInstallingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState('idle'); // 'idle' | 'checking' | 'available' | 'up-to-date' | 'downloading' | 'ready' | 'error'
   const [updateInfo, setUpdateInfo] = useState(null);
+  const [showReleaseNotes, setShowReleaseNotes] = useState(false);
+  const [releaseHistory, setReleaseHistory] = useState(() => {
+    try { const saved=JSON.parse(localStorage.getItem('viht-release-history')||'[]'); return Array.isArray(saved)?saved.filter(item=>item&&typeof item.version==='string'&&Array.isArray(item.changelog)).slice(0,20):[]; }
+    catch { return []; }
+  });
+  useEffect(() => {
+    if (!updateInfo?.version || !Array.isArray(updateInfo.changelog)) return;
+    setReleaseHistory(previous => {
+      const entry={version:String(updateInfo.version),changelog:updateInfo.changelog.filter(item=>typeof item==='string')};
+      const next=[entry,...previous.filter(item=>item.version!==entry.version)].slice(0,20);
+      try { localStorage.setItem('viht-release-history',JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, [updateInfo]);
   const [updateProgress, setUpdateProgress] = useState({ percent: 0, downloadedMb: '0', totalMb: '0.0', speedMb: '0.0' });
   const [updateError, setUpdateError] = useState('');
   function restoreDownloadStatus(status) {
@@ -624,7 +638,7 @@ function SettingsScreen({
                   </div>
 
                   <div className="fluent-about-update-action">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <div className="viht-update-actions-row">
                       <motion.button data-motion-press="true"
                         type="button"
                         className="btn btn--secondary btn--sm"
@@ -636,18 +650,22 @@ function SettingsScreen({
                         <span>{checkingUpdate ? (currentLang === 'en' ? 'Checking...' : 'Проверка...') : (currentLang === 'en' ? 'Check for updates' : 'Проверить обновления')}</span>
                       </motion.button>
 
+                      <button type="button" className="btn btn--secondary btn--sm" aria-expanded={showReleaseNotes} onClick={()=>setShowReleaseNotes(value=>!value)}>Последние изменения</button>
+
                       {updateStatus === 'up-to-date' && (
-                        <span className="settings-badge-update-ready" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span className="settings-badge-update-ready viht-update-result" role="status">
                           <Check size={11} /> {currentLang === 'en' ? 'Latest version installed' : 'У вас актуальная версия'}
                         </span>
                       )}
 
                       {updateStatus === 'available' && (
-                        <span className="settings-badge-update-new" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span className="settings-badge-update-new viht-update-result" role="status">
                           <Sparkles size={11} /> {currentLang === 'en' ? `v${updateInfo?.version} available` : `Доступна v${updateInfo?.version}`}
                         </span>
                       )}
                     </div>
+
+                    {showReleaseNotes && <section className="viht-release-history" aria-label="История изменений">{releaseHistory.length?releaseHistory.map(release=><article key={release.version}><strong>Версия {release.version}</strong><ul>{release.changelog.map((line,index)=><li key={index}>{line}</li>)}</ul></article>):<p>Здесь сохраняются изменения полученных обновлений. Проверьте обновления, чтобы загрузить описание.</p>}</section>}
 
                     {/* Available Update Card */}
                     {updateStatus === 'available' && updateInfo && (

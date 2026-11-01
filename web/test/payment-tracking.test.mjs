@@ -6,7 +6,9 @@ test('old references gain a stable tracking timestamp without changing the payme
  assert.equal(order.createdAt,1000);assert.equal(normalizePayment(order,2000).createdAt,1000);assert.equal(order.price,149);
  assert.equal(paymentPollDelay(order,2000),10000);
  assert.equal(paymentPollDelay(order,121001),30000);
- assert.equal(paymentPollDelay(order,1000+PAYMENT_POLL_LIMIT),null);
+ assert.equal(paymentPollDelay(order,1000+PAYMENT_POLL_LIMIT),60000);
+ assert.equal(paymentPollDelay(order,1000+24*60*60*1000),60000);
+ assert.equal(paymentPollDelay(null),null);
 });
 test('changing a tariff preserves old references for later payment verification',()=>{
  const first=normalizePayment({label:'old',paymentUrl:'https://yoomoney.ru/'},1000);

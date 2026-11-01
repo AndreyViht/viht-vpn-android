@@ -239,62 +239,23 @@ function MainVpnScreen({
           <div className="fluent-hero-center">
             <div className={`fluent-power-ring-wrap state-${connectionState}`}>
               <div className="fluent-ring-ambient" />
-              {isConnecting && <div className="fluent-ring-spinner" />}
+              {(isConnecting || isDisconnecting) && <div className="fluent-ring-spinner" />}
 
               <motion.button data-motion-press="true"
                 type="button"
                 className={`fluent-power-btn state-${connectionState}`}
                 onClick={onToggleConnection}
                 disabled={isConnecting || isDisconnecting || !currentServer}
-                aria-label={isConnected ? t('btn_disconnect', lang) : t('btn_connect', lang)}
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.94 }}
+                aria-busy={isConnecting || isDisconnecting}
+                aria-label={isConnecting ? 'Подключение…' : isDisconnecting ? 'Отключение…' : isConnected ? t('btn_disconnect', lang) : t('btn_connect', lang)}
+                whileHover={{}}
+                whileTap={{ scale: 0.97 }}
                 transition={springs.tactile}
               >
                 <div className="fluent-power-btn__glass">
-                  <AnimatePresence initial={false} mode="sync">
-                    {isConnected ? (
-                      <motion.div
-                        key="connected-icon"
-                        initial={{ scale: 0.5, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.5, opacity: 0 }}
-                        transition={springs.tactile}
-                      >
-                        <ShieldCheck size={54} className="fluent-power-icon fluent-power-icon--connected" />
-                      </motion.div>
-                    ) : isConnecting ? (
-                      <motion.div
-                        key="connecting-icon"
-                        initial={{ opacity: 0, rotate: -30 }}
-                        animate={{ opacity: 1, rotate: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={springs.tactile}
-                      >
-                        <Activity size={50} className="fluent-power-icon fluent-power-icon--connecting" />
-                      </motion.div>
-                    ) : isError ? (
-                      <motion.div
-                        key="error-icon"
-                        initial={{ scale: 0.7, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.7, opacity: 0 }}
-                        transition={springs.tactile}
-                      >
-                        <AlertTriangle size={50} className="fluent-power-icon fluent-power-icon--error" />
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="disconnected-icon"
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.8, opacity: 0 }}
-                        transition={springs.tactile}
-                      >
-                        <Power size={50} className="fluent-power-icon" />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  <span className="viht-power-symbol" aria-hidden="true">
+                    {isConnecting || isDisconnecting ? <Activity size={50} className="fluent-power-icon fluent-power-icon--busy"/> : isConnected ? <ShieldCheck size={54} className="fluent-power-icon fluent-power-icon--connected"/> : isError ? <AlertTriangle size={50} className="fluent-power-icon fluent-power-icon--error"/> : <Power size={50} className="fluent-power-icon"/>}
+                  </span>
                 </div>
               </motion.button>
             </div>
