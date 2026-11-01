@@ -34,12 +34,10 @@ class XrayHevRuntimeTest {
             val config = File(context.cacheDir, "xray-validation-$transport.json")
             try {
                 config.writeText(XrayConfigBuilder.build(source(transport), port(), port(), "user", "secret").toString())
-                val child = ProcessBuilder(XrayHevRuntime.executable(context).absolutePath, "run", "-test", "-config", config.absolutePath)
-                    .redirectErrorStream(true).redirectOutput(File("/dev/null")).start()
-                try {
-                    assertTrue("Xray config validation timed out", child.waitFor(15, TimeUnit.SECONDS))
-                    assertEquals("Packaged Xray rejected $transport configuration", 0, child.exitValue())
-                } finally { child.destroyForcibly() }
+                val runtime = XrayHevRuntime(context)
+                val value = JSONObject(config.readText())
+                try { runtime.startCore(value, value.getJSONArray("inbounds").getJSONObject(0).getInt("port")) }
+                finally { runtime.stop() }
             } finally { config.delete() }
         }
     }

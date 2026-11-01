@@ -16,6 +16,8 @@ function IosBottomNav({
   lang = 'ru',
 }) {
   const buttons = useRef([]);
+  const gesture = useRef(null);
+  const island = useRef(null);
   const tabs = [
     { id: 'home', label: t('nav_home', lang), icon: Shield },
     { id: 'servers', label: t('nav_servers', lang), icon: Globe },
@@ -26,7 +28,12 @@ function IosBottomNav({
 
   return (
     <nav className="ios-bottom-bar" aria-label={lang === 'en' ? 'Main navigation' : 'Основная навигация'}>
-      <div className="ios-bottom-bar__island" onKeyDown={(event) => {
+      <div ref={island} className="ios-bottom-bar__island" style={{touchAction:'none'}}
+        onPointerDown={event=>{if(event.pointerType==='mouse'&&event.button!==0)return;const index=tabs.findIndex(tab=>tab.id===activeTab);gesture.current={id:event.pointerId,index};event.currentTarget.setPointerCapture(event.pointerId);}}
+        onPointerMove={event=>{if(gesture.current?.id!==event.pointerId)return;const rect=island.current.getBoundingClientRect();const index=Math.max(0,Math.min(tabs.length-1,Math.floor((event.clientX-rect.left)/rect.width*tabs.length)));if(index!==gesture.current.index){gesture.current.index=index;onTabChange(tabs[index].id);}}}
+        onPointerUp={event=>{if(gesture.current?.id!==event.pointerId)return;const rect=island.current.getBoundingClientRect();const index=Math.max(0,Math.min(tabs.length-1,Math.floor((event.clientX-rect.left)/rect.width*tabs.length)));onTabChange(tabs[index].id);gesture.current=null;}}
+        onPointerCancel={()=>{gesture.current=null;}}
+        onKeyDown={(event) => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
         const index = tabs.findIndex(tab => tab.id === activeTab);
@@ -35,6 +42,7 @@ function IosBottomNav({
         onTabChange(tabs[next].id);
         buttons.current[next]?.focus();
       }}>
+        <span className="viht-nav-lens" aria-hidden="true" style={{transform:`translateX(${Math.max(0,tabs.findIndex(tab=>tab.id===activeTab))*100}%)`}}/>
         {tabs.map((tab, index) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -51,13 +59,6 @@ function IosBottomNav({
               whileTap={{ scale: 0.88, y: 1 }}
               transition={springs.tactile}
             >
-              {isActive && (
-                <motion.span
-                  layoutId="liquid-navigation-lens"
-                  className="ios-tab-item__active-pill"
-                  transition={springs.pill}
-                />
-              )}
               <motion.span className="ios-tab-item__icon-wrap"
                 animate={{ y: isActive ? -1 : 0, scale: isActive ? 1.08 : 1 }}
                 transition={springs.tactile}>

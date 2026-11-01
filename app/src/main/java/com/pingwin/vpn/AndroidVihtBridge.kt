@@ -72,9 +72,9 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "getVpnEngineInfo" -> {
                         val settings = JSONObject(preferences.getString("vpnSettings", "{}") ?: "{}")
                         val connected = VpnStatus.state.value == VpnConnectionState.CONNECTED
-                        val xray = if (connected) XrayHevRuntime.active != null else android.os.Build.VERSION.SDK_INT >= 29 && XrayHevRuntime.executable(activity).isFile && !settings.optBoolean("legacyVpnCore", false)
-                        ok().put("engine", if (xray) "Xray 26.10.31" else "sing-box · прежнее ядро")
-                            .put("adapter", if (xray) "Android VpnService / hev-socks5-tunnel 2.19.3" else "Android VpnService / gVisor")
+                        val xray = true
+                        ok().put("engine", if (xray) "Xray 26.10.31" else "Xray 26.10.31")
+                            .put("adapter", if (xray) "Android VpnService / hev-socks5-tunnel 2.19.3" else "Android VpnService / hev-socks5-tunnel 2.19.3")
                     }
                     "getAnnouncements" -> AppAnnouncements.refresh(activity,false)
                     "readAnnouncement" -> AppAnnouncements.read(activity,args.getString(0),args.getString(1))
@@ -181,7 +181,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
             require(link.isNotBlank()) { "Нет актуального ключа. Синхронизируйте подписку." }
             val profile = ConnectionProfileParser.parse(link)
             val config = VihtVpnConfig.build(profile, settings)
-            if (!XrayHevRuntime.available(activity, config)) LibboxValidator.validate(config).getOrThrow()
+            check(XrayConfigBuilder.supported(config)) { "Новое ядро поддерживает VLESS, VMess, Trojan и Shadowsocks" }
             val intent = VpnService.prepare(activity)
             if (intent != null) {
                 val waiting = CompletableDeferred<Boolean>(); permission = waiting

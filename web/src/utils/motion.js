@@ -38,32 +38,7 @@ export const springs = {
   },
 };
 
-export const pageVariants = {
-  initial: {
-    opacity: 0,
-    y: 14,
-    scale: 0.98,
-    filter: 'blur(5px)',
-  },
-  animate: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    filter: 'blur(0px)',
-    transition: springs.natural,
-    transitionEnd: { filter: 'none' },
-  },
-  exit: {
-    opacity: 0,
-    y: -10,
-    scale: 0.98,
-    filter: 'blur(4px)',
-    transition: {
-      duration: 0.14,
-      ease: [0.32, 0, 0.67, 0],
-    },
-  },
-};
+export const pageVariants = {initial:{opacity:0,y:4},animate:{opacity:1,y:0,transition:{duration:.14,ease:[.2,.8,.2,1]}},exit:{opacity:0,y:0,transition:{duration:.08}}};
 
 export const heroVariants = {
   disconnected: {

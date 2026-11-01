@@ -57,7 +57,7 @@ export default function App() {
   const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
   const [hwid, setHwid] = useState('');
-  const [appVersion, setAppVersion] = useState('1.5.1');
+  const [appVersion, setAppVersion] = useState('1.5.2');
   const [manualConnectOnly, setManualConnectOnly] = useState(true);
   const [toast, setToast] = useState(null); // { id, message, type: 'success' | 'ping' | 'error' }
   const [foreignVpnWarning, setForeignVpnWarning] = useState(null);
@@ -716,6 +716,7 @@ export default function App() {
   const handleSelectServer = useCallback(async (srv) => {
     if (!srv) return;
     if (srv.id === currentServerRef.current?.id) return;
+    setCurrentServer(srv);currentServerRef.current=srv;
 
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
@@ -1017,14 +1018,14 @@ export default function App() {
           <div className="fluent-app-layout">
             {/* Main Content Workspace with Silky Page Transitions */}
             <main className="fluent-main-viewport">
-              <AnimatePresence mode="wait">
+              <AnimatePresence initial={false} mode="sync">
                 {activeTab === 'home' && (
                   <motion.div
                     key="page-home"
                     className="fluent-page-motion-wrap"
                     ref={pageMotionRef}
-                    onAnimationStart={preparePageMotion}
-                    onAnimationComplete={releasePageMotion}
+                    
+                    
                     {...pageVariants}
                   >
                     <MainVpnScreen
@@ -1044,8 +1045,8 @@ export default function App() {
                     key="page-servers"
                     className="fluent-page-motion-wrap"
                     ref={pageMotionRef}
-                    onAnimationStart={preparePageMotion}
-                    onAnimationComplete={releasePageMotion}
+                    
+                    
                     {...pageVariants}
                   >
                     <ServersScreen
@@ -1067,8 +1068,8 @@ export default function App() {
                     key="page-devices"
                     className="fluent-page-motion-wrap"
                     ref={pageMotionRef}
-                    onAnimationStart={preparePageMotion}
-                    onAnimationComplete={releasePageMotion}
+                    
+                    
                     {...pageVariants}
                   >
                     {user?.is_guest ? <GuestMembership user={user} onLogout={handleLogout}/> : <DevicesScreen onBindingChanged={() => synchronizeKeys(true)}
@@ -1085,8 +1086,8 @@ export default function App() {
                     key="page-profile"
                     className="fluent-page-motion-wrap"
                     ref={pageMotionRef}
-                    onAnimationStart={preparePageMotion}
-                    onAnimationComplete={releasePageMotion}
+                    
+                    
                     {...pageVariants}
                   >
                     {user?.is_guest ? <GuestMembership user={user} onLogout={handleLogout}/> : <ProfileScreen
@@ -1105,8 +1106,8 @@ export default function App() {
                     key="page-settings"
                     className="fluent-page-motion-wrap"
                     ref={pageMotionRef}
-                    onAnimationStart={preparePageMotion}
-                    onAnimationComplete={releasePageMotion}
+                    
+                    
                     {...pageVariants}
                   >
                     <SettingsScreen initialCategory={focusUpdates ? 'advanced' : 'connection'}

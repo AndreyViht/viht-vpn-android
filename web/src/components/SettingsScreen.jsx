@@ -52,7 +52,7 @@ function FluentSwitch({ checked, onChange, label }) {
 function SettingsScreen({
   settings,
   onUpdateSetting,
-  clientVersion = '1.5.1',
+  clientVersion = '1.5.2',
   hwid,
   initialCategory = 'connection',
 }) {
@@ -76,7 +76,7 @@ function SettingsScreen({
     refresh();
     const off = window.electronAPI?.onVpnStateChanged?.(refresh);
     return () => { alive = false; off?.(); };
-  }, [activeCategory, settings.legacyVpnCore]);
+  }, [activeCategory]);
   useEffect(() => { setActiveCategory(initialCategory); }, [initialCategory]);
   const [logContent, setLogContent] = useState('');
   const [showLogModal, setShowLogModal] = useState(false);
@@ -293,16 +293,7 @@ function SettingsScreen({
                   <div className="fluent-toggle-divider" />
 
                   {/* Разрешить локальную сеть */}
-                  {isAndroid && <>
-                    <div className="fluent-toggle-row" onClick={() => onUpdateSetting('legacyVpnCore', settings.legacyVpnCore !== true)}>
-                      <div className="fluent-toggle-text">
-                        <strong>{currentLang === 'en' ? 'Use previous VPN engine' : 'Использовать прежнее ядро VPN'}</strong>
-                        <span>{currentLang === 'en' ? 'Xray + hev is enabled by default on supported 64-bit devices. Enable this for compatibility with the previous engine.' : 'Xray + hev включён по умолчанию на поддерживаемых 64-битных устройствах. Переключатель возвращает прежний движок для совместимости.'}</span>
-                      </div>
-                      <FluentSwitch checked={settings.legacyVpnCore === true} label={currentLang === 'en' ? 'Use previous VPN engine' : 'Использовать прежнее ядро VPN'} onChange={() => onUpdateSetting('legacyVpnCore', settings.legacyVpnCore !== true)} />
-                    </div>
-                    <div className="fluent-toggle-divider" />
-                  </>}
+                  
                   <div
                     className="fluent-toggle-row"
                     onClick={() => onUpdateSetting('allowLan', settings.allowLan !== false ? false : true)}

@@ -32,6 +32,13 @@ function MainVpnScreen({
   onOpenServerSelector,
   lang = 'ru',
 }) {
+  const [livePing,setLivePing]=useState(null);
+  useEffect(()=>{let alive=true,busy=false;const id=currentServer?.id;
+    const probe=async()=>{if(!id||busy||document.hidden||window.__vihtUiBackground||!window.electronAPI?.pingServers)return;busy=true;
+      try{const result=await window.electronAPI.pingServers([currentServer]);if(alive){const value=result?.[id];setLivePing({id,ping:Number.isFinite(value)&&value>=0?value:null,pingStatus:Number.isFinite(value)&&value>=0?'measured':'unreachable'});}}catch{if(alive)setLivePing({id,ping:null,pingStatus:'unreachable'});}finally{busy=false;}};
+    void probe();const timer=setInterval(probe,3000);return()=>{alive=false;clearInterval(timer)};
+  },[currentServer?.id,currentServer?.vless_uri]);
+  const pingServer=livePing?.id===currentServer?.id?{...currentServer,...livePing}:currentServer;
   const isConnected = connectionState === 'connected';
   const isConnecting = connectionState === 'connecting';
   const isDisconnecting = connectionState === 'disconnecting';
@@ -168,8 +175,8 @@ function MainVpnScreen({
 
           <div className="fluent-server-card__action">
             <div className="fluent-server-card__ping">
-              <span className={`ping-status-dot ${currentServer?.ping == null ? 'gray' : currentServer.ping < 65 ? 'green' : 'yellow'}`} />
-              <span>{formatServerPing(currentServer, lang)}</span>
+              <span className={`ping-status-dot ${pingServer?.ping == null ? 'gray' : pingServer.ping < 65 ? 'green' : 'yellow'}`} />
+              <span>{formatServerPing(pingServer, lang)}</span>
             </div>
             <ChevronRight size={16} className="fluent-chevron-icon" />
           </div>
@@ -209,19 +216,17 @@ function MainVpnScreen({
         {/* ─── 3. Unified Morphing Hero Surface (Dynamic Island style) ─── */}
         <motion.div
           className={`fluent-hero-morph-surface state-${connectionState}`}
-          layout
-          layoutDependency={connectionState}
-          transition={springs.natural}
+          transition={{duration:.18}}
         >
           {/* Ambient organic glow within the surface */}
           <div className={`fluent-morph-aura state-${connectionState}`} />
 
           {/* Morphing Top Header Status Pill */}
-          <motion.div className="fluent-morph-header" layout layoutDependency={connectionState}>
+          <motion.div className="fluent-morph-header">
             <div className={`fluent-status-badge-pill state-${connectionState}`}>
               <span className="fluent-status-dot" />
               <span className="fluent-status-text">
-                {isConnected && (lang === 'en' ? (isAndroid ? 'Protected • Sing-Box' : 'Protected • Android VPN') : (isAndroid ? 'Защищено • Sing-Box' : 'Защищено • Android VPN'))}
+                {isConnected && (lang === 'en' ? 'Protected · Viht Protect' : 'Защищено · Viht Protect')}
                 {isConnecting && (lang === 'en' ? 'Connecting to server...' : 'Подключение к серверу...')}
                 {isDisconnecting && (lang === 'en' ? 'Disconnecting...' : 'Отключение...')}
                 {isError && (lang === 'en' ? 'Connection Error' : 'Ошибка подключения')}
@@ -245,10 +250,9 @@ function MainVpnScreen({
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.94 }}
                 transition={springs.tactile}
-                layout
               >
                 <div className="fluent-power-btn__glass">
-                  <AnimatePresence mode="wait">
+                  <AnimatePresence initial={false} mode="sync">
                     {isConnected ? (
                       <motion.div
                         key="connected-icon"
@@ -296,7 +300,7 @@ function MainVpnScreen({
             </div>
 
             {/* Status title & timer */}
-            <motion.div className="fluent-hero-status" layout layoutDependency={connectionState}>
+            <motion.div className="fluent-hero-status">
               <h2 className="fluent-hero-title">
                 {isConnected
                   ? t('status_connected_title', lang)
@@ -313,7 +317,7 @@ function MainVpnScreen({
                     className="fluent-hero-timer-pill"
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={springs.natural}
+                    transition={{duration:.18}}
                   >
                     <Clock size={13} className="timer-icon" />
                     <span className="timer-label">{t('session_label', lang)}:</span>
@@ -330,17 +334,17 @@ function MainVpnScreen({
             </motion.div>
           </div>
 
-          {/* Morphing Telemetry Grid (Connected State) or Protection Badges (Disconnected) */}
-          <AnimatePresence mode="wait">
+          {/* Stable surface: animate opacity/transform without measuring height. */}
+          <div className="viht-home-status-stage">
+          <AnimatePresence initial={false} mode="sync">
             {isConnected ? (
               <motion.div
                 key="telemetry-block"
                 className="fluent-telemetry-surface"
-                initial={{ opacity: 0, height: 0, y: 10 }}
-                animate={{ opacity: 1, height: 'auto', y: 0 }}
-                exit={{ opacity: 0, height: 0, y: 6 }}
-                transition={springs.natural}
-                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{duration:.18}}
               >
                 <div className="fluent-telemetry-grid">
                   {/* Download */}
@@ -389,7 +393,7 @@ function MainVpnScreen({
                     </div>
                     <div className="fluent-telemetry-data">
                       <span className="fluent-telemetry-label">{t('telemetry_ping', lang)}</span>
-                      <strong className="fluent-telemetry-val">{formatServerPing(currentServer, lang)}</strong>
+                      <strong className="fluent-telemetry-val">{formatServerPing(pingServer, lang)}</strong>
                     </div>
                   </div>
                 </div>
@@ -401,8 +405,7 @@ function MainVpnScreen({
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 4 }}
-                transition={springs.natural}
-                layout
+                transition={{duration:.18}}
               >
                 <div className="fluent-prot-pill">
                   <Lock size={12} />
@@ -410,7 +413,7 @@ function MainVpnScreen({
                 </div>
                 <div className="fluent-prot-pill">
                   <ShieldCheck size={12} />
-                  <span>{isAndroid ? 'Sing-Box Ядро' : t('prot_wintun', lang)}</span>
+                  <span>{'Viht Protect'}</span>
                 </div>
                 <div className="fluent-prot-pill">
                   <Globe size={12} />
@@ -419,6 +422,7 @@ function MainVpnScreen({
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
         </motion.div>
       </div>
     </div>

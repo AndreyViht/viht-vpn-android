@@ -25,6 +25,7 @@ import vihtLogo from '../assets/viht-logo.png';
 import { t, fixMojibake } from '../utils/i18n';
 import { springs, buttonPress } from '../utils/motion';
 
+const deviceSnapshots=new Map();
 function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBindingChanged }) {
   const [devices, setDevices] = useState([]);
   const [limits, setLimits] = useState(() => propLimits || { total_slots: 0, active_count: 0, slot_price: 0 });
@@ -65,7 +66,8 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
       if (epoch !== responseEpoch.current) return;
       if (res && res.ok) {
         const devList = res.devices || [];
-        setDevices(devList);
+        deviceSnapshots.set(token,{devices:devList,limits:res.limits});if(deviceSnapshots.size>8)deviceSnapshots.delete(deviceSnapshots.keys().next().value);
+        setDevices(previous=>JSON.stringify(previous)===JSON.stringify(devList)?previous:devList);
         setUnidentified(res.unidentified_devices || []);
 
         if (res.limits) setLimits(res.limits);
@@ -300,7 +302,6 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
         <div className="compact-device-heading"><span>Слоты <strong>{usage.used}<small> / {usage.total ?? '—'}</small></strong></span><button type="button" className="compact-refresh" onClick={()=>loadDevices(true)} disabled={refreshing} aria-label="Обновить устройства" title="Обновить"><RefreshCw size={17} className={refreshing?'spinning':''}/></button></div>
         <div className="compact-device-commands"><OwnerInvite compact onAdded={()=>loadDevices(true)}/><button type="button" className="compact-slot-buy" onClick={openAddSlot}><PlusCircle size={14}/><span>Слот · {limits.slot_price||300} ₽</span></button></div>
         <div className="fluent-slot-progress-bar"><motion.div className="fluent-slot-progress-fill" initial={false} animate={{width:usage.percent+'%'}} transition={springs.natural}/></div>
-        <details className="compact-slot-note"><summary>Учитываются только приложения Viht</summary><p>Happ, Incy и V2RayTun временно не занимают слоты. Их прежний доступ сохранён.</p></details>
       </section>
 
       {unidentified.length > 0 && <div className="fluent-card" style={{padding:12,fontSize:12,color:'var(--text-secondary)'}}>Старые клиенты без идентификатора: {unidentified.length}. Слоты не занимают; определить физическое устройство для них нельзя.</div>}
@@ -337,7 +338,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                 {isActive && (
                   <motion.div
                     className="fluent-pill-active-bg"
-                    layoutId="device-filter-pill"
+                    
                     transition={springs.pill}
                   />
                 )}
@@ -362,7 +363,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
             <p>{t('devices_empty_desc', lang)}</p>
           </div>
         ) : (
-          <AnimatePresence initial={false}>
+          <>
             {filteredDevices.map((device) => {
               const isEditing = editingId === (device.physical_device_id || device.id || device.device_id);
               const isCurrent = isCurrentDevice(device);
@@ -374,20 +375,10 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
               return (
                 <motion.div
                   key={device.physical_device_id || device.id || device.device_id || device.hwid}
-                  layout="position"
+                  
                   className={`fluent-device-row ${device.disabled ? 'fluent-device-row--disabled' : ''}`}
-                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{
-                    opacity: 0,
-                    scale: 0.92,
-                    height: 0,
-                    marginBottom: 0,
-                    paddingTop: 0,
-                    paddingBottom: 0,
-                    overflow: 'hidden',
-                    transition: { duration: 0.22, ease: [0.32, 0, 0.67, 0] },
-                  }}
+                  initial={false}
+                  animate={{ opacity: 1, y: 0, scale: 1 }} exit={{opacity:0}}
                   whileHover={{ y: -1, scale: 1.002 }}
                   transition={springs.natural}
                 >
@@ -539,7 +530,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                 </motion.div>
               );
             })}
-          </AnimatePresence>
+          </>
         )}
       </div>
     </div>

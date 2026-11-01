@@ -2,7 +2,6 @@ package com.pingwin.vpn
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import io.nekohasekai.libbox.*
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Test
@@ -178,27 +177,6 @@ class CoreStartupTest {
             JSONObject().put("refresh_token", "invalid-connectivity-probe").toString())
         assertEquals(400, refresh.status)
         assertTrue(JSONObject(refresh.body).has("error_code"))
-    }
-    @Test fun actualCoreStartsAndroidDnsAndProxyConfiguration() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val directory = File(context.cacheDir, "core-startup-test").apply { mkdirs() }
-        Libbox.setup(SetupOptions().apply {
-            basePath = directory.absolutePath; workingPath = directory.absolutePath; tempPath = directory.absolutePath
-            commandServerListenPort = 0; commandServerSecret = Libbox.randomHex(32).value; logMaxLines = 100
-        })
-        for (transport in listOf("ws", "grpc")) {
-            for (filtered in listOf(false, true)) {
-                val profile = ConnectionProfileParser.parse("vless://11111111-1111-4111-8111-111111111111@203.0.113.1:443?security=tls&sni=example.com&type=$transport&path=%2Fvpn&serviceName=test")
-                val config = JSONObject(VihtVpnConfig.build(profile, JSONObject().put("dnsAdblock", filtered)))
-                // No real key, TUN or system routing: exercise core lifecycle and DNS initialization only.
-                config.put("inbounds", JSONArray().put(JSONObject().put("type", "mixed").put("listen", "127.0.0.1").put("listen_port", 0)))
-                config.getJSONObject("route").put("auto_detect_interface", false)
-                Libbox.checkConfig(config.toString())
-                val server = CommandServer(stub(CommandServerHandler::class.java) as CommandServerHandler, stub(PlatformInterface::class.java) as PlatformInterface)
-                try { server.start(); server.startOrReloadService(config.toString(), OverrideOptions()) }
-                finally { runCatching { server.closeService() }; server.close() }
-            }
-        }
     }
     @Test fun completedDirectDownloadIsFoundByInstallerAndStillRejectsUnsignedApk() {
         val instrumentation=InstrumentationRegistry.getInstrumentation()

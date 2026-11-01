@@ -48,8 +48,8 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
     setLoading(true); setTariffs([]); setSlotPrice(null); setError('');
     fetchAppTariffs(token).then(result => {
       if (!active) return;
-      if (!result.ok || !Array.isArray(result.data?.tariffs) || !result.data.tariffs.length) throw Error(result.error || 'Не удалось загрузить тарифы');
-      setTariffs(result.data.tariffs);
+      if (!result.ok || (!isSlots && (!Array.isArray(result.data?.tariffs) || !result.data.tariffs.length))) throw Error(result.error || 'Не удалось загрузить тарифы');
+      setTariffs(Array.isArray(result.data?.tariffs)?result.data.tariffs:[]);
       if (isSlots && (!Number.isFinite(result.data.slotPrice) || result.data.slotPrice <= 0)) throw Error('Не удалось получить стоимость слота');
       setSlotPrice(result.data.slotPrice); setSlotMax(result.data.maxSlotPurchase || 20);
     }).catch(e => { if (active) setError(e.message); }).finally(() => { if (active) setLoading(false); });
@@ -142,7 +142,7 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
   };
   if (!open) return null;
   return createPortal(<div className="billing-shade" onClick={e => { if (e.target === e.currentTarget) setOpen(false); }}>
-    <section className="billing-sheet" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="billing-title" tabIndex={-1}>
+    <section className="viht-billing-panel" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="billing-title" tabIndex={-1}>
       <header><div><span>VIHT VPN</span><h2 id="billing-title">{isSlots ? 'Дополнительные слоты' : 'Тарифы'}</h2></div><button className="billing-close" aria-label="Закрыть тарифы" onClick={() => setOpen(false)}><X size={20} /></button></header>
       {paid ? <div className="billing-success"><CheckCircle2 size={44} /><h3>{isSlots ? 'Слоты добавлены' : 'Подписка продлена'}</h3><p>{isSlots ? 'Оплата подтверждена. Обновляем лимит устройств.' : 'Оплата подтверждена. Обновляем срок подписки.'}</p><button onClick={() => setOpen(false)}>Готово</button></div> : <>
         {order ? <div className="billing-pending"><h3>{isSlots ? `Дополнительные слоты · ${order.slots}` : `Оплата · ${order.days} дней`}</h3><strong>{order.price} ₽</strong><p>{trackingPaused ? 'Автоматическая проверка приостановлена. Платёж не отменён: если банк уже списал деньги, нажмите «Проверить оплату».' : 'Подтверждение появится автоматически. Если вы ещё не оплатили, продолжите оплату ниже.'}</p></div> : <>

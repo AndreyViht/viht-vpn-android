@@ -94,18 +94,12 @@ function ServersScreen({
                 key={server.id}
                 className={`fluent-server-row ${isSelected ? 'fluent-server-row--selected' : ''}`}
                 onClick={() => onSelectServer(server)}
-                whileHover={{ y: -1, scale: 1.002 }}
-                whileTap={{ scale: 0.985 }}
-                transition={springs.tactile}
+                
+                whileTap={{ scale: 0.99 }}
+                transition={{duration:.14}}
               >
                 {/* Active border glow for selected card */}
-                {isSelected && (
-                  <motion.div
-                    className="fluent-server-selected-glow"
-                    layoutId="server-active-outline"
-                    transition={springs.natural}
-                  />
-                )}
+                <span className="fluent-server-selected-glow" aria-hidden="true" />
 
                 <div className="fluent-server-row__flag">
                   <CountryFlag country={countryCode} />
