@@ -35,8 +35,8 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
         val stamp=if(complete && file!=null) "${file.absolutePath}:${file.length()}:${file.lastModified()}:${release?.apkSha256}" else null
         if(stamp!=verifiedStamp){verifiedStamp=stamp;verifiedResult=complete && file!=null && UpdateInstaller.verifyDownloadedApk(activity,file)}
         val ready=complete && verifiedResult
-        val downloading=matches && state?.status in setOf(DownloadManager.STATUS_PENDING,DownloadManager.STATUS_RUNNING,DownloadManager.STATUS_PAUSED)
-        val error=when { matches && state?.status==DownloadManager.STATUS_FAILED -> "Загрузка прервалась. Нажмите «Повторить загрузку»."
+        val downloading=matches && state?.status in setOf(DownloadManager.STATUS_PENDING,DownloadManager.STATUS_RUNNING)
+        val error=when { matches && state?.status==DownloadManager.STATUS_FAILED -> DirectUpdateDownload.error(activity) ?: "Загрузка прервалась. Нажмите «Повторить загрузку»."
             matches && state?.status==DownloadManager.STATUS_PAUSED -> "Загрузка приостановлена. Нажмите «Повторить загрузку» для продолжения."
             complete && !ready -> "APK не прошёл проверку подписи, версии или контрольной суммы"
             else -> null }
