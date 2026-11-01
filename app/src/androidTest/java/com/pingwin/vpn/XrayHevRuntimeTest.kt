@@ -80,9 +80,26 @@ class XrayHevRuntimeTest {
                 Os.write(b, packet, 0, packet.size)
                 assertTrue("UDP payload did not reach the local echo endpoint", response.get(12, TimeUnit.SECONDS))
                 val received = ByteArray(2048)
-                val size = Os.read(b, received, 0, received.size)
-                assertTrue("No returned IP/UDP packet", size >= 28 + payload.size)
-                assertArrayEquals(payload, received.copyOfRange(size - payload.size, size))
+                val deadline = android.os.SystemClock.elapsedRealtime() + 10000
+                var returned = false
+                var lastFrame = "none"
+                // IPv6 neighbour discovery can precede the UDP response on a dual-stack TUN.
+                while (android.os.SystemClock.elapsedRealtime() < deadline) {
+                    val size = Os.read(b, received, 0, received.size)
+                    lastFrame = received.take(minOf(size, 64)).joinToString("") { "%02x".format(it.toInt() and 255) }
+                    if (size < 28 || (received[0].toInt() ushr 4) != 4 || received[9].toInt() != 17) continue
+                    val header = (received[0].toInt() and 15) * 4
+                    fun short(offset: Int) = ((received[offset].toInt() and 255) shl 8) or (received[offset + 1].toInt() and 255)
+                    assertTrue("Truncated IPv4 UDP header: $lastFrame", header >= 20 && header + 8 <= size)
+                    if (short(header + 2) != 32123) continue
+                    val length = short(header + 4)
+                    val totalLength = short(2)
+                    assertTrue("Malformed IPv4 UDP response: $lastFrame", length >= 8 && totalLength == header + length && totalLength <= size)
+                    assertArrayEquals(payload, received.copyOfRange(header + 8, header + length))
+                    returned = true
+                    break
+                }
+                assertTrue("No returned IPv4 UDP response; last frame=$lastFrame", returned)
                 val stats = TProxyService.TProxyGetStats()
                 assertEquals(4, stats.size)
                 assertTrue(stats[1] > 0 && stats[3] > 0)
