@@ -14,6 +14,15 @@ import java.lang.reflect.Proxy
 /** Starts the actual packaged core with local-only inbounds. Never creates a VPN/TUN. */
 @RunWith(AndroidJUnit4::class)
 class CoreStartupTest {
+    @Test fun exportedPerformanceSnapshotReadsPackagedCoreWithoutStartingVpn() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val snapshot = VpnPerformanceSnapshot.capture(context)
+        assertFalse(snapshot, snapshot.startsWith("Performance snapshot unavailable"))
+        assertTrue(snapshot.contains("Process CPU cumulative ms:"))
+        assertTrue(snapshot.contains("Process PSS KiB:"))
+        assertTrue(snapshot.contains("Core: ${Libbox.version()}"))
+    }
+
     @Test fun expiredOwnerSessionRestoresLocallyWithoutRefreshOrBrowserStorage() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         assertFalse("Use only the empty emulator fixture",AndroidSessionStore.hasSession(context))

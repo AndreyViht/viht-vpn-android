@@ -116,7 +116,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "vpnDisconnect" -> { disconnect(); ok() }
                     "vpnUpdateSettings" -> applySettings(args.getJSONObject(0))
                     "pingServers" -> ping(args.getJSONArray(0))
-                    "exportDebugLog" -> DiagnosticLogStore.entries(activity).joinToString("\n")
+                    "exportDebugLog" -> VpnPerformanceSnapshot.capture(activity) + "\n" + DiagnosticLogStore.entries(activity).joinToString("\n")
                     "setDesktopPreferences" -> {
                         val value = args.getJSONObject(0)
                         if(value.has("notifyNews")||value.has("autoReconnect")||value.has("sendDiagnostics")) {
