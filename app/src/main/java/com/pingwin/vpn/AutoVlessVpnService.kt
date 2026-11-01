@@ -1578,6 +1578,12 @@ class AutoVlessVpnService :
             return
         }
 
+        if (listener == null) {
+            // Xray uses the Android network and does not need a libbox interface index.
+            updatePhysicalNetworkSignature(network, properties, interfaceName)
+            return
+        }
+
         /*
          * On some Honor devices, the rmnet interface name is visible via
          * ConnectivityManager, while NetworkInterface and if_nametoindex()
@@ -1606,11 +1612,7 @@ class AutoVlessVpnService :
                     "$interfaceName index=$interfaceIndex"
         )
 
-        val signature = network.toString() + ":" + interfaceName + ":" + properties.linkAddresses.map { VpnRecoveryPolicy.addressKey(it.address.address) }.distinct().sorted().joinToString() + ":" + properties.dnsServers.mapNotNull { it.hostAddress }.sorted().joinToString()
-        val changed = networkSignature != null && networkSignature != signature
-        networkSignature = signature
-        runCatching { setUnderlyingNetworks(arrayOf(network)) }
-        if (changed && everConnected && VpnStatus.state.value == VpnConnectionState.CONNECTED) requestRecovery(latestServiceStartId)
+        updatePhysicalNetworkSignature(network, properties, interfaceName)
         listener?.updateDefaultInterface(
             interfaceName,
             interfaceIndex,
@@ -1623,6 +1625,14 @@ class AutoVlessVpnService :
             "Default physical interface AFTER update: " +
                     "$interfaceName index=$interfaceIndex"
         )
+    }
+
+    private fun updatePhysicalNetworkSignature(network: Network, properties: LinkProperties, interfaceName: String) {
+        val signature = network.toString() + ":" + interfaceName + ":" + properties.linkAddresses.map { VpnRecoveryPolicy.addressKey(it.address.address) }.distinct().sorted().joinToString() + ":" + properties.dnsServers.mapNotNull { it.hostAddress }.sorted().joinToString()
+        val changed = networkSignature != null && networkSignature != signature
+        networkSignature = signature
+        runCatching { setUnderlyingNetworks(arrayOf(network)) }
+        if (changed && everConnected && VpnStatus.state.value == VpnConnectionState.CONNECTED) requestRecovery(latestServiceStartId)
     }
 
     private fun stopPhysicalNetworkMonitor() {

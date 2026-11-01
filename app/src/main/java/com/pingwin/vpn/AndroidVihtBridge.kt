@@ -218,7 +218,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     private suspend fun applySettings(settings: JSONObject): JSONObject {
         VpnBypassSettings.domains(settings); VpnBypassSettings.packages(settings)
         val previous = JSONObject(preferences.getString("vpnSettings", "{}") ?: "{}")
-        val changed = listOf("bypassRussia", "dnsAdblock", "allowLan").any { previous.optBoolean(it, true) != settings.optBoolean(it, true) } || VpnBypassSettings.domains(previous)!=VpnBypassSettings.domains(settings) || VpnBypassSettings.packages(previous)!=VpnBypassSettings.packages(settings)
+        val changed = previous.optBoolean("legacyVpnCore", false) != settings.optBoolean("legacyVpnCore", false) || listOf("bypassRussia", "dnsAdblock", "allowLan").any { previous.optBoolean(it, true) != settings.optBoolean(it, true) } || VpnBypassSettings.domains(previous)!=VpnBypassSettings.domains(settings) || VpnBypassSettings.packages(previous)!=VpnBypassSettings.packages(settings)
         val state=VpnStatus.state.value
         if(changed && state==VpnConnectionState.CONNECTING) return error("Дождитесь завершения подключения")
         if(!changed || state in setOf(VpnConnectionState.DISCONNECTED,VpnConnectionState.ERROR)) {

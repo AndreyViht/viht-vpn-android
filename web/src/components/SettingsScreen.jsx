@@ -285,6 +285,16 @@ function SettingsScreen({
                   <div className="fluent-toggle-divider" />
 
                   {/* Разрешить локальную сеть */}
+                  {isAndroid && <>
+                    <div className="fluent-toggle-row" onClick={() => onUpdateSetting('legacyVpnCore', settings.legacyVpnCore !== true)}>
+                      <div className="fluent-toggle-text">
+                        <strong>{currentLang === 'en' ? 'Use previous VPN engine' : 'Использовать прежнее ядро VPN'}</strong>
+                        <span>{currentLang === 'en' ? 'Test build: Xray + hev is enabled by default on supported 64-bit devices. Enable this to compare with sing-box.' : 'Тестовая сборка: Xray + hev включён по умолчанию на поддерживаемых 64-битных устройствах. Включите переключатель для сравнения с sing-box.'}</span>
+                      </div>
+                      <FluentSwitch checked={settings.legacyVpnCore === true} label={currentLang === 'en' ? 'Use previous VPN engine' : 'Использовать прежнее ядро VPN'} onChange={() => onUpdateSetting('legacyVpnCore', settings.legacyVpnCore !== true)} />
+                    </div>
+                    <div className="fluent-toggle-divider" />
+                  </>}
                   <div
                     className="fluent-toggle-row"
                     onClick={() => onUpdateSetting('allowLan', settings.allowLan !== false ? false : true)}

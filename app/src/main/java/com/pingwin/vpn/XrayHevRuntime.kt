@@ -18,7 +18,10 @@ internal class XrayHevRuntime(private val context: Context) {
         @Volatile var active: XrayHevRuntime? = null
             private set
         fun executable(context: Context) = File(context.applicationInfo.nativeLibraryDir, "libvihtxray.so")
-        fun available(context: Context, source: String) = executable(context).isFile && XrayConfigBuilder.supported(source)
+        fun available(context: Context, source: String): Boolean {
+            val settings = JSONObject(context.getSharedPreferences("viht_ui_settings", Context.MODE_PRIVATE).getString("vpnSettings", "{}") ?: "{}")
+            return !settings.optBoolean("legacyVpnCore", false) && executable(context).isFile && XrayConfigBuilder.supported(source)
+        }
         fun hevConfig(port: Int, username: String, password: String): String {
             require(port in 1..65535)
             require(username.matches(Regex("[A-Za-z0-9]+")) && password.matches(Regex("[A-Za-z0-9]+")))
