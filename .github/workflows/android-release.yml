@@ -86,6 +86,8 @@ jobs:
           avd-name: viht-16kb
           api-level: 35
           disable-animations: true
+          arch: x86_64
+          target: google_apis_ps16k
           emulator-options: -memory 4096 -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: bash tools/test-16k-core.sh
       - name: Start packaged core without a VPN tunnel
