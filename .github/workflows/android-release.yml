@@ -38,6 +38,8 @@ jobs:
       - uses: android-actions/setup-android@v4
       - name: Install Android platform
         run: sdkmanager "platforms;android-37.0"
+      - name: Fetch pinned sing-box
+        run: node tools/fetch-libbox.mjs
       - name: Verify pinned Xray and hev
         run: node tools/fetch-xray-hev.mjs
       - uses: actions/cache@v4
