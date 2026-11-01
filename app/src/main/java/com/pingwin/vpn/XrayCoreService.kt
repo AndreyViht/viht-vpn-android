@@ -38,6 +38,7 @@ class XrayCoreService : Service() {
             return true
         }
     }
-    override fun onBind(intent: Intent?): IBinder = binder`r`n    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
+    override fun onBind(intent: Intent?): IBinder = binder
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
     override fun onDestroy() { runCatching { core?.stopLoop() }; core = null; super.onDestroy() }
 }
