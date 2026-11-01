@@ -69,6 +69,13 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     }
                     "getSystemInfo" -> JSONObject().put("platform", "android").put("deviceModel", VihtPreferences.getDeviceModel()).put("hwid", VihtPreferences.getHwid(activity)).put("manualConnectOnly", false)
                     "getAppVersion" -> BuildConfig.VERSION_NAME
+                    "getVpnEngineInfo" -> {
+                        val settings = JSONObject(preferences.getString("vpnSettings", "{}") ?: "{}")
+                        val connected = VpnStatus.state.value == VpnConnectionState.CONNECTED
+                        val xray = if (connected) XrayHevRuntime.active != null else android.os.Build.VERSION.SDK_INT >= 29 && XrayHevRuntime.executable(activity).isFile && !settings.optBoolean("legacyVpnCore", false)
+                        ok().put("engine", if (xray) "Xray 26.10.31" else "sing-box · прежнее ядро")
+                            .put("adapter", if (xray) "Android VpnService / hev-socks5-tunnel 2.19.3" else "Android VpnService / gVisor")
+                    }
                     "getAnnouncements" -> AppAnnouncements.refresh(activity,false)
                     "readAnnouncement" -> AppAnnouncements.read(activity,args.getString(0),args.getString(1))
                     "getUiSnapshot" -> ok().put("snapshot",AndroidSessionStore.uiSnapshot(activity) ?: JSONObject.NULL).put("vpn",VpnStatus.snapshot())

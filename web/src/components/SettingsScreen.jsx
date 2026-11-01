@@ -52,7 +52,7 @@ function FluentSwitch({ checked, onChange, label }) {
 function SettingsScreen({
   settings,
   onUpdateSetting,
-  clientVersion = '1.0.0',
+  clientVersion = '1.5.1',
   hwid,
   initialCategory = 'connection',
 }) {
@@ -69,6 +69,14 @@ function SettingsScreen({
   const addTile=async()=>{setAddingTile(true);try{const result=await window.electronAPI?.addQuickTile?.();setTileAdded(!!result?.added||tileAdded);setTileMessage(result?.message||result?.error||'Откройте шторку → Изменить плитки → Viht VPN');}catch(error){setTileMessage(error.message)}finally{setAddingTile(false)}};
 
   const [activeCategory, setActiveCategory] = useState(initialCategory); // 'connection' | 'windows' | 'notifications' | 'appearance' | 'advanced'
+  const [engineInfo, setEngineInfo] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => window.electronAPI?.getVpnEngineInfo?.().then(value => { if (alive && value?.ok) setEngineInfo(value); }).catch(() => {});
+    refresh();
+    const off = window.electronAPI?.onVpnStateChanged?.(refresh);
+    return () => { alive = false; off?.(); };
+  }, [activeCategory, settings.legacyVpnCore]);
   useEffect(() => { setActiveCategory(initialCategory); }, [initialCategory]);
   const [logContent, setLogContent] = useState('');
   const [showLogModal, setShowLogModal] = useState(false);
@@ -289,7 +297,7 @@ function SettingsScreen({
                     <div className="fluent-toggle-row" onClick={() => onUpdateSetting('legacyVpnCore', settings.legacyVpnCore !== true)}>
                       <div className="fluent-toggle-text">
                         <strong>{currentLang === 'en' ? 'Use previous VPN engine' : 'Использовать прежнее ядро VPN'}</strong>
-                        <span>{currentLang === 'en' ? 'Test build: Xray + hev is enabled by default on supported 64-bit devices. Enable this to compare with sing-box.' : 'Тестовая сборка: Xray + hev включён по умолчанию на поддерживаемых 64-битных устройствах. Включите переключатель для сравнения с sing-box.'}</span>
+                        <span>{currentLang === 'en' ? 'Xray + hev is enabled by default on supported 64-bit devices. Enable this for compatibility with the previous engine.' : 'Xray + hev включён по умолчанию на поддерживаемых 64-битных устройствах. Переключатель возвращает прежний движок для совместимости.'}</span>
                       </div>
                       <FluentSwitch checked={settings.legacyVpnCore === true} label={currentLang === 'en' ? 'Use previous VPN engine' : 'Использовать прежнее ядро VPN'} onChange={() => onUpdateSetting('legacyVpnCore', settings.legacyVpnCore !== true)} />
                     </div>
@@ -612,7 +620,11 @@ function SettingsScreen({
                     </div>
                     <div className="fluent-about-row">
                       <span>{currentLang === 'en' ? 'Network driver:' : 'Сетевой драйвер:'}</span>
-                      <strong>Android VpnService / sing-box</strong>
+                      <strong>{engineInfo?.adapter || 'Android VpnService / hev-socks5-tunnel 2.19.3'}</strong>
+                    </div>
+                    <div className="fluent-about-row">
+                      <span>{currentLang === 'en' ? 'VPN engine:' : 'Ядро VPN:'}</span>
+                      <strong>{engineInfo?.engine || 'Xray 26.10.31'}</strong>
                     </div>
                     <div className="fluent-about-row">
                       <span>{currentLang === 'en' ? 'Hardware HWID:' : 'Аппаратный HWID:'}</span>

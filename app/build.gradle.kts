@@ -23,7 +23,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 9
-        versionName = "1.4.34"
+        versionName = "1.5.1"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -61,7 +61,7 @@ android {
         debug {
             isDebuggable = false
             applicationIdSuffix = ".test"
-            versionNameSuffix = "-test"
+            versionNameSuffix = ""
             manifestPlaceholders["appLabel"] = "Viht"
         }
         release {

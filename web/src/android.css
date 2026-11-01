@@ -9,6 +9,9 @@ body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 .liquid-window.is-android .titlebar-drag-region { -webkit-app-region: no-drag; }
 .liquid-window.is-android .titlebar-brand { width: 100%; gap: 8px; }
 .liquid-window.is-android .titlebar-auth-pill { margin-left: auto; }
+.liquid-window.is-android .titlebar-news { margin-left: 12px; width: 36px; height: 36px; }
+.liquid-window.is-android .titlebar-drag-region, .liquid-window.is-android .titlebar-brand { min-width: 0; }
+.liquid-window.is-android .fluent-about-row strong { text-align: right; overflow-wrap: anywhere; }
 .liquid-window.is-android .fluent-main-content { padding: 20px 17px 110px; max-width: 560px; gap: 13px; }
 .liquid-window.is-android .fluent-page { padding: 20px 17px 110px; max-width: 600px; gap: 18px; }
 .liquid-window.is-android .ios-bottom-bar { padding: 0 12px 12px; }

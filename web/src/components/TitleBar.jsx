@@ -147,7 +147,7 @@ function TitleBar({ title = "Viht", isConnected = false, user = null, onOpenHelp
         </div>
       </div>
 
-      {user && onOpenNews && <button className="titlebar-news" onClick={onOpenNews} aria-label={newsUnread?'Новости: непрочитанных '+newsUnread:'Новости'}><Bell size={16}/>{newsUnread>0&&<span>{newsUnread>99?'99+':newsUnread}</span>}</button>}
+      {user && onOpenNews && <button className="titlebar-news" onClick={onOpenNews} aria-haspopup="dialog" aria-label={newsUnread?'Новости: непрочитанных '+newsUnread:'Новости'}><Bell size={16}/>{newsUnread>0&&<span>{newsUnread>99?'99+':newsUnread}</span>}</button>}
       {!isMobile && (
         <div className="titlebar-controls">
           <button className="titlebar-btn" onClick={onOpenHelp} title="Помощь" aria-label="Помощь">

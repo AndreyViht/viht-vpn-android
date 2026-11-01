@@ -49,7 +49,7 @@
     getAnnouncements: () => call('getAnnouncements'), readAnnouncement: (id,revision) => call('readAnnouncement',[id,revision]),
     onAnnouncementOpen: callback => subscribe('announcement-open',callback),
     getUiSnapshot: () => call('getUiSnapshot'), cacheUiSnapshot: value => call('cacheUiSnapshot',[value]),
-    getInstalledApps: () => call('getInstalledApps'), getVpnNotificationSettings: () => call('getVpnNotificationSettings'),
+    getInstalledApps: () => call('getInstalledApps'), getVpnNotificationSettings: () => call('getVpnNotificationSettings'), getVpnEngineInfo: () => call('getVpnEngineInfo'),
     openVpnNotificationSettings: () => call('openVpnNotificationSettings'), onAppResumed: callback => subscribe('app-resumed',callback),
     getSystemInfo: () => call('getSystemInfo'), getAppVersion: () => call('getAppVersion'),
     getOwnerSession: options => call('getOwnerSession', [options || {}]),
