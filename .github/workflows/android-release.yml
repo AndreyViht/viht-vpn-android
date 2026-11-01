@@ -95,10 +95,6 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: ./gradlew connectedDebugAndroidTest --console=plain --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=com.pingwin.vpn.CoreStartupTest,com.pingwin.vpn.XrayHevRuntimeTest -PciVersionCode=$((1000 + GITHUB_RUN_NUMBER))
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
       - name: Prepare universal APK
         run: |
           mkdir -p release-apk
