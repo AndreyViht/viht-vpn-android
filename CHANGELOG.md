@@ -107,3 +107,10 @@ All notable changes to pingwin are documented in this file.
 - TUIC and Shadowsocks support was experimental in 0.1.5.
 - Network compatibility may vary by ISP, mobile operator, country and local filtering.
 
+
+## 1.5.4
+- Оптимизировано VPN-ядро для телефонов Samsung: экспериментальный Xray + hev теперь не включается по умолчанию на Samsung.
+- Убраны blur-эффекты и тяжёлые анимации Android-интерфейса.
+- Улучшена устойчивость экранов устройств, покупки слотов и подключения устройств при временных ошибках сети.
+- Исправлено качество переподключения и освобождение ресурсов VPN.
+

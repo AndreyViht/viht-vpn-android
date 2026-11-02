@@ -20,7 +20,13 @@ internal class XrayHevRuntime(private val context: Context) {
         fun executable(context: Context) = File(context.applicationInfo.nativeLibraryDir, "libvihtxray.so")
         fun available(context: Context, source: String): Boolean {
             val settings = JSONObject(context.getSharedPreferences("viht_ui_settings", Context.MODE_PRIVATE).getString("vpnSettings", "{}") ?: "{}")
-            return android.os.Build.VERSION.SDK_INT >= 29 && !settings.optBoolean("legacyVpnCore", false) && executable(context).isFile && XrayConfigBuilder.supported(source)
+            // Samsung devices showed system-wide gesture/UI stalls with the
+            // experimental Xray+hev TUN path. Keep the stable legacy core as
+            // the default there; advanced users can explicitly opt in.
+            val samsung = android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+            val optInExperimental = settings.optBoolean("experimentalXrayHev", false)
+            return android.os.Build.VERSION.SDK_INT >= 29 && !settings.optBoolean("legacyVpnCore", false) &&
+                (!samsung || optInExperimental) && executable(context).isFile && XrayConfigBuilder.supported(source)
         }
         fun hevConfig(port: Int, username: String, password: String): String {
             require(port in 1..65535)

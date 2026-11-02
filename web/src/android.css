@@ -57,3 +57,7 @@ body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 
 .viht-update-actions-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;width:100%;align-items:stretch}.viht-update-actions-row>.btn{width:100%;justify-content:center;min-height:42px;box-sizing:border-box}.viht-update-result{grid-column:1/-1;display:flex!important;align-items:center;gap:7px;width:100%;min-height:42px;box-sizing:border-box;padding:11px 13px;border-radius:14px;line-height:1.4}.viht-about-update-action .settings-update-card{grid-column:1/-1;width:100%;margin-top:0!important}.viht-about-update-action .settings-update-card .settings-update-action-btn{width:100%;justify-content:center;min-height:44px}.viht-release-history{width:100%;box-sizing:border-box}@media(max-width:340px){.viht-update-actions-row{grid-template-columns:1fr}.viht-update-result{grid-column:auto}}
 
+.liquid-window.is-android *,
+.liquid-window.is-android *::before,
+.liquid-window.is-android *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important}
+.liquid-window.is-android *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.12s!important}
