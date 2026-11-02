@@ -59,6 +59,10 @@ async function cabinetRequest(token, action, { hwid, method = 'GET', body } = {}
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
     let response = await send();
+    for (let attempt = 0; attempt < 2 && [502, 503, 504].includes(response.status); attempt += 1) {
+      await new Promise(resolve => setTimeout(resolve, 350 * (attempt + 1)));
+      response = await send();
+    }
     if (response.status === 401) {
       accessToken = await ownerToken(token, accessToken);
       response = await send();

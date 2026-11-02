@@ -29,12 +29,17 @@ object AndroidCabinetApi {
                     "x-client-vpn-state" to if (VpnStatus.state.value == VpnConnectionState.CONNECTED) "connected" else "disconnected")
                 return try { VihtHttp.request(url, method, headers, body) }
                 catch (failure: IOException) {
-                    if (method != "GET") throw failure
                     delay(400)
-                    VihtHttp.request(url, method, headers, body)
+                    if (method == "GET") VihtHttp.request(url, method, headers, body)
+                    else throw failure
                 }
             }
             var reply = send()
+            repeat(2) { attempt ->
+                if (reply.status !in setOf(502, 503, 504)) return@repeat
+                delay(350L * (attempt + 1))
+                reply = send()
+            }
             if (reply.status == 401) {
                 access = AndroidSessionStore.getToken(context, access)
                 reply = send()
