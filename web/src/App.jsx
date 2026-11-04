@@ -106,7 +106,7 @@ export default function App() {
       if (!tokenRef.current || (cached._owner && cached._owner!==sessionOwner(tokenRef.current))) return;
       setUser(previous=>previous||cached.user);
       setProfileError('');
-      if(Array.isArray(cached.servers) && cached.servers.length) {
+      if(!['disabled','removed','mismatch'].includes(guestStateRef.current) && Array.isArray(cached.servers) && cached.servers.length) {
         setServers(previous=>previous.length?previous:cached.servers);
         setCurrentServer(previous=>previous||cached.servers.find(server=>server.id===result.vpn?.connectionId)||cached.servers.find(server=>server.id===cached.currentServerId)||cached.servers[0]);
       }
@@ -379,6 +379,7 @@ export default function App() {
     const authUnsubscribe = window.electronAPI?.onAuthSuccess?.((data) => {
       const resolvedToken = data?.originalToken || data?.token;
       if (!resolvedToken) { showToast('Не удалось получить сессию. Повторите вход.', 'error'); return; }
+      guestStateRef.current='';setGuestState('');localStorage.removeItem('viht_guest_removed_notice');setRemovalNotice(false);
       setSessionRestoreError('');setSessionRestoring(false);
       if (resolvedToken === tokenRef.current) { if (!data?.restore) setProfileRetry(value => value + 1); return; }
       if (sessionOwner(resolvedToken) && sessionOwner(resolvedToken) === sessionOwner(tokenRef.current)) { localStorage.setItem('viht_desktop_token',resolvedToken); setToken(resolvedToken); return; }
