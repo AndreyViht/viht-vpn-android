@@ -570,6 +570,7 @@ export default function App() {
         if (tokenRef.current !== token) return;
         if (res && res.ok && res.data) {
           const profile = res.data.profile || res.data.user || res.data;
+          if(['disabled','mismatch'].includes(profile.guest_access_state)){setUser(prev=>({...prev,...normalizeProfile(profile)}));return;}
           const isSubActive =
             subscriptionIsActive(profile);
 
@@ -603,7 +604,8 @@ export default function App() {
     };
 
     const intervalId = setInterval(checkExpiry, token.startsWith('vg_')?15000:900000); // 15 mins (900 000 ms)
-    return () => clearInterval(intervalId);
+    window.addEventListener('focus',checkExpiry);window.addEventListener('online',checkExpiry);
+    return () => {clearInterval(intervalId);window.removeEventListener('focus',checkExpiry);window.removeEventListener('online',checkExpiry)};
   }, [token, hwid]);
 
   // 5. Auto-Connect on application startup (Requirement 5)
