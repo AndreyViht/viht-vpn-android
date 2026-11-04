@@ -5705,3 +5705,5 @@ svg.spinning,
 html.viht-ui-background *, html.viht-ui-background *::before, html.viht-ui-background *::after {
   animation-play-state: paused !important;
 }
+
+.guest-access-notice{padding:14px 16px;margin:12px 0;border:1px solid #d9a34c66;border-radius:14px;background:#49351c;color:#fff0d2;font-size:14px;line-height:1.5}.guest-access-notice button{float:right;background:transparent;border:0;color:inherit;font-size:24px;padding:0 6px;cursor:pointer}

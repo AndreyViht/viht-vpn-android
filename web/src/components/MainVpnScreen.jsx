@@ -24,6 +24,7 @@ import { isAndroid } from '../utils/platform';
 import { formatServerPing, getServerCountry } from '../services/servers';
 
 function MainVpnScreen({
+  accessDisabled=false,
   user,
   currentServer,
   connectionState, // 'disconnected' | 'connecting' | 'connected' | 'disconnecting' | 'error'
@@ -139,6 +140,7 @@ function MainVpnScreen({
   return (
     <div className="fluent-main-screen">
       <div className="fluent-main-content">
+        {accessDisabled && <div role="alert" className="guest-access-notice">Владелец отключил ваш доступ. Вы не можете пользоваться VPN. Для восстановления доступа обратитесь к владельцу подписки.</div>}
         {/* ─── 1. Selected Server Card (Squircle, Micro-interactions) ─── */}
         <motion.div
           className="fluent-card fluent-server-select-card"
@@ -245,7 +247,7 @@ function MainVpnScreen({
                 type="button"
                 className={`fluent-power-btn state-${connectionState}`}
                 onClick={onToggleConnection}
-                disabled={isConnecting || isDisconnecting || !currentServer}
+                disabled={accessDisabled || isConnecting || isDisconnecting || !currentServer}
                 aria-busy={isConnecting || isDisconnecting}
                 aria-label={isConnecting ? 'Подключение…' : isDisconnecting ? 'Отключение…' : isConnected ? t('btn_disconnect', lang) : t('btn_connect', lang)}
                 whileHover={{}}

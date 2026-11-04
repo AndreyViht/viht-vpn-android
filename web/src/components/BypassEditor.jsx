@@ -20,8 +20,8 @@ function BypassForm({settings,onUpdateSetting}) {
   };
   const visible=apps;
   return <div className="bypass-form">
-    <label className="bypass-russia-control"><span>Обход российских сайтов</span><input type="checkbox" checked={settings.bypassRussia!==false} onChange={e=>onUpdateSetting('bypassRussia',e.target.checked)}/></label>
-    <span style={{fontSize:12,color:'var(--text-secondary)'}}>Добавленные сайты и приложения работают напрямую. При включённом обходе РФ российские домены, Госуслуги, VK, MAX и Rutube уже идут вне VPN.</span>
+    <label className="bypass-russia-control"><span>Российские сервисы напрямую</span><input type="checkbox" checked={settings.bypassRussia!==false} onChange={e=>onUpdateSetting('bypassRussia',e.target.checked)}/></label>
+    <span style={{fontSize:12,color:'var(--text-secondary)'}}>Добавленные сайты и приложения работают без VPN. При включённой настройке «Российские сервисы напрямую» российские домены, Госуслуги, VK, MAX и Rutube также используют прямое соединение.</span>
     <label htmlFor="bypass-site">Сайт вне VPN</label>
     <div style={{display:'flex',gap:8}}><input id="bypass-site" value={site} onChange={e=>setSite(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addSite()}} placeholder="example.com" style={{minWidth:0,flex:1,padding:12,borderRadius:12,background:'#101b29',color:'white',border:'1px solid #ffffff22'}}/><button className="btn btn--secondary btn--sm" onClick={addSite}>Добавить</button></div>
     {domains.map(domain=><div key={domain} style={{display:'flex',alignItems:'center',gap:10}}><span style={{flex:1,overflowWrap:'anywhere'}}>{domain}</span><button className="btn btn--secondary btn--sm" aria-label={'Удалить '+domain} onClick={()=>setDomains(domains.filter(item=>item!==domain))}>×</button></div>)}

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, ArrowRight, ExternalLink, Loader2 } from 'lucide-react';
 import SocialIcon from './SocialIcon';
 
-export default function LoginScreen() {
+export default function LoginScreen({removalNotice=false,onDismissRemoval}) {
   const [waitingBrowser, setWaitingBrowser] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => window.electronAPI?.onAuthError?.((data) => {
@@ -48,6 +48,7 @@ export default function LoginScreen() {
 
   return (
     <div className="login-screen">
+      {removalNotice && <div role="alert" className="guest-access-notice">Вас удалили из подписки. Подключитесь заново к прежнему или другому владельцу.<button type="button" aria-label="Закрыть уведомление" onClick={onDismissRemoval}>×</button></div>}
       <div className="login-screen__glow-circle"></div>
 
       <div className="login-screen__header">

@@ -110,7 +110,9 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         val access=AndroidSessionStore.getToken(activity)
                         if(access.startsWith("vg_")){
                             val reply=VihtHttp.request("https://anviht.ru/api/cabinet-api?action=guest-config",headers=mapOf("Authorization" to "Bearer $access","x-hwid" to VihtPreferences.getHwid(activity)),readTimeoutMs=60_000)
-                            if(reply.status in 200..299)ok().put("body",reply.body) else error("Не удалось загрузить гостевую подписку: HTTP "+reply.status)
+                            val state=GuestSessionPolicy.state(reply.status,reply.body)
+                            if(state.isNotBlank())AndroidSessionStore.recordGuestAccess(activity,access,state)
+                            if(reply.status in 200..299)ok().put("body",reply.body) else error(runCatching{JSONObject(reply.body).optString("error")}.getOrDefault("").ifBlank{"Не удалось загрузить гостевую подписку: HTTP "+reply.status}).put("guestAccessState",state)
                         }else {
                         val url = "https://anviht.ru/api/subscription-link?format=json&token=" + URLEncoder.encode(token, "UTF-8")
                         val reply = VihtHttp.request(url, headers = mapOf("Accept" to "application/json, text/plain", "User-Agent" to "VihtVPN-Android/" + BuildConfig.VERSION_NAME,
@@ -177,6 +179,13 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         var serviceDispatched = false
         try {
             if (VpnStatus.state.value == VpnConnectionState.CONNECTED || VpnStatus.state.value == VpnConnectionState.CONNECTING) return error("Сначала отключите текущее VPN-подключение")
+            val saved=AndroidSessionStore.storedSession(activity)
+            if(saved.optString("token").startsWith("vg_")) {
+                val allowed=AndroidCabinetApi.request(activity,JSONObject().put("action","profile"))
+                if(DeviceAccessPolicy.denied(allowed)||!allowed.optBoolean("ok"))return error(allowed.optString("error").ifBlank{"Доступ к VPN отключён владельцем подписки"})
+                val profile=allowed.optJSONObject("data")?.optJSONObject("profile")
+                if(profile==null||!SubscriptionPolicy.active(profile))return error("Подписка владельца не активна")
+            }
             val link = server.optString("vless_uri").ifBlank { server.optString("vlessUri") }
             require(link.isNotBlank()) { "Нет актуального ключа. Синхронизируйте подписку." }
             val profile = ConnectionProfileParser.parse(link)

@@ -13,6 +13,7 @@ import { springs, buttonPress } from '../utils/motion';
 import { formatServerPing, getServerCountry } from '../services/servers';
 
 function ServersScreen({
+  accessDisabled=false,
   servers,
   currentServer,
   connectionState,
@@ -45,6 +46,7 @@ function ServersScreen({
 
   return (
     <div className="fluent-page fluent-servers-page">
+        {accessDisabled && <div role="alert" className="guest-access-notice">Владелец отключил ваш доступ. Вы не можете пользоваться VPN. Для восстановления доступа обратитесь к владельцу подписки.</div>}
       {/* Header */}
       <div className="fluent-page-header">
         <div className="fluent-page-header__actions">
@@ -52,7 +54,7 @@ function ServersScreen({
             type="button"
             className="btn btn--secondary btn--sm"
             onClick={onRefreshPing}
-            disabled={refreshingPing}
+            disabled={accessDisabled || refreshingPing}
             title={lang === 'en' ? 'TCP connection latency, without a proxy URL test' : 'Задержка TCP-соединения, без проверки URL через прокси'}
             {...buttonPress}
           >

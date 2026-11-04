@@ -41,8 +41,19 @@ object AndroidCabinetApi {
                 reply = send()
             }
             if (reply.status == 401) {
-                access = AndroidSessionStore.getToken(context, access)
-                reply = send()
+                if (access.startsWith("vg_")) {
+                    if (GuestSessionPolicy.state(reply.status, reply.body).isBlank() && method == "GET") { delay(400); reply = send() }
+                } else {
+                    access = AndroidSessionStore.getToken(context, access)
+                    reply = send()
+                }
+            }
+            val guestState = if (access.startsWith("vg_")) GuestSessionPolicy.state(reply.status, reply.body) else ""
+            if (guestState.isNotBlank()) AndroidSessionStore.recordGuestAccess(context, access, guestState)
+            if (access.startsWith("vg_") && reply.status !in 200..299) {
+                val problem = runCatching { JSONObject(reply.body) }.getOrNull()
+                return JSONObject().put("ok", false).put("unauthorized", false).put("guestAccessState", guestState)
+                    .put("error", problem?.optString("error")?.takeIf { it.isNotBlank() } ?: "Не удалось подтвердить гостевой доступ. Данные входа сохранены; повторите попытку.")
             }
             // A newly refreshed owner token followed by a cabinet 401 is not proof of revoked auth.
             // Only the native refresh service may confirm permanent owner-session rejection.

@@ -2,18 +2,25 @@ import { parseSubscriptionBody } from './servers';
 export { parseApiClients } from './servers';
 import { subscriptionIsActive } from './account';
 
+function reportGuestAccess(token,result) {
+  if (!token?.startsWith('vg_')) return;
+  const state=result?.guestAccessState || result?.data?.profile?.guest_access_state || result?.data?.guest_access_state;
+  if (['active','disabled','removed','mismatch'].includes(state)) window.dispatchEvent(new CustomEvent('viht-guest-access',{detail:{token,state}}));
+}
 const API_BASE = 'https://anviht.ru/api';
 
 export async function fetchSubscriptionClients(subscriptionToken) {
   if (!window.electronAPI?.fetchSubscription) {
     return { ok: false, error: 'Перезапустите приложение для обновления подписки' };
   }
+  const requestToken=localStorage.getItem('viht_desktop_token');
   let timer;
   try {
     const subscription = await Promise.race([
       window.electronAPI.fetchSubscription(subscriptionToken),
       new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Время синхронизации истекло. Повторите попытку.')), subscriptionToken==='guest'?65000:12000); }),
     ]);
+    reportGuestAccess(requestToken,subscription);
     if (!subscription?.ok) return { ok: false, error: subscription?.error || 'Ошибка загрузки подписки' };
     return { ok: true, clients: parseSubscriptionBody(subscription.body) };
   } catch (error) {
@@ -42,6 +49,8 @@ async function cabinetRequest(token, action, { hwid, method = 'GET', body } = {}
   try {
     if (window.electronAPI?.cabinetRequest) {
       const result = await window.electronAPI.cabinetRequest({ action, hwid, method, body });
+      reportGuestAccess(token,result);
+      if (token?.startsWith('vg_') && result?.unauthorized) return {...result,unauthorized:false};
       if (result?.unauthorized) window.dispatchEvent(new CustomEvent('viht-auth-required', {detail:{token}}));
       return result;
     }

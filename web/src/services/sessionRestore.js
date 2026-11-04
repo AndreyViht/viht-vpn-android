@@ -5,5 +5,5 @@ export async function restoreStoredSession(bridge) {
   if (typeof result.token !== 'string' || (!/^vg_[a-f0-9]{64}$/.test(result.token) && result.token.split('.').length !== 3)) {
     throw new Error('Не удалось прочитать сохранённый вход. Данные сохранены; повторите попытку.');
   }
-  return {token:result.token,provider:result.provider || (result.token.startsWith('vg_')?'guest':'yandex')};
+  return {...(['active','disabled','removed','mismatch'].includes(result.guestAccessState)?{guestAccessState:result.guestAccessState}:{}),token:result.token,provider:result.provider || (result.token.startsWith('vg_')?'guest':'yandex')};
 }

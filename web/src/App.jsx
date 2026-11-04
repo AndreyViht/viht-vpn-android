@@ -49,6 +49,9 @@ export default function App() {
     return savedToken;
   });
   const [loading, setLoading] = useState(true);
+  const [guestState,setGuestState]=useState('');
+  const guestStateRef=useRef('');
+  const [removalNotice,setRemovalNotice]=useState(()=>localStorage.getItem('viht_guest_removed_notice')==='1');
   const [profileError, setProfileError] = useState('');
   const [sessionRestoring,setSessionRestoring]=useState(()=>typeof window.electronAPI?.getStoredOwnerSession==='function');
   const [sessionRestoreError,setSessionRestoreError]=useState('');
@@ -57,7 +60,7 @@ export default function App() {
   const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
   const [hwid, setHwid] = useState('');
-  const [appVersion, setAppVersion] = useState('1.5.3');
+  const [appVersion, setAppVersion] = useState('1.5.5');
   const [manualConnectOnly, setManualConnectOnly] = useState(true);
   const [toast, setToast] = useState(null); // { id, message, type: 'success' | 'ping' | 'error' }
   const [foreignVpnWarning, setForeignVpnWarning] = useState(null);
@@ -88,7 +91,7 @@ export default function App() {
     try{
       const saved=await restoreStoredSession(window.electronAPI);
       if(attempt!==sessionRestoreAttempt.current||before!==tokenRef.current)return;
-      if(saved){try{localStorage.setItem('viht_desktop_token',saved.token);localStorage.setItem('viht_chosen_provider',saved.provider)}catch{}tokenRef.current=saved.token;setToken(saved.token);setProfileRetry(v=>v+1)}
+      if(saved){guestStateRef.current=saved.guestAccessState||'';setGuestState(guestStateRef.current);try{localStorage.setItem('viht_desktop_token',saved.token);localStorage.setItem('viht_chosen_provider',saved.provider)}catch{}tokenRef.current=saved.token;setToken(saved.token);setProfileRetry(v=>v+1)}
       else{clearAccountStorage();tokenRef.current='';setToken('');setUser(null);setLoading(false)}
     }catch(error){if(attempt===sessionRestoreAttempt.current)setSessionRestoreError(error.message)}
     finally{if(attempt===sessionRestoreAttempt.current)setSessionRestoring(false)}
@@ -170,6 +173,7 @@ export default function App() {
   userRef.current = user;
 
   const applyServerList = useCallback((clients) => {
+    if(['disabled','removed','mismatch'].includes(guestStateRef.current)) clients=[];
     const previousKeys = new Map(serversRef.current.map(server => [server.vless_uri, server]));
     const updated = parseApiClients(clients).map(server => {
       const previous = previousKeys.get(server.vless_uri);
@@ -597,7 +601,7 @@ export default function App() {
       }
     };
 
-    const intervalId = setInterval(checkExpiry, 900000); // 15 mins (900 000 ms)
+    const intervalId = setInterval(checkExpiry, token.startsWith('vg_')?15000:900000); // 15 mins (900 000 ms)
     return () => clearInterval(intervalId);
   }, [token, hwid]);
 
@@ -654,6 +658,7 @@ export default function App() {
   // 6. Connect / Disconnect Action
   const toggleInFlight = useRef(false);
   const handleToggleConnection = async () => {
+    if(['disabled','removed','mismatch'].includes(guestStateRef.current))return;
     if (toggleInFlight.current || ['connecting','disconnecting'].includes(connectionStateRef.current)) return;
     toggleInFlight.current = true;
     try {
@@ -720,6 +725,7 @@ export default function App() {
   // 7. Safe Server Selection (Requirement 10)
   const serverSelectionEpoch = useRef(0),serverHandover = useRef(false);
   const handleSelectServer = useCallback(async srv => {
+    if(['disabled','removed','mismatch'].includes(guestStateRef.current))return;
     if(!srv||srv.id===currentServerRef.current?.id)return;
     const epoch=++serverSelectionEpoch.current;
     const handover=serverHandover.current||['connected','connecting'].includes(connectionStateRef.current);
@@ -929,10 +935,30 @@ export default function App() {
   }, [applyServerList]);
 
   useEffect(() => {
-    const expired = event => { if(event.detail?.token&&event.detail.token!==tokenRef.current)return;void handleLogout(true); };
+    const expired = event => { if(tokenRef.current.startsWith('vg_'))return; if(event.detail?.token&&event.detail.token!==tokenRef.current)return;void handleLogout(true); };
     window.addEventListener('viht-auth-required', expired);
     return () => window.removeEventListener('viht-auth-required', expired);
   }, [handleLogout]);
+
+  useEffect(()=>{
+    const receive=event=>{
+      const {token:source,state}=event.detail||{};
+      if(source!==tokenRef.current || !source?.startsWith('vg_'))return;
+      const previous=guestStateRef.current;
+      guestStateRef.current=state;setGuestState(state);
+      if(state==='removed'){
+        localStorage.setItem('viht_guest_removed_notice','1');setRemovalNotice(true);void handleLogout(true);
+      }else if(state==='disabled'||state==='mismatch'){
+        manualDisconnectRef.current=true;clearTimeout(reconnectTimerRef.current);++keySyncRequestRef.current;
+        applyServerList([]);setProfileError('');
+        if(previous!==state)void window.electronAPI?.vpnDisconnect?.();
+      }else if(state==='active' && previous && previous!=='active')setProfileRetry(v=>v+1);
+    };
+    window.addEventListener('viht-guest-access',receive);
+    if(token.startsWith('vg_')&&guestStateRef.current==='removed')receive({detail:{token,state:'removed'}});
+    if(!token.startsWith('vg_')){guestStateRef.current='';setGuestState('')}
+    return()=>window.removeEventListener('viht-guest-access',receive);
+  },[token,handleLogout,applyServerList]);
 
   const handleSwitchProvider = (newProvider) => {
     localStorage.setItem('viht_chosen_provider', newProvider);
@@ -989,10 +1015,10 @@ export default function App() {
         ) : sessionRestoreError ? (
           <ProfileErrorScreen error={sessionRestoreError} onRetry={restoreSession} onLogout={handleLogout}/>
         ) : !token ? (
-          <LoginScreen />
+          <LoginScreen removalNotice={removalNotice} onDismissRemoval={()=>{localStorage.removeItem('viht_guest_removed_notice');setRemovalNotice(false)}} />
         ) : profileError ? (
           <ProfileErrorScreen error={profileError} onRetry={() => setProfileRetry(value => value + 1)} onLogout={handleLogout} />
-        ) : !isSubActive ? (
+        ) : !isSubActive && !['disabled','mismatch'].includes(guestState) ? (
           user?.is_guest ? <GuestMembership user={user} onLogout={handleLogout}/> : <NoSubscriptionScreen
             user={user}
             onRefresh={() => setProfileRetry(value => value + 1)}
@@ -1012,7 +1038,7 @@ export default function App() {
                     
                     {...pageVariants}
                   >
-                    <MainVpnScreen
+                    <MainVpnScreen accessDisabled={['disabled','mismatch'].includes(guestState)}
                       user={user}
                       currentServer={connectionState === 'connected' && nativeServerName ? {...currentServer,name:nativeServerName} : currentServer}
                       connectionState={connectionState}
@@ -1033,7 +1059,7 @@ export default function App() {
                     
                     {...pageVariants}
                   >
-                    <ServersScreen
+                    <ServersScreen accessDisabled={['disabled','mismatch'].includes(guestState)}
                       servers={servers}
                       currentServer={connectionState === 'connected' && nativeServerName ? {...currentServer,name:nativeServerName} : currentServer}
                       connectionState={connectionState}

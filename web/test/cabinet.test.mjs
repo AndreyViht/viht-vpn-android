@@ -28,3 +28,19 @@ test('expired native session returns user to sign-in',async()=>{
   assert.equal((await api.fetchActiveDevices('unused')).unauthorized,true);
   assert.deepEqual(events,['viht-auth-required']);
 });
+
+test('temporary guest rejection preserves login',async()=>{
+  const {api,events}=fixture({ok:false,unauthorized:true,error:'Temporary failure'});
+  assert.equal((await api.fetchActiveDevices('vg_'+ 'a'.repeat(64))).unauthorized,false);
+  assert.deepEqual(events,[]);
+});
+test('confirmed guest removal reports its reason without generic logout',async()=>{
+  const {api,events}=fixture({ok:false,unauthorized:false,guestAccessState:'removed'});
+  await api.fetchActiveDevices('vg_'+'a'.repeat(64));
+  assert.deepEqual(events,['viht-guest-access']);
+});
+test('disabled guest profile reports access state',async()=>{
+  const {api,events}=fixture({ok:true,data:{profile:{is_guest:true,guest_access_state:'disabled'}}});
+  await api.fetchCabinetProfile('vg_'+'a'.repeat(64),null,{includeKeys:false});
+  assert.deepEqual(events,['viht-guest-access']);
+});

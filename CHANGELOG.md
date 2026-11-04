@@ -1,3 +1,9 @@
+# 1.5.5
+
+- Preserve guest login on temporary authorization failures.
+- Distinguish disabled and removed guest access and explain the reason.
+- Update Russian connection settings descriptions.
+
 # Changelog
 
 All notable changes to pingwin are documented in this file.

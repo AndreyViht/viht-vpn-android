@@ -534,6 +534,7 @@ class AutoVlessVpnService :
                     if (choosePhysicalNetwork() == null) { requestRecovery(request); return@execute }
                     val permitted = kotlinx.coroutines.runBlocking { AndroidCabinetApi.request(this@AutoVlessVpnService,JSONObject().put("action","profile")) }
                     if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId)) return@execute
+                    if (DeviceAccessPolicy.denied(permitted)) { VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Владелец отключил ваш доступ к VPN",false); return@execute }
                     if (!permitted.optBoolean("ok") && permitted.optBoolean("unauthorized")) {
                         VpnRunStore.stop(this); stopVpn(request); VpnStatus.fail("Войдите в аккаунт заново",false)
                         return@execute

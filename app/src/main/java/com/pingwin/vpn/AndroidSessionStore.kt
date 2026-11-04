@@ -70,7 +70,7 @@ object AndroidSessionStore {
         val session=read(context)
         if(epoch!=generation.get())throw SessionFailure("Состояние входа изменилось. Повторите запрос.")
         JSONObject().put("ok",true).put("hasSession",session!=null).put("epoch",epoch).apply {
-            if(session!=null){put("token",session.getString("accessToken"));put("provider",session.optString("provider","yandex"))}
+            if(session!=null){put("token",session.getString("accessToken"));put("provider",session.optString("provider","yandex"));put("guestAccessState",session.optString("guestAccessState"))}
         }
     }
     suspend fun cacheUi(context: Context, value: JSONObject) = withContext(Dispatchers.IO) {
@@ -85,6 +85,14 @@ object AndroidSessionStore {
         cached.optJSONObject("data")?.put("_owner",owner)
     }
     fun cancelPending() { generation.incrementAndGet() }
+    suspend fun recordGuestAccess(context: Context, token: String, state: String) = withContext(Dispatchers.IO) {
+        if (state !in setOf("active", "disabled", "removed", "mismatch")) return@withContext
+        mutex.withLock {
+            val session = read(context) ?: return@withLock
+            if (!token.startsWith("vg_") || session.optString("accessToken") != token) return@withLock
+            if (session.optString("guestAccessState") != state) write(context, session.put("guestAccessState", state))
+        }
+    }
     suspend fun saveBrowserPending(context: Context, value: JSONObject?) = withContext(Dispatchers.IO) {
         mutex.withLock {
             if (value == null) context.getSharedPreferences(STORE, Context.MODE_PRIVATE).edit().remove("browser_pending").commit()
@@ -163,7 +171,7 @@ object AndroidSessionStore {
         mutex.withLock {
             val session = read(context) ?: throw SessionFailure("Войдите в аккаунт", true)
             val access = session.getString("accessToken")
-            if(access.startsWith("vg_")){if(rejectedToken.isBlank())return@withLock access;throw SessionFailure("Гостевой доступ завершён",true)}
+            if(access.startsWith("vg_")){if(rejectedToken.isBlank())return@withLock access;throw SessionFailure("Гостевой доступ временно не подтверждён. Данные входа сохранены; повторите проверку.")}
             if ((rejectedToken.isBlank() || rejectedToken != access) && expiry(access) > System.currentTimeMillis() + 60_000) return@withLock access
             val refresh = session.optString("refreshToken").takeUnless { it.isBlank() || it == "null" }
             if (refresh == null) {

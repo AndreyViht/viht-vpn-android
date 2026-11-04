@@ -215,7 +215,7 @@ export const translations = {
     setting_autoreconnect: 'Автопереподключение при обрыве',
     setting_autoreconnect_desc: 'Восстанавливать защищённый туннель при переключении Wi-Fi или временном сбое',
     setting_killswitch: 'Kill Switch',
-    setting_killswitch_desc: 'Блокировать обход VPN во время активной сессии. При выходе или аварийном завершении восстановить обычную сеть',
+    setting_killswitch_desc: 'Предотвращать передачу данных вне VPN во время активной сессии. При выходе или аварийном завершении восстанавливать обычное соединение.',
     setting_allowlan: 'Разрешить локальную сеть (LAN)',
     setting_allowlan_desc: 'Сохранять прямой доступ к домашним принтерам, NAS и умному дому в локальной сети',
 
@@ -238,9 +238,9 @@ export const translations = {
     setting_lang_title: 'Язык интерфейса',
     setting_lang_desc: 'Выберите основной язык приложения',
 
-    setting_dns: 'Защита DNS (DoH / Анти-отравление)',
-    setting_dns_desc: 'Разрешение адресов через зашифрованный канал для защиты от блокировок',
-    setting_split_ru: 'Раздельное туннелирование (Обход сайтов РФ)',
+    setting_dns: 'Защищённый DNS',
+    setting_dns_desc: 'Шифрование DNS-запросов для защиты от подмены ответов',
+    setting_split_ru: 'Раздельное туннелирование',
     setting_split_ru_desc: 'Российские сервисы (банки, Госуслуги, маркетплейсы) открываются напрямую на полной скорости',
     setting_export_logs: 'Экспорт журнала отладки',
     setting_export_logs_desc: 'Сохранить логи для отправки в техническую поддержку',
@@ -399,7 +399,7 @@ export const translations = {
     setting_autoreconnect: 'Auto-reconnect on drop',
     setting_autoreconnect_desc: 'Restore secure tunnel on Wi-Fi switch or temporary glitch',
     setting_killswitch: 'Kill Switch',
-    setting_killswitch_desc: 'Prevent bypass while the VPN session is active. Restore normal networking when the session ends or the app exits',
+    setting_killswitch_desc: 'Prevent data from being sent outside the VPN during an active session. Restore normal networking when the session ends or the app exits',
     setting_allowlan: 'Allow Local Network (LAN)',
     setting_allowlan_desc: 'Keep direct access to home printers, NAS, and smart devices',
 
@@ -422,9 +422,9 @@ export const translations = {
     setting_lang_title: 'Interface Language',
     setting_lang_desc: 'Choose primary language for the app',
 
-    setting_dns: 'DNS Protection (DoH / Anti-poisoning)',
-    setting_dns_desc: 'Resolve domains through encrypted channel to prevent tampering',
-    setting_split_ru: 'Split Tunneling (Bypass RU Sites)',
+    setting_dns: 'Secure DNS',
+    setting_dns_desc: 'Encrypt DNS queries to protect against forged responses',
+    setting_split_ru: 'Split Tunneling',
     setting_split_ru_desc: 'Russian services (banking, portals, marketplaces) open directly at full speed',
     setting_export_logs: 'Export debug log',
     setting_export_logs_desc: 'Save technical logs to send to customer support',
