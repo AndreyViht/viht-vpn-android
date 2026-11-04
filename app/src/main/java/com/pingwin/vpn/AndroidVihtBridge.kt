@@ -179,8 +179,8 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         var serviceDispatched = false
         try {
             if (VpnStatus.state.value == VpnConnectionState.CONNECTED || VpnStatus.state.value == VpnConnectionState.CONNECTING) return error("Сначала отключите текущее VPN-подключение")
-            val saved=AndroidSessionStore.storedSession(activity)
-            if(saved.optString("token").startsWith("vg_")) {
+            val guestSession=AndroidSessionStore.storedSession(activity)
+            if(guestSession.optString("token").startsWith("vg_")) {
                 val allowed=AndroidCabinetApi.request(activity,JSONObject().put("action","profile"))
                 if(DeviceAccessPolicy.denied(allowed)||!allowed.optBoolean("ok"))return error(allowed.optString("error").ifBlank{"Доступ к VPN отключён владельцем подписки"})
                 val profile=allowed.optJSONObject("data")?.optJSONObject("profile")
@@ -323,3 +323,4 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     }
     fun close() { closed = true; permission?.complete(false); scope.cancel() }
 }
+
