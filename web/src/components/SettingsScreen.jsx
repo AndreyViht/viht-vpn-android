@@ -637,7 +637,7 @@ function SettingsScreen({
                     </div>
                   </div>
 
-                  <div className="fluent-about-update-action">
+                  <div className="fluent-about-update-action android-update-section">
                     <div className="viht-update-actions-row">
                       <motion.button data-motion-press="true"
                         type="button"
@@ -665,7 +665,6 @@ function SettingsScreen({
                       )}
                     </div>
 
-                    {showReleaseNotes && <section className="viht-release-history" aria-label="История изменений">{releaseHistory.length?releaseHistory.map(release=><article key={release.version}><strong>Версия {release.version}</strong><ul>{release.changelog.map((line,index)=><li key={index}>{line}</li>)}</ul></article>):<p>Здесь сохраняются изменения полученных обновлений. Проверьте обновления, чтобы загрузить описание.</p>}</section>}
 
                     {/* Available Update Card */}
                     {updateStatus === 'available' && updateInfo && (
@@ -685,7 +684,7 @@ function SettingsScreen({
                               <span className="settings-badge-update-new">НОВОЕ</span>
                             </div>
                             <span className="settings-update-desc">
-                              {currentLang === 'en' ? `Release from ${updateInfo.releaseDate || '05.10.2026'}` : `Релиз от ${updateInfo.releaseDate || '05.10.2026'}`}
+                              {updateInfo.releaseDate ? (currentLang === 'en' ? `Released ${updateInfo.releaseDate}` : `Релиз от ${updateInfo.releaseDate}`) : (currentLang === 'en' ? 'Ready to download' : 'Готово к загрузке')}
                             </span>
                           </div>
                         </div>
@@ -766,6 +765,8 @@ function SettingsScreen({
                     )}
 
                     {updateInfo && ['downloading','error'].includes(updateStatus) && <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:12}}><button type="button" className="btn btn--secondary btn--sm" onClick={()=>handleDownloadUpdate(true)}>Повторить загрузку</button><button type="button" className="btn btn--secondary btn--sm" onClick={()=>window.electronAPI?.openExternal?.(updateInfo.downloadUrl)}>Скачать APK вручную</button></div>}
+                    {showReleaseNotes && <section className="viht-release-history" aria-label="История изменений">{releaseHistory.length?releaseHistory.map(release=><article key={release.version}><strong>Версия {release.version}</strong><ul>{release.changelog.map((line,index)=><li key={index}>{line}</li>)}</ul></article>):<p>Здесь сохраняются изменения полученных обновлений. Проверьте обновления, чтобы загрузить описание.</p>}</section>}
+
                     {updateError && (
                       <p className="settings-update-error" style={{ marginTop: '8px' }}>{updateError}</p>
                     )}
