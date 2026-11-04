@@ -5,6 +5,8 @@ import UpdateBanner from './components/UpdateBanner';
 import {GuestMembership,JoinSubscription,OwnerPairConfirmation} from './components/SubscriptionInvite';
 import AppAnnouncements from './components/AppAnnouncements';
 import SubscriptionBilling from './components/SubscriptionBilling';
+import {fetchAccountProfile} from './services/api';
+import {observeAccount,accountRevision} from './services/accountRefresh.mjs';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import TitleBar from './components/TitleBar';
 import MainVpnScreen from './components/MainVpnScreen';
@@ -60,7 +62,7 @@ export default function App() {
   const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
   const [hwid, setHwid] = useState('');
-  const [appVersion, setAppVersion] = useState('1.5.5');
+  const [appVersion, setAppVersion] = useState('1.5.6');
   const [manualConnectOnly, setManualConnectOnly] = useState(true);
   const [toast, setToast] = useState(null); // { id, message, type: 'success' | 'ping' | 'error' }
   const [foreignVpnWarning, setForeignVpnWarning] = useState(null);
@@ -566,7 +568,7 @@ export default function App() {
 
     const checkExpiry = async () => {
       try {
-        const res = await fetchCabinetProfile(token, hwid, { includeKeys: false });
+        const res = await fetchAccountProfile(token, hwid);
         if (tokenRef.current !== token) return;
         if (res && res.ok && res.data) {
           const profile = res.data.profile || res.data.user || res.data;
@@ -574,6 +576,12 @@ export default function App() {
           const isSubActive =
             subscriptionIsActive(profile);
 
+          const previous=userRef.current;
+          if(isSubActive && profile.subscription_token && (!serversRef.current.length || !subscriptionIsActive(previous) || previous?.subscription_token!==profile.subscription_token || (previous?.expires_at||previous?.subscription_expires_at)!==(profile.expires_at||profile.subscription_expires_at))){
+            const request=++keySyncRequestRef.current;
+            void fetchSubscriptionClients(profile.subscription_token).then(keys=>{if(tokenRef.current===token && request===keySyncRequestRef.current && keys.ok)applyServerList(keys.clients)}).catch(()=>{});
+          }
+          if(accountRevision(previous)!==accountRevision(profile))window.dispatchEvent(new CustomEvent('viht-account-updated',{detail:{token}}));
           if (Array.isArray(res.data.clients)) applyServerList(res.data.clients);
           if (!isSubActive) {
             applyServerList([]);
@@ -586,6 +594,7 @@ export default function App() {
             }
             setUser((prev) => ({
               ...prev,
+              ...normalizeProfile(profile),
               subscription_active: false,
               subscription_days_left: 0,
             }));
@@ -603,9 +612,7 @@ export default function App() {
       }
     };
 
-    const intervalId = setInterval(checkExpiry, token.startsWith('vg_')?15000:900000); // 15 mins (900 000 ms)
-    window.addEventListener('focus',checkExpiry);window.addEventListener('online',checkExpiry);
-    return () => {clearInterval(intervalId);window.removeEventListener('focus',checkExpiry);window.removeEventListener('online',checkExpiry)};
+    return observeAccount({refresh:checkExpiry,token,interval:token.startsWith('vg_')?15000:30000,bridge:window.electronAPI});
   }, [token, hwid]);
 
   // 5. Auto-Connect on application startup (Requirement 5)

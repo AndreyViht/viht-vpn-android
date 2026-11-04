@@ -137,6 +137,12 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
     await loadDevices(true);
   };
 
+  useEffect(()=>{
+    const refresh=event=>{if(!document.hidden&&(!event?.detail?.token||event.detail.token===token))void loadDevices(true)};
+    for(const event of ['focus','online','viht-account-updated','viht-devices-refresh'])window.addEventListener(event,refresh);
+    const off=window.electronAPI?.onAppResumed?.(refresh);
+    return()=>{for(const event of ['focus','online','viht-account-updated','viht-devices-refresh'])window.removeEventListener(event,refresh);off?.()};
+  },[token,loadDevices]);
   // Rename handler
   const handleStartRename = (device) => {
     setEditingId(device.physical_device_id || device.id || device.device_id);

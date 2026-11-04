@@ -129,3 +129,5 @@ export async function createAppCheckout(token, days, requestId, options = {}) { 
 export async function fetchAppPaymentStatus(token, label) { return cabinetRequest(token, 'app-payment-status', { method: 'POST', body: { label } }); }
 
 export async function iosCabinetRequest(token,action,body){const r=await cabinetRequest(token,action,{method:body===undefined?"GET":"POST",body});if(!r.ok)throw Error(r.error||"Сервис iOS недоступен");return r.data;}
+
+export async function fetchAccountProfile(token,hwid){return cabinetRequest(token,'profile-summary',{hwid});}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User,
@@ -45,11 +45,14 @@ function ProfileScreen({
     setTimeout(() => setToast(null), 3500);
   };
 
+  const paymentEpoch=useRef(0),paymentToken=useRef(token);paymentToken.current=token;
   const loadPayments = useCallback(async () => {
     if (!token) return;
+    const epoch=++paymentEpoch.current;
     setPaymentsLoading(true);
     try {
       const res = await fetchPayments(token);
+      if(epoch!==paymentEpoch.current||token!==paymentToken.current)return;
       if (res && res.ok) {
         setPayments(res.payments || []);
         setPaymentsLoaded(true);
@@ -59,7 +62,7 @@ function ProfileScreen({
     } catch (e) {
       showToast('Ошибка сети при загрузке платежей', true);
     } finally {
-      setPaymentsLoading(false);
+      if(epoch===paymentEpoch.current&&token===paymentToken.current)setPaymentsLoading(false);
     }
   }, [token]);
 
@@ -69,6 +72,13 @@ function ProfileScreen({
     }
   }, [activeTab, paymentsLoaded, loadPayments]);
 
+  useEffect(()=>{
+    if(activeTab!=='payments')return;
+    const refresh=event=>{if(!document.hidden&&(!event?.detail?.token||event.detail.token===token))void loadPayments()};
+    window.addEventListener('focus',refresh);window.addEventListener('online',refresh);window.addEventListener('viht-account-updated',refresh);
+    const off=window.electronAPI?.onAppResumed?.(refresh);
+    return()=>{window.removeEventListener('focus',refresh);window.removeEventListener('online',refresh);window.removeEventListener('viht-account-updated',refresh);off?.()};
+  },[activeTab,token,loadPayments]);
   const handleResetKeys = async () => {
     if (!window.confirm('Вы уверены, что хотите сбросить ключи подключения? Все текущие ссылки на устройствах перестанут работать и потребуется обновить подключение.')) {
       return;
