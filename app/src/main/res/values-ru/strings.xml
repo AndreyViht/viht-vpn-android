@@ -310,7 +310,7 @@
 
     <string name="home_protected">ЗАЩИЩЕНО</string>
     <string name="home_unprotected">ОТКЛЮЧЕНО</string>
-    <string name="home_bypass_ru">Обход сайтов РФ</string>
+    <string name="home_bypass_ru">Российские сервисы напрямую</string>
     <string name="home_bypass_ru_sub">Банки, Госуслуги и сервисы РФ напрямую</string>
     <string name="home_measure_ping">Замерить пинг</string>
     <string name="home_session_duration">Сессия</string>

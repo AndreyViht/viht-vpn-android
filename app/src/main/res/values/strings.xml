@@ -304,7 +304,7 @@
 
     <string name="home_protected">PROTECTED</string>
     <string name="home_unprotected">DISCONNECTED</string>
-    <string name="home_bypass_ru">Bypass Russian services</string>
+    <string name="home_bypass_ru">Russian services via direct connection</string>
     <string name="home_bypass_ru_sub">Banks and Russian services direct</string>
     <string name="home_measure_ping">Measure ping</string>
     <string name="home_session_duration">Session</string>
