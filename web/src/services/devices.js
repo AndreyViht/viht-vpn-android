@@ -20,7 +20,7 @@ export function deviceAppLabel(device) {
     const system = /android/i.test(platform + ' ' + name) ? 'Android' : /windows|desktop|win32/i.test(platform + ' ' + name) ? 'Windows' : 'VPN';
     return `💠 Viht ${system}${version}`;
   }
-  if (/happ/i.test(name)) return `🟣 Happ${version}`;
+  if (/happ/i.test(name)) return platform.includes('ios') ? `🍏 Viht iOS / Happ${version}` : `🟣 Happ${version}`;
   if (/incy/i.test(name)) return `🍏 Incy${version}`;
   if (/v2rayng/i.test(name)) return `🚀 v2rayNG${version}`;
   if (/v2raytun/i.test(name)) return `⚡ V2RayTun${version}`;

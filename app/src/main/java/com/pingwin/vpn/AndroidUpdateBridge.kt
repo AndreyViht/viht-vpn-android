@@ -54,6 +54,17 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
         if(existing.optString("downloadedVersion")==release.version)return@withLock JSONObject().put("ok",true).put("ready",true)
         if(existing.optBoolean("downloading")&&!request.optBoolean("restart"))return@withLock JSONObject().put("ok",true).put("downloading",true)
         DirectUpdateDownload.start(activity,release,request.optBoolean("restart"))
+        // Push real progress to both the settings screen and the global
+        // update notification. Previously the download ran silently while
+        // the UI stayed at 0% until completion.
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+            repeat(1200) {
+                delay(500)
+                val s = status()
+                progress(s.optJSONObject("progress") ?: JSONObject())
+                if (!s.optBoolean("downloading")) return@launch
+            }
+        }
         verifiedStamp=null
         return@withLock JSONObject().put("ok",true).put("downloading",true)
     }
