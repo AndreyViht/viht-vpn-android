@@ -26,7 +26,7 @@ export const SessionTimer=React.memo(function SessionTimer({connectedAt}) {
     visibility();document.addEventListener('visibilitychange',visibility);
     return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',visibility)};
   },[]);
-  const seconds=duration>0?duration:connectedAt?Math.max(0,Math.floor((now-connectedAt)/1000)):0;
+  const seconds=connectedAt?Math.max(0,Math.floor((now-connectedAt)/1000)):duration;
   const hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60),remaining=Math.floor(seconds%60);
   const pair=value=>String(value).padStart(2,'0');
   return hours>0?`${pair(hours)}:${pair(minutes)}:${pair(remaining)}`:`${pair(minutes)}:${pair(remaining)}`;

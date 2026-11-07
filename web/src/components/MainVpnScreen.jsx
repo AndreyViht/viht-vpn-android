@@ -37,8 +37,11 @@ function MainVpnScreen({
   useEffect(()=>{let alive=true,busy=false;const id=currentServer?.id;
     const probe=async()=>{if(!id||busy||document.hidden||window.__vihtUiBackground||!window.electronAPI?.pingServers)return;busy=true;
       try{const result=await window.electronAPI.pingServers([{...currentServer,attempts:1,timeoutMs:1800}]);if(alive){const value=result?.[id];setLivePing({id,ping:Number.isFinite(value)&&value>=0?value:null,pingStatus:Number.isFinite(value)&&value>=0?'measured':'unreachable'});}}catch{if(alive)setLivePing({id,ping:null,pingStatus:'unreachable'});}finally{busy=false;}};
-    void probe();const timer=setInterval(probe,3000);return()=>{alive=false;clearInterval(timer)};
-  },[currentServer?.id,currentServer?.vless_uri]);
+    void probe();
+    const timer=setInterval(probe,3000);
+    document.addEventListener('visibilitychange',probe);
+    return()=>{alive=false;clearInterval(timer);document.removeEventListener('visibilitychange',probe)};
+  },[currentServer?.id,currentServer?.host,currentServer?.port,currentServer?.vless_uri]);
   const pingServer=livePing?.id===currentServer?.id?{...currentServer,...livePing}:currentServer;
   const isConnected = connectionState === 'connected';
   const isConnecting = connectionState === 'connecting';
@@ -176,10 +179,6 @@ function MainVpnScreen({
           </div>
 
           <div className="fluent-server-card__action">
-            <div className="fluent-server-card__ping">
-              <span className={`ping-status-dot ${pingServer?.ping == null ? 'gray' : pingServer.ping < 65 ? 'green' : 'yellow'}`} />
-              <span>{formatServerPing(pingServer, lang)}</span>
-            </div>
             <ChevronRight size={16} className="fluent-chevron-icon" />
           </div>
         </motion.div>
@@ -239,6 +238,12 @@ function MainVpnScreen({
 
           {/* Central Morphing Power Ring & Button */}
           <div className="fluent-hero-center">
+            {currentServer && (
+            <div className="fluent-server-card__ping viht-home-ping">
+              <span className={`ping-status-dot ${pingServer?.ping == null ? 'gray' : pingServer.ping < 65 ? 'green' : 'yellow'}`} />
+              <span>TCP · {formatServerPing(pingServer, lang)}</span>
+            </div>
+            )}
             <div className={`fluent-power-ring-wrap state-${connectionState}`}>
               <div className="fluent-ring-ambient" />
               {(isConnecting || isDisconnecting) && <div className="fluent-ring-spinner" />}

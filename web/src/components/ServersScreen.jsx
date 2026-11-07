@@ -54,6 +54,7 @@ function ServersScreen({
             type="button"
             className="btn btn--secondary btn--sm"
             onClick={onRefreshPing}
+            aria-busy={refreshingPing}
             disabled={accessDisabled || refreshingPing}
             title={lang === 'en' ? 'TCP connection latency, without a proxy URL test' : 'Задержка TCP-соединения, без проверки URL через прокси'}
             {...buttonPress}
@@ -66,6 +67,7 @@ function ServersScreen({
             type="button"
             className="btn btn--secondary btn--sm"
             onClick={onRefreshKeys}
+            aria-busy={refreshingKeys}
             disabled={refreshingKeys}
             title={t('btn_sync', lang)}
             {...buttonPress}
@@ -96,9 +98,10 @@ function ServersScreen({
                 key={server.id}
                 className={`fluent-server-row ${isSelected ? 'fluent-server-row--selected' : ''}`}
                 onClick={() => onSelectServer(server)}
-                
                 whileTap={{ scale: 0.99 }}
-                transition={{duration:.14}}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: .16 }}
               >
                 {/* Active border glow for selected card */}
                 <span className="fluent-server-selected-glow" aria-hidden="true" />

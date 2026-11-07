@@ -387,7 +387,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                   key={device.physical_device_id || device.id || device.device_id || device.hwid}
                   
                   className={`fluent-device-row ${device.disabled ? 'fluent-device-row--disabled' : ''}`}
-                  initial={false}
+                  initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }} exit={{opacity:0}}
                   whileHover={{ y: -1, scale: 1.002 }}
                   transition={springs.natural}

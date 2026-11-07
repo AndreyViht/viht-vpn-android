@@ -78,3 +78,24 @@ body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 .liquid-window.is-android .fluent-about-row{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;padding:9px 0;border-bottom:1px solid #ffffff0a}
 .liquid-window.is-android .fluent-about-row strong,.liquid-window.is-android .fluent-about-row code{text-align:left;min-width:0;overflow-wrap:anywhere;line-height:1.5}
 .liquid-window.is-android .fluent-about-row>span{font-size:12px}
+
+.liquid-window.is-android .fluent-server-row__flag {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.viht-ui-background) .liquid-window.is-android .fluent-servers-page button[aria-busy="true"] svg,
+  html:not(.viht-ui-background) .liquid-window.is-android .fluent-ring-spinner {
+    animation-duration: .85s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+.liquid-window.is-android .viht-home-ping {
+  margin: 0 auto 8px;
+  min-height: 24px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
