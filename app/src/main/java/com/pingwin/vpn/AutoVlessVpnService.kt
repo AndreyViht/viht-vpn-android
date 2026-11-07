@@ -364,46 +364,30 @@ class AutoVlessVpnService :
                     "Creating CommandServer"
                 )
 
-                val useXray = XrayHevRuntime.available(this, config)
-                if (!useXray) setupLibbox()
-                val server =
-                    if (!useXray) CommandServer(
-                        createCommandServerHandler(startId),
-                        this
-                    ) else null
-
-                commandServer =
-                    server
-
-                if (BuildConfig.DEBUG) Log.d(
-                    TAG,
-                    "Starting CommandServer"
-                )
-
-                server?.start()
-
-                if (BuildConfig.DEBUG) Log.d(
-                    TAG,
-                    "Starting physical network monitor"
-                )
-
-                startPhysicalNetworkMonitor()
-
-                if (BuildConfig.DEBUG) Log.d(
-                    TAG,
-                    "Starting sing-box service"
-                )
-
                 val prepared = prepareAndroidConfig(config)
+                startPhysicalNetworkMonitor()
+                var useXray = XrayHevRuntime.available(this, config)
                 if (useXray) {
-                    xrayRuntime = XrayHevRuntime(this).also { runtime ->
-                        runtime.start(prepared.first, prepared.second) { openXrayTun() }
+                    try {
+                        xrayRuntime = XrayHevRuntime(this).also { runtime ->
+                            runtime.start(prepared.first, prepared.second) { openXrayTun() }
+                        }
+                        physicalDefaultNetwork?.let { notifyDefaultInterface(it) }
+                    } catch (failure: XrayHevRuntime.StartupFailure) {
+                        // The core failed before opening the VPN interface. Try the same profile in sing-box.
+                        DiagnosticLogStore.append(this, "Xray startup failed; trying sing-box")
+                        useXray = false
                     }
-                    physicalDefaultNetwork?.let { notifyDefaultInterface(it) }
-                } else {
-                    DiagnosticLogStore.append(this, "VPN engine: sing-box/gVisor (legacy protocol or 32-bit device)")
-                    server!!.startOrReloadService(prepared.first, OverrideOptions())
+                }
+                if (!useXray) {
+                    setupLibbox()
+                    LibboxValidator.validate(prepared.first).getOrThrow()
+                    val server = CommandServer(createCommandServerHandler(startId), this)
+                    commandServer = server
+                    server.start()
+                    server.startOrReloadService(prepared.first, OverrideOptions())
                     XrayHevRuntime.lastEngine = "sing-box ${Libbox.version()} / gVisor (legacy)"
+                    DiagnosticLogStore.append(this, "VPN engine: sing-box/gVisor")
                 }
 
                 check(tunDescriptor != null) { "VPN interface was not established" }

@@ -81,6 +81,8 @@ internal class XrayHevRuntime(private val context: Context) {
         } catch (failure: Exception) { stop(); throw failure }
     }
 
+    class StartupFailure(message: String) : IllegalStateException(message)
+
     /** Also used by the isolated runtime test; no Android VPN/TUN is established here. */
     fun startCore(config: JSONObject, readyPort: Int) {
         check(process == null)
@@ -97,7 +99,12 @@ internal class XrayHevRuntime(private val context: Context) {
                 if (ready) break
                 SystemClock.sleep(30)
             }
-            check(ready && process?.isAlive == true) { "Новое ядро Xray не запустилось; требуется диагностика тестовой версии" }
+            if (!ready || process?.isAlive != true) {
+                val exitCode = process?.takeUnless { it.isAlive }?.exitValue()
+                val reason = if (exitCode == null) "readiness timeout" else "exit code $exitCode"
+                DiagnosticLogStore.append(context, "Xray startup failed: $reason")
+                throw StartupFailure("Не удалось запустить ядро Xray")
+            }
         } catch (failure: Exception) { stop(); throw failure }
     }
 

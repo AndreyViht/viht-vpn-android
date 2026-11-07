@@ -22,8 +22,8 @@ android {
         applicationId = "ru.anviht.vpn"
         minSdk = 26
         targetSdk = 36
-        versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 20001
-        versionName = "2.0.0.1"
+        versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 20002
+        versionName = "2.0.0.2"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
