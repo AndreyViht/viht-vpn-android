@@ -60,3 +60,11 @@ html .invite-card {
 .tv-code-delete {
   grid-column: span 2;
 }
+
+html .liquid-window.is-android .login-actions {
+  max-width: 440px;
+  margin-inline: auto;
+}
+
+html .liquid-window.is-android .login-actions .btn-auth__title { font-size: 18px; }
+html .liquid-window.is-android .login-actions .btn-auth__hint { font-size: 14px; }
