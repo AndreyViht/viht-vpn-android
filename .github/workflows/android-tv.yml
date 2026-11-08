@@ -1,0 +1,67 @@
+name: Build Viht VPN TV APK
+
+on:
+  push:
+    branches: [android-tv]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      VIHT_TEST_KEYSTORE: ${{ github.workspace }}/.viht-tv-signing.keystore
+      VIHT_TEST_SIGNING_KEYSTORE: ${{ secrets.VIHT_TEST_SIGNING_KEYSTORE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build and test interface
+        working-directory: web
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          npm run build
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-37.0"
+      - name: Verify VPN libraries
+        run: |
+          node tools/fetch-libbox.mjs
+          node tools/fetch-xray-hev.mjs
+      - uses: actions/cache@v4
+        if: env.VIHT_TEST_SIGNING_KEYSTORE == ''
+        with:
+          path: .viht-tv-signing.keystore
+          key: viht-android-tv-debug-signing-v1
+      - name: Prepare test signing
+        run: |
+          if [ -n "$VIHT_TEST_SIGNING_KEYSTORE" ]; then
+            printf '%s' "$VIHT_TEST_SIGNING_KEYSTORE" | base64 --decode > "$VIHT_TEST_KEYSTORE"
+          elif [ ! -f "$VIHT_TEST_KEYSTORE" ]; then
+            keytool -genkeypair -keystore "$VIHT_TEST_KEYSTORE" -storepass android \
+              -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 \
+              -validity 10000 -dname "CN=Viht VPN TV Debug"
+          fi
+          chmod 600 "$VIHT_TEST_KEYSTORE"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test and assemble APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain --stacktrace -PciVersionCode=$((20001 + GITHUB_RUN_NUMBER))
+          cp app/build/outputs/apk/debug/app-debug.apk Viht-VPN-TV.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Viht-VPN-TV-APK
+          path: Viht-VPN-TV.apk
+          if-no-files-found: error

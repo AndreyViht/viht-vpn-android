@@ -307,7 +307,7 @@ function SettingsScreen({
                   <div className="fluent-toggle-divider" />
 
                   {/* Разрешить локальную сеть */}
-                  
+
                   <div
                     className="fluent-toggle-row"
                     onClick={() => onUpdateSetting('allowLan', settings.allowLan !== false ? false : true)}
@@ -841,4 +841,3 @@ function SettingsScreen({
 }
 
 export default React.memo(SettingsScreen);
-

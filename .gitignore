@@ -33,3 +33,6 @@ tools/repair-baseline.json
 .codex-remote-attachments/
 
 **/*firebase-adminsdk*.json
+
+.native-cache/
+app/src/main/jniLibs/*/libvihtxray.so

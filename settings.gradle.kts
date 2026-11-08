@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Pingwin"
+rootProject.name = "Viht TV"
 include(":app")

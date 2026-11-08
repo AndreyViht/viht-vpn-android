@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     override fun attachBaseContext(newBase: Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
-    override fun onStart() { super.onStart(); AppVisibility.setForeground(true); UpdateScheduler.sync(this); AppAnnouncements.schedule(this) }
+    override fun onStart() { super.onStart(); AppVisibility.setForeground(true); AppAnnouncements.schedule(this) }
     override fun onResume() {
         super.onResume()
         if (::webView.isInitialized) webView.onResume()
@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
     override fun onStop() { AppVisibility.setForeground(false); super.onStop() }
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (::bridge.isInitialized) bridge.completeBrowserAuth(intent.data); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (::bridge.isInitialized) bridge.openInvite(intent.data); if (::bridge.isInitialized && isTrustedPage) bridge.pageReady() }
     suspend fun addQuickTile(): org.json.JSONObject {
         if (Build.VERSION.SDK_INT < 33) {
             val message="Откройте шторку → Изменить плитки → перетащите Viht"
@@ -163,6 +163,8 @@ class MainActivity : ComponentActivity() {
             addView(webView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
         setContentView(root)
+        webView.isFocusableInTouchMode = true
+        webView.requestFocus()
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
@@ -191,6 +193,24 @@ class MainActivity : ComponentActivity() {
             }
         })
     }
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val key = when (event.keyCode) {
+            android.view.KeyEvent.KEYCODE_DPAD_UP -> "ArrowUp"
+            android.view.KeyEvent.KEYCODE_DPAD_DOWN -> "ArrowDown"
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> "ArrowLeft"
+            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> "ArrowRight"
+            android.view.KeyEvent.KEYCODE_DPAD_CENTER -> "Enter"
+            android.view.KeyEvent.KEYCODE_MENU -> "Menu"
+            else -> return super.dispatchKeyEvent(event)
+        }
+        if (!isUiReady || !webView.hasFocus()) return super.dispatchKeyEvent(event)
+        if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+            val repeat = event.repeatCount > 0
+            webView.evaluateJavascript("window.vihtTvRemoteKey?.('$key', $repeat)", null)
+        }
+        return true
+    }
+
     override fun onDestroy() {
         isUiReady=false
         isTrustedPage = false

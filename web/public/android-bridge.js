@@ -55,7 +55,6 @@
     getOwnerSession: options => call('getOwnerSession', [options || {}]),
     getStoredOwnerSession: () => call('getStoredOwnerSession'),
     clearOwnerSession: () => { queued.delete('auth-success'); return call('clearOwnerSession'); },
-    startAuthServer: provider => call('startAuthServer', [provider]), cancelAuthServer: () => call('cancelAuthServer'),
     onAuthSuccess: callback => subscribe('auth-success', callback), onAuthError: callback => subscribe('auth-error', callback),
     cabinetRequest: options => call('cabinetRequest', [options], 65000),
     fetchSubscription: token => call('fetchSubscription', [token], token==='guest'?75000:30000), syncServers: servers => call('syncServers', [servers]),

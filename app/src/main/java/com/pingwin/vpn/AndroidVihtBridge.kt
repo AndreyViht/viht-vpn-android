@@ -95,14 +95,6 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     }
                     "getStoredOwnerSession" -> AndroidSessionStore.storedSession(activity)
                     "clearOwnerSession" -> { AuthCallbackServer.stop(); AndroidSessionStore.clear(activity); ok() }
-                    "startAuthServer" -> {
-                        val provider = args.getString(0)
-                        AuthCallbackServer.stop()
-                        val callback = AndroidBrowserAuth.start(activity.applicationContext, provider)
-                        preferences.edit().putString("provider", provider).apply()
-                        JSONObject().put("callbackUrl", callback)
-                    }
-                    "cancelAuthServer" -> { AuthCallbackServer.stop(); AndroidBrowserAuth.cancel(activity); ok() }
                     "cabinetRequest" -> AndroidCabinetApi.request(activity, args.getJSONObject(0))
                     "fetchSubscription" -> {
                         val token = args.getString(0)
@@ -134,10 +126,9 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                             check(preferences.edit().putString("vpnSettings",settings.toString()).commit())
                             AppAnnouncements.schedule(activity)
                         }
-                        if (value.has("notifyUpdate")) { preferences.edit().putBoolean("notifyUpdate", value.getBoolean("notifyUpdate")).apply(); UpdateSettingsStore.setAutoCheckEnabled(activity, value.getBoolean("notifyUpdate")); UpdateScheduler.sync(activity) }
                         ok()
                     }
-                    "getDesktopPreferences" -> JSONObject().put("notifyUpdate", preferences.getBoolean("notifyUpdate", true))
+                    "getDesktopPreferences" -> JSONObject().put("notifyUpdate", false)
                     "getLoginItemSettings" -> JSONObject().put("openAtLogin", false).put("startMinimized", false)
                     "setLoginItemSettings" -> error("Автозапуск Windows недоступен на Android")
                     "copyText" -> { withContext(Dispatchers.Main) {
@@ -159,10 +150,10 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         val url = Uri.parse(args.getString(0)); require(url.scheme in setOf("https", "http")) { "Недопустимая ссылка" }
                         openIntent(Intent(Intent.ACTION_VIEW, url)); ok()
                     }
-                    "checkForUpdates" -> updates.check()
+                    "checkForUpdates" -> error("Канал обновлений Viht TV ещё не настроен")
                     "getUpdateStatus" -> updates.status()
-                    "downloadUpdate" -> updates.download(args.getJSONObject(0))
-                    "applyUpdateAndRestart" -> updates.install(args.getJSONObject(0))
+                    "downloadUpdate" -> error("Канал обновлений Viht TV ещё не настроен")
+                    "applyUpdateAndRestart" -> error("Канал обновлений Viht TV ещё не настроен")
                     else -> error("Недоступный метод Android: " + method)
                 }
                 respond(id, result)
@@ -286,19 +277,11 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     }
     @Volatile private var pendingInvite: String? = null
     private fun deliverInvite(){if(!activity.isUiReady)return;val value=pendingInvite?:return;pendingInvite=null;emit("invite-open",JSONObject().put("invite",value))}
-    fun completeBrowserAuth(uri: Uri?) {
+    fun openInvite(uri: Uri?) {
         if(uri?.scheme=="vihtvpn"&&uri.host=="join"){val invite=uri.getQueryParameter("invite");if(invite!=null&&Regex("[a-f0-9]{64}").matches(invite)){pendingInvite=invite;deliverInvite()};return}
-        if (uri?.scheme != "vihtvpn" || uri.host != "auth" || uri.path != "/callback") return
-        scope.launch {
-            try {
-                val (token, provider) = AndroidBrowserAuth.complete(activity.applicationContext, uri)
-                emit("auth-success", JSONObject().put("token", token).put("originalToken", token).put("provider", provider))
-            } catch (_: CancellationException) { }
-            catch (failure: Exception) { emit("auth-error", error(failure.message ?: "Не удалось завершить вход. Начните вход заново.")) }
-        }
+
     }
     fun requestQuickConnect() { emit("quick-connect", JSONObject()) }
-    private var lastUpdateCheck = 0L
     fun deliverPendingScans(){if(!activity.isUiReady)return;scope.launch{AndroidSessionStore.pendingScan(activity)?.let{emit(if(it.optString("purpose")=="owner-pair")"owner-pair-scan" else "guest-scan-result",it)}}}
     fun pageReady() {
         emit("app-visibility", JSONObject().put("background", !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)))
@@ -308,10 +291,6 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         if (activity.consumeTileConnect()) requestQuickConnect()
         if (activity.consumeOpenUpdates()) emit("open-updates", JSONObject())
         activity.consumeOpenAnnouncement()?.let { emit("announcement-open",JSONObject().put("id",it)) }
-        if (preferences.getBoolean("notifyUpdate", true) && System.currentTimeMillis() - lastUpdateCheck > 3_600_000) {
-            lastUpdateCheck = System.currentTimeMillis()
-            scope.launch { runCatching { updates.check() }.getOrNull()?.let { if (it.optBoolean("hasUpdate")) emit("update-available", it.getJSONObject("releaseInfo")) } }
-        }
         emit("app-resumed",JSONObject())
         emit("vpn-state", VpnStatus.snapshot().put("snapshot",true))
         scope.launch {

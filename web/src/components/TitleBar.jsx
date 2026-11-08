@@ -153,16 +153,16 @@ function TitleBar({ title = "Viht", isConnected = false, user = null, onOpenHelp
           <button className="titlebar-btn" onClick={onOpenHelp} title="Помощь" aria-label="Помощь">
             <HelpCircle size={15} />
           </button>
-          <button 
-            className="titlebar-btn titlebar-btn--minimize" 
-            onClick={handleMinimize} 
+          <button
+            className="titlebar-btn titlebar-btn--minimize"
+            onClick={handleMinimize}
             title="Свернуть"
           >
             <Minus size={14} />
           </button>
-          <button 
-            className="titlebar-btn titlebar-btn--close" 
-            onClick={handleClose} 
+          <button
+            className="titlebar-btn titlebar-btn--close"
+            onClick={handleClose}
             title={minimizeToTray ? 'Свернуть в трей' : 'Закрыть программу'}
           >
             <X size={14} />

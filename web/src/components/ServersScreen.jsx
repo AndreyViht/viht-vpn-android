@@ -98,6 +98,7 @@ function ServersScreen({
                 key={server.id}
                 className={`fluent-server-row ${isSelected ? 'fluent-server-row--selected' : ''}`}
                 onClick={() => onSelectServer(server)}
+
                 whileTap={{ scale: 0.99 }}
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}

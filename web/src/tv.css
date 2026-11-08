@@ -1,0 +1,62 @@
+html body :is(button, a[href], input, select, textarea, [tabindex="0"]):focus {
+  outline: 3px solid #8be7ff !important;
+  outline-offset: 3px;
+}
+
+html .liquid-window.is-android .titlebar {
+  padding-inline: 5vw;
+}
+
+html .liquid-window.is-android .fluent-main-content,
+html .liquid-window.is-android .fluent-page {
+  max-width: min(86vw, 960px);
+}
+
+html .liquid-window.is-android .ios-bottom-bar__island {
+  max-width: min(86vw, 720px);
+  margin-bottom: 8px;
+}
+
+html .liquid-window.is-android .login-screen {
+  padding: 24px 6vw;
+}
+
+html .liquid-window.is-android .login-subtitle {
+  max-width: 520px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+html .invite-card {
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.tv-code-display {
+  display: block;
+  margin: 0 0 12px;
+  text-align: center;
+  font: 700 30px/1.2 monospace;
+  letter-spacing: .25em;
+}
+
+.tv-code-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.tv-code-pad button {
+  min-height: 38px;
+  border: 1px solid #526278;
+  border-radius: 8px;
+  background: #202f43;
+  color: white;
+  font-size: 18px;
+}
+
+.tv-code-delete {
+  grid-column: span 2;
+}

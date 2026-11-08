@@ -1,8 +1,6 @@
 import java.security.MessageDigest
 
 plugins {
-    id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
@@ -19,17 +17,17 @@ android {
     }
 
     defaultConfig {
-        applicationId = "ru.anviht.vpn"
+        applicationId = "ru.anviht.vpn.tv"
         minSdk = 26
         targetSdk = 36
-        versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 20002
-        versionName = "2.0.0.2"
-        manifestPlaceholders["appLabel"] = "@string/app_name"
+        versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 20001
+        versionName = "2.0.0.1"
+        manifestPlaceholders["appLabel"] = "Viht TV"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
         }
     }
 
@@ -62,7 +60,7 @@ android {
             isDebuggable = false
             applicationIdSuffix = ".test"
             versionNameSuffix = ""
-            manifestPlaceholders["appLabel"] = "Viht"
+            manifestPlaceholders["appLabel"] = "Viht TV"
         }
         release {
             signingConfigs.findByName("release")?.let { signingConfig = it }
@@ -116,4 +114,3 @@ dependencies {
 	implementation(files("libs/libbox.aar"))
     implementation(files("libs/hev-socks5-tunnel.aar"))
 }
-
