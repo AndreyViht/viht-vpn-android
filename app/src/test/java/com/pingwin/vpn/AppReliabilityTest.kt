@@ -26,7 +26,7 @@ class AppReliabilityTest {
         assertFalse(BankLinkPolicy.safeFallback("http://bank.example/confirm"))
     }
     @Test fun pendingUpdateSurvivesSerializationAndRejectsInvalidOrInstalledVersions() {
-        val release=UpdateRelease("9.0.0-test","https://anviht.ru/download/VihtVPN-Android-9.0.0-test.apk","https://help.anviht.ru/android","Changes","a".repeat(64),1234567)
+        val release=UpdateRelease("9.0.0-test","https://anviht.ru/download/VihtVPN-TV-9.0.0.1.apk","https://help.anviht.ru/tv","Changes","a".repeat(64),1234567)
         assertEquals(release,UpdateReleaseCache.decode(UpdateReleaseCache.encode(release),"1.4.12-test"))
         assertNull(UpdateReleaseCache.decode(UpdateReleaseCache.encode(release),"9.0.0-test"))
         assertNull(UpdateReleaseCache.decode("broken","1.0.0"))

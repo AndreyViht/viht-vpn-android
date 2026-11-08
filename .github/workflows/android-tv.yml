@@ -58,7 +58,7 @@ jobs:
       - name: Test and assemble APK
         run: |
           chmod +x gradlew
-          ./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain --stacktrace -PciVersionCode=$((20001 + GITHUB_RUN_NUMBER))
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain --stacktrace -PciVersionCode=$((20001 + GITHUB_RUN_NUMBER)) -PciVersionName="2.0.0.${GITHUB_RUN_NUMBER}"
           cp app/build/outputs/apk/debug/app-debug.apk Viht-VPN-TV.apk
       - uses: actions/upload-artifact@v4
         with:

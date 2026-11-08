@@ -120,6 +120,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "exportDebugLog" -> VpnPerformanceSnapshot.capture(activity) + "\n" + DiagnosticLogStore.entries(activity).joinToString("\n")
                     "setDesktopPreferences" -> {
                         val value = args.getJSONObject(0)
+                        if (value.has("notifyUpdate")) { preferences.edit().putBoolean("notifyUpdate", value.getBoolean("notifyUpdate")).apply(); UpdateSettingsStore.setAutoCheckEnabled(activity, value.getBoolean("notifyUpdate")); UpdateScheduler.sync(activity) }
                         if(value.has("notifyNews")||value.has("autoReconnect")||value.has("sendDiagnostics")) {
                             val settings=JSONObject(preferences.getString("vpnSettings","{}") ?: "{}")
                             for(key in listOf("notifyNews","autoReconnect","sendDiagnostics"))if(value.has(key))settings.put(key,value.getBoolean(key))
@@ -128,7 +129,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         }
                         ok()
                     }
-                    "getDesktopPreferences" -> JSONObject().put("notifyUpdate", false)
+                    "getDesktopPreferences" -> JSONObject().put("notifyUpdate", preferences.getBoolean("notifyUpdate", true))
                     "getLoginItemSettings" -> JSONObject().put("openAtLogin", false).put("startMinimized", false)
                     "setLoginItemSettings" -> error("Автозапуск Windows недоступен на Android")
                     "copyText" -> { withContext(Dispatchers.Main) {
@@ -150,10 +151,10 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         val url = Uri.parse(args.getString(0)); require(url.scheme in setOf("https", "http")) { "Недопустимая ссылка" }
                         openIntent(Intent(Intent.ACTION_VIEW, url)); ok()
                     }
-                    "checkForUpdates" -> error("Канал обновлений Viht TV ещё не настроен")
+                    "checkForUpdates" -> updates.check()
                     "getUpdateStatus" -> updates.status()
-                    "downloadUpdate" -> error("Канал обновлений Viht TV ещё не настроен")
-                    "applyUpdateAndRestart" -> error("Канал обновлений Viht TV ещё не настроен")
+                    "downloadUpdate" -> updates.download(args.getJSONObject(0))
+                    "applyUpdateAndRestart" -> updates.install(args.getJSONObject(0))
                     else -> error("Недоступный метод Android: " + method)
                 }
                 respond(id, result)
@@ -283,6 +284,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     }
     fun requestQuickConnect() { emit("quick-connect", JSONObject()) }
     fun deliverPendingScans(){if(!activity.isUiReady)return;scope.launch{AndroidSessionStore.pendingScan(activity)?.let{emit(if(it.optString("purpose")=="owner-pair")"owner-pair-scan" else "guest-scan-result",it)}}}
+    private var lastUpdateCheck = 0L
     fun pageReady() {
         emit("app-visibility", JSONObject().put("background", !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)))
         deliverPendingScans()
@@ -291,6 +293,10 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         if (activity.consumeTileConnect()) requestQuickConnect()
         if (activity.consumeOpenUpdates()) emit("open-updates", JSONObject())
         activity.consumeOpenAnnouncement()?.let { emit("announcement-open",JSONObject().put("id",it)) }
+        if (preferences.getBoolean("notifyUpdate", true) && System.currentTimeMillis() - lastUpdateCheck > 3_600_000) {
+            lastUpdateCheck = System.currentTimeMillis()
+            scope.launch { runCatching { updates.check() }.getOrNull()?.let { if (it.optBoolean("hasUpdate")) emit("update-available", it.getJSONObject("releaseInfo")) } }
+        }
         emit("app-resumed",JSONObject())
         emit("vpn-state", VpnStatus.snapshot().put("snapshot",true))
         scope.launch {

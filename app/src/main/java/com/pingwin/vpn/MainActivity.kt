@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     override fun attachBaseContext(newBase: Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
-    override fun onStart() { super.onStart(); AppVisibility.setForeground(true); AppAnnouncements.schedule(this) }
+    override fun onStart() { super.onStart(); AppVisibility.setForeground(true); UpdateScheduler.sync(this); AppAnnouncements.schedule(this) }
     override fun onResume() {
         super.onResume()
         if (::webView.isInitialized) webView.onResume()

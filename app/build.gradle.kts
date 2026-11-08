@@ -21,7 +21,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 20001
-        versionName = "2.0.0.1"
+        versionName = providers.gradleProperty("ciVersionName").orElse("2.0.0.1").get()
         manifestPlaceholders["appLabel"] = "Viht TV"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

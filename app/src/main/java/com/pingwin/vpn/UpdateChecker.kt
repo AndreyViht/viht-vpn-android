@@ -17,7 +17,7 @@ data class UpdateRelease(
 object UpdateChecker {
 
     private const val LATEST_RELEASE_URL =
-        "https://anviht.ru/download/android-test-latest.json"
+        "https://anviht.ru/download/android-tv-latest.json"
 
     private data class ApkAsset(
         val name: String,
@@ -40,7 +40,7 @@ object UpdateChecker {
                 )
                 setRequestProperty(
                     "User-Agent",
-                    "VihtVPN-Android"
+                    "VihtVPN-Android-TV"
                 )
                 setRequestProperty(
                     "X-GitHub-Api-Version",

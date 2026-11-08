@@ -9,8 +9,7 @@ object UpdateReleaseCache {
         val uri=URI(release.apkUrl)
         uri.scheme=="https" && uri.userInfo==null && uri.port in setOf(-1,443) &&
             uri.normalize().path==uri.path && release.apkSizeBytes>0 && release.apkSha256?.matches(Regex("[a-fA-F0-9]{64}"))==true &&
-            ((uri.host=="anviht.ru" && uri.path.matches(Regex("/download/VihtVPN-Android-[A-Za-z0-9.-]+\\.apk"))) ||
-                (uri.host=="github.com" && uri.path.startsWith("/AndreyViht/viht-vpn-android/releases/download/")))
+            uri.host=="anviht.ru" && uri.path.matches(Regex("/download/VihtVPN-TV-[0-9]+(?:\\.[0-9]+){3}\\.apk"))
     }.getOrDefault(false)
     fun decode(value: String?, current: String): UpdateRelease? = runCatching {
         if(value==null)return@runCatching null
