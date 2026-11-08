@@ -156,7 +156,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         bridge = AndroidVihtBridge(this, webView)
-        bridge.completeBrowserAuth(intent?.data)
+        bridge.openInvite(intent?.data)
         webView.addJavascriptInterface(bridge, "VihtNative")
         val root = FrameLayout(this).apply {
             setBackgroundColor(Color.parseColor("#0a111d"))
