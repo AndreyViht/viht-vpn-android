@@ -160,7 +160,7 @@ function SettingsScreen({
       setLogContent(text);
       setShowLogModal(true);
     } else {
-      setLogContent('Экспорт логов доступен только в настольной среде Windows.');
+      setLogContent('Экспорт логов сейчас недоступен.');
       setShowLogModal(true);
     }
   };
@@ -168,7 +168,7 @@ function SettingsScreen({
   const handleCheckUpdate = async () => {
     setCheckingUpdate(true); setUpdateStatus('checking'); setUpdateError('');
     try {
-      if (!window.electronAPI?.checkForUpdates) throw new Error('Обновления доступны только в приложении Windows');
+      if (!window.electronAPI?.checkForUpdates) throw new Error('Проверка обновлений сейчас недоступна');
       const result = await window.electronAPI.checkForUpdates();
       if (!result?.ok) throw new Error(result?.error || 'Не удалось проверить обновления');
       setUpdateInfo(result.hasUpdate ? result.releaseInfo : null);
@@ -348,7 +348,7 @@ function SettingsScreen({
               >
                 <h3 className="fluent-section-title">{t('cat_notifications', currentLang)}</h3>
                 <p className="fluent-section-desc">
-                  {currentLang === 'en' ? 'Alerts in Windows 10/11 Notification Center.' : 'Оповещения в Центре уведомлений Windows 10/11.'}
+                  {currentLang === 'en' ? 'Connection status, service announcements, and updates.' : 'Статус VPN, объявления сервиса и обновления приложения.'}
                 </p>
 
                 <div className="fluent-card fluent-settings-group">
@@ -409,11 +409,6 @@ function SettingsScreen({
                   <div className="fluent-toggle-row" onClick={() => onUpdateSetting('notifyNews', settings.notifyNews === false)}>
                     <div className="fluent-toggle-text"><strong>Объявления Viht</strong><span>Уведомления о важных новостях сервиса. Все объявления доступны по кнопке колокольчика.</span></div>
                     <FluentSwitch checked={settings.notifyNews !== false} label="Объявления Viht" onChange={() => onUpdateSetting('notifyNews', settings.notifyNews === false)} />
-                  </div>
-                  <div className="fluent-toggle-divider" />
-                  <div className="fluent-toggle-row" onClick={()=>onUpdateSetting('sendDiagnostics',settings.sendDiagnostics!==true)}>
-                    <div className="fluent-toggle-text"><strong>Отчёты о сбоях</strong><span>По желанию: техническая диагностика Crashlytics для улучшения приложения, без истории посещений.</span></div>
-                    <FluentSwitch checked={settings.sendDiagnostics===true} label="Отчёты о сбоях" onChange={()=>onUpdateSetting('sendDiagnostics',settings.sendDiagnostics!==true)}/>
                   </div>
                   <div className="fluent-toggle-divider" />
                   <div className="fluent-toggle-row" onClick={() => onUpdateSetting('notifyUpdate', settings.notifyUpdate === false)}>
