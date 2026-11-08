@@ -80,10 +80,10 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "readAnnouncement" -> AppAnnouncements.read(activity,args.getString(0),args.getString(1))
                     "getUiSnapshot" -> ok().put("snapshot",AndroidSessionStore.uiSnapshot(activity) ?: JSONObject.NULL).put("vpn",VpnStatus.snapshot())
                     "cacheUiSnapshot" -> { AndroidSessionStore.cacheUi(activity,args.getJSONObject(0)); ok() }
-                    "getInstalledApps" -> {
-                        val intent=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-                        val apps=activity.packageManager.queryIntentActivities(intent,0).map { info -> info.activityInfo.packageName to info.loadLabel(activity.packageManager).toString() }.distinctBy { it.first }.filter { it.first!=activity.packageName }.sortedBy { it.second.lowercase() }
-                        JSONArray().apply { apps.forEach { (pkg,label) -> put(JSONObject().put("packageName",pkg).put("label",label)) } }
+                    "getInstalledApps" -> JSONArray().apply {
+                        InstalledAppsLoader.load(activity).forEach { app ->
+                            put(JSONObject().put("packageName", app.packageName).put("label", app.label))
+                        }
                     }
                     "getVpnNotificationSettings" -> ok().put("enabled",VpnNotification.enabled(activity)).put("tileAdded",preferences.getBoolean("tileAdded",false))
                     "openVpnNotificationSettings" -> { val manager=activity.getSystemService(android.app.NotificationManager::class.java); val intent=Intent(if(manager.areNotificationsEnabled()) Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS else Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,activity.packageName).putExtra(Settings.EXTRA_CHANNEL_ID,VpnNotification.CHANNEL); openIntent(intent); ok() }
@@ -108,7 +108,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                         }else {
                         val url = "https://anviht.ru/api/subscription-link?format=json&token=" + URLEncoder.encode(token, "UTF-8")
                         val reply = VihtHttp.request(url, headers = mapOf("Accept" to "application/json, text/plain", "User-Agent" to "VihtVPN-Android/" + BuildConfig.VERSION_NAME,
-                            "x-hwid" to VihtPreferences.getHwid(activity), "x-device-model" to VihtPreferences.getDeviceModel(), "x-device-os" to "Android", "x-app-name" to "Viht Android", "x-app-version" to BuildConfig.VERSION_NAME))
+                            "x-hwid" to VihtPreferences.getHwid(activity), "x-device-model" to VihtPreferences.getDeviceModel(), "x-device-os" to "Android", "x-app-name" to "Viht Android TV", "x-app-version" to BuildConfig.VERSION_NAME))
                         if (reply.status in 200..299) ok().put("body", reply.body) else error("Не удалось загрузить подписку: HTTP " + reply.status)
                     }
                     }

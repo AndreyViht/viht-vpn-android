@@ -11,24 +11,15 @@ object InstalledAppsLoader {
     fun load(context: Context): List<InstalledApp> {
         val packageManager = context.packageManager
 
-        val intent =
-            Intent(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
-            }
-
-        val activities =
+        val activities = listOf(Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER).flatMap { category ->
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(category)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.queryIntentActivities(
-                    intent,
-                    PackageManager.ResolveInfoFlags.of(0)
-                )
+                packageManager.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
             } else {
                 @Suppress("DEPRECATION")
-                packageManager.queryIntentActivities(
-                    intent,
-                    0
-                )
+                packageManager.queryIntentActivities(intent, 0)
             }
+        }
 
         return activities
             .asSequence()

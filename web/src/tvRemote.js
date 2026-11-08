@@ -111,12 +111,17 @@ document.addEventListener('keydown', event => {
 }, true);
 
 let focusFrame;
+let loginScreen;
 const observer = new MutationObserver(() => {
   if (focusFrame) return;
   focusFrame = requestAnimationFrame(() => {
     focusFrame = null;
     const items = controls();
-    if (!items.includes(document.activeElement)) focus(initialFocus(items));
+    const nextLoginScreen = document.querySelector('.login-actions');
+    if ((nextLoginScreen && nextLoginScreen !== loginScreen) || !items.includes(document.activeElement)) {
+      focus(initialFocus(items));
+    }
+    loginScreen = nextLoginScreen;
   });
 });
 observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'open', 'aria-hidden'] });
