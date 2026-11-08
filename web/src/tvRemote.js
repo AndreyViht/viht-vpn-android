@@ -32,7 +32,7 @@ function center(element) {
 }
 
 function initialFocus(items) {
-  return items.find(element => element.matches('[data-tv-digit], .fluent-power-btn, .login-actions button'))
+  return items.find(element => element.matches('[data-tv-digit], .tv-home-power, .login-actions button'))
     || items[0];
 }
 

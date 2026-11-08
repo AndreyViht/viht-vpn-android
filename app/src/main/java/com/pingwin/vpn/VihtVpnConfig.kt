@@ -6,7 +6,7 @@ import org.json.JSONObject
 object VihtVpnConfig {
     fun build(profile: ConnectionProfile, settings: JSONObject): String {
         val excluded = VpnBypassSettings.domains(settings)
-        val routing = RoutingSettings(bypassRussiaSites = settings.optBoolean("bypassRussia", true))
+        val routing = RoutingSettings(bypassRussiaSites = settings.optBoolean("tvBypassRussia", false))
         val config = JSONObject(ConnectionConfigBuilder.build(profile, routing, false))
         val outbounds = config.getJSONArray("outbounds")
         for (index in 0 until outbounds.length()) {

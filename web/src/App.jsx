@@ -153,7 +153,7 @@ export default function App() {
       notifyNews: true,
       killSwitch: true,
       allowLan: true,
-      bypassRussia: true,
+      tvBypassRussia: false,
       dnsAdblock: true,
     };
   });
@@ -866,7 +866,7 @@ export default function App() {
   }, [token]);
 
   const handleUpdateSetting = useCallback(async (key, value) => {
-    const networkChange = ['killSwitch', 'allowLan', 'bypassRussia', 'dnsAdblock', 'legacyVpnCore', 'excludedApps', 'excludedDomains', 'bypassRules'].includes(key);
+    const networkChange = ['killSwitch', 'allowLan', 'tvBypassRussia', 'dnsAdblock', 'legacyVpnCore', 'excludedApps', 'excludedDomains', 'bypassRules'].includes(key);
     if (networkChange && settingsChangeRef.current) {
       showToast('Дождитесь применения предыдущей сетевой настройки', 'info');
       return;
@@ -1042,14 +1042,13 @@ export default function App() {
                 {activeTab === 'home' && (
                   <motion.div
                     key="page-home"
-                    className="fluent-page-motion-wrap"
+                    className="fluent-page-motion-wrap tv-home-viewport"
                     ref={pageMotionRef}
                     
                     
                     {...pageVariants}
                   >
                     <MainVpnScreen accessDisabled={['disabled','mismatch'].includes(guestState)}
-                      user={user}
                       currentServer={connectionState === 'connected' && nativeServerName ? {...currentServer,name:nativeServerName} : currentServer}
                       connectionState={connectionState}
                       connectedAt={connectedAt}

@@ -68,3 +68,56 @@ html .liquid-window.is-android .login-actions {
 
 html .liquid-window.is-android .login-actions .btn-auth__title { font-size: 18px; }
 html .liquid-window.is-android .login-actions .btn-auth__hint { font-size: 14px; }
+
+.liquid-window.is-android .fluent-main-viewport > .tv-home-viewport {
+  display: grid;
+  place-items: center;
+  padding: 10px 5vw 86px;
+  overflow: hidden;
+}
+
+.tv-home {
+  display: grid;
+  gap: clamp(8px, 2.5vh, 22px);
+  width: min(100%, 660px);
+  text-align: center;
+}
+
+.tv-home-status h1 {
+  margin: 0 0 4px;
+  font-size: clamp(23px, 5vh, 46px);
+}
+
+.tv-home-session {
+  min-height: 1.4em;
+  color: #bacad9;
+  font-variant-numeric: tabular-nums;
+}
+
+.tv-home-notice { margin: 0; color: #ffc5ad; }
+
+.tv-home-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.tv-home-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 12px;
+  color: #e9f4ff;
+  border: 1px solid #49617b;
+  border-radius: 14px;
+  background: #18283d;
+  font: inherit;
+}
+
+.tv-home-actions .tv-home-power { background: #135448; font-weight: 700; }
+.tv-home-actions button:disabled { opacity: .5; }
+.tv-home-server span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-home-server svg { flex-shrink: 0; }

@@ -8,7 +8,7 @@ class XrayConfigBuilderTest {
     private val id = "11111111-1111-4111-8111-111111111111"
     private fun source(transport: String = "ws") = VihtVpnConfig.build(
         ConnectionProfileParser.parse("vless://$id@example.com:443?security=tls&sni=example.com&type=$transport&path=%2Fvpn&host=example.com&serviceName=grpc"),
-        JSONObject().put("bypassRussia", true).put("dnsAdblock", true)
+        JSONObject().put("tvBypassRussia", true).put("dnsAdblock", true)
     )
 
     @Test fun preservesWsGrpcTlsCredentialsAndLocalOnlyAuthenticatedSocks() {

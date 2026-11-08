@@ -569,16 +569,16 @@ function SettingsScreen({
 
                   {isAndroid ? <BypassEditor settings={settings} onUpdateSetting={onUpdateSetting}/> : (<div
                     className="fluent-toggle-row"
-                    onClick={() => onUpdateSetting('bypassRussia', settings.bypassRussia !== false ? false : true)}
+                    onClick={() => onUpdateSetting('tvBypassRussia', settings.tvBypassRussia === true ? false : true)}
                   >
                     <div className="fluent-toggle-text">
                       <strong>{t('setting_split_ru', currentLang)}</strong>
                       <span>{t('setting_split_ru_desc', currentLang)}</span>
                     </div>
                     <FluentSwitch
-                      checked={settings.bypassRussia !== false}
+                      checked={settings.tvBypassRussia === true}
                       label={t('setting_split_ru', currentLang)}
-                      onChange={() => onUpdateSetting('bypassRussia', settings.bypassRussia !== false ? false : true)}
+                      onChange={() => onUpdateSetting('tvBypassRussia', settings.tvBypassRussia === true ? false : true)}
                     />
                   </div>)}
                   <div className="fluent-toggle-divider" />

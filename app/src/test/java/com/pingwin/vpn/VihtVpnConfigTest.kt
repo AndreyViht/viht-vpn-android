@@ -19,6 +19,16 @@ class VihtVpnConfigTest {
         assertEquals("/vpn", outbound.getJSONObject("transport").getString("path"))
         assertEquals("hijack-dns", config.getJSONObject("route").getJSONArray("rules").getJSONObject(1).getString("action"))
     }
+    @Test fun oldTvSettingsDoNotSendRussianSitesOutsideTheTunnel() {
+        val profile = ConnectionProfileParser.parse(key)
+        val oldSettings = JSONObject().put("bypassRussia", true)
+        val config = JSONObject(VihtVpnConfig.build(profile, oldSettings))
+        assertEquals("proxy", config.getJSONObject("route").getString("final"))
+        assertFalse(config.getJSONObject("route").getJSONArray("rules").toString().contains("\"ru\""))
+        assertEquals(1, config.getJSONObject("dns").getJSONArray("rules").length())
+        val optedIn = JSONObject(VihtVpnConfig.build(profile, oldSettings.put("tvBypassRussia", true)))
+        assertTrue(optedIn.getJSONObject("route").getJSONArray("rules").toString().contains("\"ru\""))
+    }
     @Test fun settingsChangeDnsAndLanPolicy() {
         val config = JSONObject(VihtVpnConfig.build(ConnectionProfileParser.parse(key), JSONObject().put("allowLan",false).put("bypassRussia",false).put("dnsAdblock",false)))
         assertTrue(config.getJSONObject("route").getJSONArray("rules").let { rules -> (0 until rules.length()).any { rules.getJSONObject(it).optBoolean("ip_is_private") && rules.getJSONObject(it).optString("action")=="reject" } })

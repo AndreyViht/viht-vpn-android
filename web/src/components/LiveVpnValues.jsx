@@ -20,12 +20,15 @@ export const SessionTimer=React.memo(function SessionTimer({connectedAt}) {
   const duration=useTelemetryValue('duration');
   const [now,setNow]=useState(Date.now);
   useEffect(()=>{
-    let timer;
-    const update=()=>setNow(Date.now());
-    const visibility=()=>{clearInterval(timer);if(!(document.hidden || window.__vihtUiBackground === true)){update();timer=setInterval(update,1000)}};
-    visibility();document.addEventListener('visibilitychange',visibility);
-    return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',visibility)};
-  },[]);
+    const update = () => setNow(Date.now());
+    update();
+    const timer = setInterval(update, 1000);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', update);
+    };
+  },[connectedAt]);
   const seconds=connectedAt?Math.max(0,Math.floor((now-connectedAt)/1000)):duration;
   const hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60),remaining=Math.floor(seconds%60);
   const pair=value=>String(value).padStart(2,'0');
