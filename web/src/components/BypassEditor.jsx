@@ -1,41 +1,140 @@
-import React,{useEffect,useState,useRef} from 'react';
-import {createPortal} from 'react-dom';
-import {ChevronRight,X} from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Check, ChevronRight, X } from 'lucide-react';
 import './BypassEditor.css';
 
-function BypassForm({settings,onUpdateSetting}) {
-  const [site,setSite]=useState(''),[error,setError]=useState(''),[apps,setApps]=useState([]),[showApps,setShowApps]=useState(true),[loading,setLoading]=useState(false);
-  const persisted={domains:settings.bypassRules?.domains||settings.excludedDomains||[],apps:settings.bypassRules?.apps||settings.excludedApps||[]};
-  const [domains,setDomains]=useState(persisted.domains),[excluded,setExcluded]=useState(persisted.apps),[saving,setSaving]=useState(false);
-  const dirty=JSON.stringify(domains)!==JSON.stringify(persisted.domains)||JSON.stringify(excluded)!==JSON.stringify(persisted.apps);
-  const apply=async()=>{setSaving(true);try{const result=await onUpdateSetting('bypassRules',{domains,apps:excluded});setError(result?.ok===false?result.error:'');}catch(error){setError(error.message||'Не удалось сохранить исключения')}finally{setSaving(false)}};
-  useEffect(()=>{if(!showApps)return;let active=true;setLoading(true);window.electronAPI?.getInstalledApps?.().then(result=>{if(active){if(Array.isArray(result))setApps(result);else setError(result?.error||'Не удалось получить приложения')}}).catch(e=>active&&setError(e.message)).finally(()=>active&&setLoading(false));return()=>{active=false}},[showApps]);
-  const addSite=()=>{
+function BypassForm({ settings, onUpdateSetting }) {
+  const savedDomains = settings.bypassRules?.domains || settings.excludedDomains || [];
+  const savedApps = settings.bypassRules?.apps || settings.excludedApps || [];
+  const [domains, setDomains] = useState(savedDomains);
+  const [excluded, setExcluded] = useState(savedApps);
+  const [directRussia, setDirectRussia] = useState(settings.tvBypassRussia === true);
+  const [site, setSite] = useState('');
+  const [error, setError] = useState('');
+  const [apps, setApps] = useState([]);
+  const [appsError, setAppsError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const rulesChanged = JSON.stringify(domains) !== JSON.stringify(savedDomains) ||
+    JSON.stringify(excluded) !== JSON.stringify(savedApps);
+  const directChanged = directRussia !== (settings.tvBypassRussia === true);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      setLoading(true);
+      setAppsError('');
+      try {
+        const result = await window.electronAPI?.getInstalledApps?.();
+        if (!Array.isArray(result)) throw Error(result?.error || 'Не удалось получить приложения');
+        if (active) setApps(result);
+      } catch (failure) {
+        if (active) setAppsError(failure.message);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, [attempt]);
+
+  async function apply() {
+    setSaving(true);
+    setError('');
     try {
-      const value=site.trim().replace(/^\*\./,'');const url=new URL(value.includes('://')?value:'https://'+value);
-      if(!['https:','http:'].includes(url.protocol)||url.username||url.password||!url.hostname.includes('.'))throw Error('Введите домен, например example.com');
-      const domain=url.hostname.replace(/\.$/,'').toLowerCase();
-      setDomains([...new Set([...domains,domain])]);setSite('');setError('');
-    }catch(e){setError(e.message)}
-  };
-  const visible=apps;
-  return <div className="bypass-form">
-    <label className="bypass-russia-control"><span>Российские сервисы напрямую</span><input type="checkbox" checked={settings.tvBypassRussia===true} onChange={e=>onUpdateSetting('tvBypassRussia',e.target.checked)}/></label>
-    <span style={{fontSize:12,color:'var(--text-secondary)'}}>Добавленные сайты и приложения работают без VPN. При включённой настройке «Российские сервисы напрямую» российские домены, Госуслуги, VK, MAX и Rutube также используют прямое соединение.</span>
-    <label htmlFor="bypass-site">Сайт вне VPN</label>
-    <div style={{display:'flex',gap:8}}><input id="bypass-site" value={site} onChange={e=>setSite(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addSite()}} placeholder="example.com" style={{minWidth:0,flex:1,padding:12,borderRadius:12,background:'#101b29',color:'white',border:'1px solid #ffffff22'}}/><button className="btn btn--secondary btn--sm" onClick={addSite}>Добавить</button></div>
-    {domains.map(domain=><div key={domain} style={{display:'flex',alignItems:'center',gap:10}}><span style={{flex:1,overflowWrap:'anywhere'}}>{domain}</span><button className="btn btn--secondary btn--sm" aria-label={'Удалить '+domain} onClick={()=>setDomains(domains.filter(item=>item!==domain))}>×</button></div>)}
-    <button className="btn btn--secondary" onClick={()=>setShowApps(!showApps)}>{showApps?'Скрыть список':'Выбрать приложения'} · {excluded.length}</button>
-    {showApps&&<>{loading?<span>Загрузка приложений…</span>:<div aria-label="Приложения на телевизоре" style={{maxHeight:330,overflowY:'auto',display:'grid',gap:4}}>{visible.map(app=><label key={app.packageName} style={{padding:'10px 0',display:'flex',gap:10,alignItems:'center'}}><input type="checkbox" disabled={saving} checked={excluded.includes(app.packageName)} onChange={e=>setExcluded(e.target.checked?[...excluded,app.packageName]:excluded.filter(pkg=>pkg!==app.packageName))}/><span>{app.label}<small style={{display:'block',fontSize:10,color:'var(--text-secondary)'}}>{app.packageName}</small></span></label>)}</div>}</>}
-    <button className="btn btn--primary" disabled={!dirty||saving} onClick={apply}>{saving?'Применение…':dirty?'Применить исключения':'Исключения применены'}</button>
-    {error&&<span role="alert" style={{color:'#ff8299',fontSize:12}}>{error}</span>}
-    <span style={{fontSize:11,color:'var(--text-secondary)'}}>При изменении исключений активный VPN переподключится.</span>
-  </div>;
+      const result = await onUpdateSetting('bypassRules', { domains, apps: excluded, directRussia });
+      if (!result?.ok) throw Error(result?.error || 'Не удалось сохранить исключения');
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function addSite(event) {
+    event.preventDefault();
+    try {
+      const value = site.trim().replace(/^\*\./, '');
+      const url = new URL(value.includes('://') ? value : 'https://' + value);
+      if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || !url.hostname.includes('.')) {
+        throw Error('Введите домен, например example.com');
+      }
+      setDomains(items => [...new Set([...items, url.hostname.replace(/\.$/, '').toLowerCase()])]);
+      setSite('');
+      setError('');
+    } catch (failure) {
+      setError(failure.message);
+    }
+  }
+
+  const installed = new Set(apps.map(app => app.packageName));
+  const choices = [...apps, ...excluded.filter(pkg => !installed.has(pkg)).map(pkg => ({ packageName: pkg, label: pkg }))];
+  return <>
+    <div className="bypass-form" data-tv-scroll>
+      <button type="button" className="bypass-option" aria-pressed={directRussia} disabled={saving} onClick={() => setDirectRussia(value => !value)}>
+        <span>Российские сервисы напрямую</span><span>{directRussia ? 'Вкл.' : 'Выкл.'}</span>
+      </button>
+      <section aria-labelledby="bypass-app-title">
+        <h3 id="bypass-app-title">Приложения вне VPN</h3>
+        {loading && <p role="status">Загрузка приложений…</p>}
+        {appsError && <button type="button" className="btn btn--secondary" onClick={() => setAttempt(value => value + 1)}>Повторить загрузку</button>}
+        {appsError && <p role="alert">{appsError}</p>}
+        {!loading && !appsError && !choices.length && <p>Приложения для выбора не найдены.</p>}
+        {choices.map(app => {
+          const selected = excluded.includes(app.packageName);
+          return <button key={app.packageName} type="button" className="bypass-option" aria-pressed={selected} disabled={saving}
+            onClick={() => setExcluded(items => selected ? items.filter(pkg => pkg !== app.packageName) : [...items, app.packageName])}>
+            <span>{app.label}</span><span className="bypass-check" aria-hidden="true">{selected && <Check size={17} />}</span>
+          </button>;
+        })}
+      </section>
+      <section aria-labelledby="bypass-site-title">
+        <h3 id="bypass-site-title">Сайты вне VPN</h3>
+        <form className="bypass-site" onSubmit={addSite}>
+          <input aria-label="Адрес сайта" value={site} onChange={event => setSite(event.target.value)} placeholder="example.com" disabled={saving} />
+          <button className="btn btn--secondary" type="submit" disabled={saving}>Добавить</button>
+        </form>
+        {domains.map(domain => <button type="button" className="bypass-option" key={domain} disabled={saving} aria-label={'Удалить ' + domain}
+          onClick={() => setDomains(items => items.filter(item => item !== domain))}><span>{domain}</span><X size={17} /></button>)}
+      </section>
+    </div>
+    <footer className="bypass-footer">
+      <div>{error ? <p role="alert">{error}</p> : <span>Вне VPN · приложений: {excluded.length}, сайтов: {domains.length}</span>}</div>
+      <button className="btn btn--primary" data-tv-apply disabled={saving || !(rulesChanged || directChanged)} onClick={apply}>
+        {saving ? 'Применение…' : 'Применить'}
+      </button>
+    </footer>
+  </>;
 }
 
-export default function BypassEditor({settings,onUpdateSetting}) {
-  const [open,setOpen]=useState(false);const dialog=useRef(null),trigger=useRef(null);
-  useEffect(()=>{if(!open)return;const node=dialog.current;if(!node)return;try{if(!node.open)node.showModal()}catch{};node.setAttribute('data-open','true');const previous=document.body.style.overflow;document.body.style.overflow='hidden';const close=()=>setOpen(false);node.addEventListener('close',close);return()=>{node.removeEventListener('close',close);if(node.open)node.close();node.removeAttribute('data-open');document.body.style.overflow=previous;trigger.current?.focus()};},[open]);
-  const count=(settings.bypassRules?.domains||settings.excludedDomains||[]).length+(settings.bypassRules?.apps||settings.excludedApps||[]).length;
-  return <><button type="button" className="bypass-settings-row" ref={trigger} aria-haspopup="dialog" onClick={()=>setOpen(true)}><strong>Раздельное туннелирование</strong><span>{count?count+' искл.':settings.tvBypassRussia===true?'Включено':'Выкл.'}</span><ChevronRight size={17}/></button>{open&&createPortal(<dialog className="bypass-dialog" ref={dialog} aria-labelledby="bypass-dialog-title" onClick={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)setOpen(false)}}}><header className="bypass-dialog-header"><h2 id="bypass-dialog-title">Раздельное туннелирование</h2><button type="button" aria-label="Закрыть настройки туннелирования" onClick={()=>setOpen(false)}><X size={20}/></button></header><BypassForm settings={settings} onUpdateSetting={onUpdateSetting}/></dialog>,document.body)}</>;
+export default function BypassEditor({ settings, onUpdateSetting }) {
+  const [open, setOpen] = useState(false);
+  const trigger = useRef(null);
+  const count = (settings.bypassRules?.domains || settings.excludedDomains || []).length +
+    (settings.bypassRules?.apps || settings.excludedApps || []).length;
+
+  function close() {
+    setOpen(false);
+    requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true }));
+  }
+
+  return <>
+    <button type="button" className="bypass-settings-row" ref={trigger} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+      <strong>Раздельное туннелирование</strong>
+      <span>{count ? count + ' искл.' : settings.tvBypassRussia ? 'Включено' : 'Выкл.'}</span>
+      <ChevronRight size={17} />
+    </button>
+    {open && createPortal(
+      <div className="fluent-modal-overlay bypass-overlay" onClick={event => { if (event.target === event.currentTarget) close(); }}>
+        <section className="bypass-dialog" role="dialog" aria-modal="true" aria-labelledby="bypass-title">
+          <header className="bypass-dialog-header">
+            <h2 id="bypass-title">Раздельное туннелирование</h2>
+            <button type="button" className="fluent-modal-close" aria-label="Закрыть" onClick={close}><X size={20} /></button>
+          </header>
+          <BypassForm settings={settings} onUpdateSetting={onUpdateSetting} />
+        </section>
+      </div>, document.body
+    )}
+  </>;
 }

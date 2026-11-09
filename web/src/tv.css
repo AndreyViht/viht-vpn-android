@@ -121,3 +121,21 @@ html .liquid-window.is-android .login-actions .btn-auth__hint { font-size: 14px;
 .tv-home-actions button:disabled { opacity: .5; }
 .tv-home-server span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-home-server svg { flex-shrink: 0; }
+
+/* Keep the dock outside the scrolling viewport on TV. */
+html .liquid-window.is-android .fluent-app-layout > .fluent-main-viewport {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+html .liquid-window.is-android .fluent-app-layout > .ios-bottom-bar {
+  position: relative;
+  flex: 0 0 auto;
+  padding-top: 6px;
+  background: #0a111d;
+}
+
+html .liquid-window.is-android .fluent-app-layout > .ios-bottom-bar::before { display: none; }
+html .liquid-window.is-android .fluent-page { padding-bottom: 20px; }
+html .liquid-window.is-android .fluent-main-viewport > .tv-home-viewport { padding-block: 10px; }
+html .liquid-window.is-android .fluent-page-motion-wrap { scroll-behavior: auto; }

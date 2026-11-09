@@ -21,9 +21,18 @@ function controls() {
   );
 }
 
+function scrollArea(element) {
+  return element.closest('[data-tv-scroll], .fluent-page-motion-wrap');
+}
+
 function focus(element) {
   element?.focus({ preventScroll: true });
-  element?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const area = element && scrollArea(element);
+  if (!area) return;
+  const item = element.getBoundingClientRect();
+  const viewport = area.getBoundingClientRect();
+  if (item.bottom + 8 > viewport.bottom) area.scrollTop += item.bottom + 8 - viewport.bottom;
+  else if (item.top - 8 < viewport.top) area.scrollTop -= viewport.top - item.top + 8;
 }
 
 function center(element) {
@@ -91,8 +100,19 @@ document.addEventListener('keydown', event => {
     return;
   }
 
+  if (event.key === 'ArrowRight' && active.matches('.bypass-option')) {
+    const apply = items.find(item => item.hasAttribute('data-tv-apply'));
+    if (apply) {
+      focus(apply);
+      return;
+    }
+  }
+
   const [x, y] = center(active);
   const [dx, dy] = direction;
+  const area = scrollArea(active);
+  let bestInArea;
+  let areaScore = Infinity;
   let best;
   let bestScore = Infinity;
   for (const item of items) {
@@ -102,10 +122,23 @@ document.addEventListener('keydown', event => {
     if (forward <= 3) continue;
     const sideways = Math.abs((itemX - x) * dy + (itemY - y) * dx);
     const score = forward + sideways * 3;
+    if (dy && area && scrollArea(item) === area && score < areaScore) {
+      bestInArea = item;
+      areaScore = score;
+    }
     if (score < bestScore) {
       best = item;
       bestScore = score;
     }
+  }
+  if (bestInArea) {
+    focus(bestInArea);
+    return;
+  }
+  if (dy && area) {
+    const before = area.scrollTop;
+    area.scrollTop += dy * Math.max(48, Math.floor(area.clientHeight * .65));
+    if (area.scrollTop !== before) return;
   }
   focus(best);
 }, true);

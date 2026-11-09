@@ -869,11 +869,14 @@ export default function App() {
     const networkChange = ['killSwitch', 'allowLan', 'tvBypassRussia', 'dnsAdblock', 'legacyVpnCore', 'excludedApps', 'excludedDomains', 'bypassRules'].includes(key);
     if (networkChange && settingsChangeRef.current) {
       showToast('Дождитесь применения предыдущей сетевой настройки', 'info');
-      return;
+      return { ok: false, error: 'Дождитесь применения предыдущей сетевой настройки' };
     }
     if (networkChange) settingsChangeRef.current = true;
     const previous = settingsRef.current;
-    const next = { ...previous, [key]: value };
+    const bypassUpdate = key === 'bypassRules' && typeof value.directRussia === 'boolean';
+    const next = bypassUpdate
+      ? { ...previous, bypassRules: { domains: value.domains, apps: value.apps }, tvBypassRussia: value.directRussia }
+      : { ...previous, [key]: value };
     settingsRef.current = next;
     setSettings(next);
     const wasManual = manualDisconnectRef.current;
@@ -892,8 +895,9 @@ export default function App() {
       if (!result?.ok) throw new Error(result?.error || 'Перезапустите приложение, чтобы применить настройку');
       return result;
     } catch (error) {
-      if (settingsRef.current[key] === value) {
+      if (settingsRef.current[key] === next[key]) {
         const restored = { ...settingsRef.current, [key]: previous[key] };
+        if (bypassUpdate) restored.tvBypassRussia = previous.tvBypassRussia;
         settingsRef.current = restored;
         setSettings(restored);
         try { localStorage.setItem('viht_settings', JSON.stringify(restored)); } catch {}
