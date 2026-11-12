@@ -326,6 +326,7 @@ object UpdateChecker {
                 .removePrefix("v")
                 .removePrefix("V")
                 .substringBefore("+")
+                .removeSuffix(".test")
 
         val core =
             normalized.substringBefore("-")
