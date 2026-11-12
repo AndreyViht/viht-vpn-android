@@ -20,8 +20,8 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
     private fun describe(release: UpdateRelease) = JSONObject().put("version", release.version).put("fileName", release.apkUrl.substringAfterLast('/'))
         .put("downloadUrl", release.apkUrl).put("sizeBytes", release.apkSizeBytes).put("sizeFormatted", "%.1f МБ".format(release.apkSizeBytes / 1048576.0))
         .put("changelog", org.json.JSONArray(release.releaseNotes.lines().filter(String::isNotBlank).take(30)))
-    fun check(): JSONObject {
-        val release = UpdateChecker.getLatestRelease()
+    suspend fun check(): JSONObject {
+        val release = UpdateChecker.getLatestRelease(activity)
         val newer = UpdateChecker.isNewerVersion(release.version, BuildConfig.VERSION_NAME)
         if(newer) kotlin.check(UpdateReleaseCache.trusted(release)) { "Недопустимые метаданные обновления" }
         available = if (newer) release else null

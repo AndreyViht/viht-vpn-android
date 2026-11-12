@@ -43,12 +43,16 @@ object DirectUpdateDownload {
                 val file=UpdateInstaller.getDownloadFile(app)
                 if(file.length()==release.apkSizeBytes&&UpdateInstaller.verifyDownloadedApk(app,file)){p.edit().putInt("status",DownloadManager.STATUS_SUCCESSFUL).apply();return@launch}
                 if(file.length()>=release.apkSizeBytes)file.delete()
+                val privateHeaders = if (PrivateAndroidUpdates.isApkUrl(release.apkUrl)) PrivateAndroidUpdates.headers(app) else emptyMap()
                 val manager=app.getSystemService(ConnectivityManager::class.java)
                 p.edit().putInt("status",DownloadManager.STATUS_RUNNING).apply()
                 ResumableApkTransfer.download(file,release.apkSizeBytes,open={
                     val networks=manager.allNetworks.filter{n->manager.getNetworkCapabilities(n)?.let{it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)&&!it.hasTransport(NetworkCapabilities.TRANSPORT_VPN)}==true}
                     val network=networks.firstOrNull{manager.getNetworkCapabilities(it)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)==true} ?: networks.firstOrNull() ?: throw java.io.IOException("Нет Wi-Fi или мобильного интернета")
-                    network.openConnection(URL(release.apkUrl)) as HttpURLConnection
+                    (network.openConnection(URL(release.apkUrl)) as HttpURLConnection).apply {
+                        if (privateHeaders.isNotEmpty()) instanceFollowRedirects = false
+                        privateHeaders.forEach { (name, value) -> setRequestProperty(name, value) }
+                    }
                 },activeConnection={conn->
                     synchronized(DirectUpdateDownload){check(generation.get()==epoch);connection=conn}
                 })

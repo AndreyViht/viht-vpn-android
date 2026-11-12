@@ -29,7 +29,7 @@ class UpdateCheckWorker(
 
         return runCatching {
             val release =
-                UpdateChecker.getLatestRelease()
+                kotlinx.coroutines.runBlocking { UpdateChecker.getLatestRelease(applicationContext) }
 
             val updateAvailable =
                 UpdateChecker.isNewerVersion(

@@ -26,10 +26,20 @@ object UpdateChecker {
         val sizeBytes: Long = 0L
     )
 
-    fun getLatestRelease(): UpdateRelease {
+    suspend fun getLatestRelease(context: android.content.Context): UpdateRelease {
+        val privateRelease = PrivateAndroidUpdates.latest(context)
+        if (privateRelease != null && isNewerVersion(privateRelease.version, BuildConfig.VERSION_NAME)) return privateRelease
+        return getLatestRelease()
+    }
+
+    fun getLatestRelease(): UpdateRelease = fetchRelease(LATEST_RELEASE_URL, emptyMap())
+
+    internal fun fetchRelease(endpoint: String, headers: Map<String, String>): UpdateRelease {
         val connection =
-            (URL(LATEST_RELEASE_URL + "?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection).apply {
+            (URL(endpoint + "?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
+                if (headers.isNotEmpty()) instanceFollowRedirects = false
+                headers.forEach { (name, value) -> setRequestProperty(name, value) }
                 useCaches = false
                 setRequestProperty("Cache-Control", "no-cache")
                 connectTimeout = 10_000
