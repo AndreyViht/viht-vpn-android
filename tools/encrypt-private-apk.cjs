@@ -1,0 +1,10 @@
+const fs = require('node:fs');
+const crypto = require('node:crypto');
+const publicKey = "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAwerrYJ4qYb0MVsqL9yOD\nZj0BXb2Gm46KWumEiNuaolOoZl1LbXG3kKoilG9VbsG1fzHqTKSzT2dutqGeKvVY\n2DdvPDbnBC03BS/ux8M+2VYNCwhpgvdoHZNKipijq1k+qlO6rwgB9wzn0A0kioH4\ncpALNyzu2/suSjsXkbLBGYouv+syBmw5aNfuj/uGK6dVsIEZlJyL98bYHZUo2vI3\nj/hqfpg0I+EuBGg3IqvEPsrYp8CUjDY9lSR2KCB5JjQeODbolTLBnM6naaWl3oRI\nppp1KZtYogeNf1VdX27t56IVCojMlyWCDnocc7p5m8nBoaT5arp9WBe84xsHAuBq\nPS51zjbgVDKnYqG4aXFHu2b6oWakBrNqwH1OGWOfLCUqt8vRlopjP1x7XcdclvgI\nwASh6vNw1Tzn9d7o/qbGzA8uJAw18nL6w+gf+3jhu7TfV6lLL8f7A6KUBfqpFpou\ntctj0A94xXAKC2UdMm7FM0i2bn+7OOJvYSHbtEkvDNEVAgMBAAE=\n-----END PUBLIC KEY-----\n";
+const [input, output] = process.argv.slice(2);
+const key = crypto.randomBytes(32);
+const iv = crypto.randomBytes(12);
+const wrapped = crypto.publicEncrypt({key: publicKey, oaepHash: 'sha256'}, key);
+const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+const data = Buffer.concat([cipher.update(fs.readFileSync(input)), cipher.final()]);
+fs.writeFileSync(output, Buffer.concat([wrapped, iv, cipher.getAuthTag(), data]));
