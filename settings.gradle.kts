@@ -24,3 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Pingwin"
 include(":app")
+
+include(":admin-app")

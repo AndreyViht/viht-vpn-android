@@ -1,0 +1,45 @@
+.overview-trend {
+  position: relative;
+  display: flow-root;
+  border-radius: 12px;
+}
+
+.overview-trend:focus-visible {
+  outline: 2px solid #a8eed7;
+  outline-offset: 3px;
+}
+
+.overview-trend-hit {
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+
+.overview-trend-tooltip {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: 7px 12px;
+  border: 1px solid #b5d4ef40;
+  border-radius: 11px;
+  background: #111c29;
+  box-shadow: 0 6px 20px #0006;
+  color: #c4d4e3;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.overview-trend-tooltip[hidden] {
+  display: none;
+}
+
+.overview-trend-tooltip strong {
+  color: var(--trend-color);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}

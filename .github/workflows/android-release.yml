@@ -1,20 +1,13 @@
-name: Build Viht VPN APK
+name: Build Viht Admin APK
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
-    inputs:
-      run_16k_diagnostic:
-        description: "Run additional 16 KB runtime diagnostics (known Go runtime failure)"
-        type: boolean
-        default: false
 permissions:
   contents: read
 jobs:
   build:
-    name: Android universal test APK
+    if: github.ref_name == 'private-android-2.0.0.4-test'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     env:
       VIHT_TEST_KEYSTORE: ${{ github.workspace }}/.viht-test-signing.keystore
       VIHT_TEST_SIGNING_KEYSTORE: ${{ secrets.VIHT_TEST_SIGNING_KEYSTORE }}
@@ -25,116 +18,57 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - name: Build and test shared interface
+      - name: Build admin interface
         working-directory: web
         run: |
-          npm ci --ignore-scripts
-          npm test
-          npm run build
+          npm ci
+          npx --no-install vite build --config vite.admin.config.js
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v4
-      - name: Install Android platform
-        run: sdkmanager "platforms;android-37.0"
-      - name: Fetch pinned sing-box
-        run: node tools/fetch-libbox.mjs
-      - name: Verify pinned Xray and hev
-        run: node tools/fetch-xray-hev.mjs
-      - uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: viht-android-test-signing-v1
-      - name: Restore and verify the existing app signing key
+      - run: sdkmanager "platforms;android-37.0"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Restore and verify persistent signing key
         run: |
-          if [ -n "$VIHT_TEST_SIGNING_KEYSTORE" ]; then
-            printf '%s' "$VIHT_TEST_SIGNING_KEYSTORE" | base64 --decode > "$VIHT_TEST_KEYSTORE"
-          else
-            test -f "$HOME/.android/debug.keystore" || { echo "Existing signing key missing; refusing to generate a different key"; exit 1; }
-            cp "$HOME/.android/debug.keystore" "$VIHT_TEST_KEYSTORE"
-          fi
+          test -n "$VIHT_TEST_SIGNING_KEYSTORE"
+          printf '%s' "$VIHT_TEST_SIGNING_KEYSTORE" | base64 --decode > "$VIHT_TEST_KEYSTORE"
           chmod 600 "$VIHT_TEST_KEYSTORE"
           actual=$(keytool -exportcert -keystore "$VIHT_TEST_KEYSTORE" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f1)
-          test "$actual" = "d0b6089540fa9af2a4a0a6b99140ca7f168c70e05df849b5abef4bed51fb1d66"
-      - name: Encrypt one-time signing recovery
-        if: env.VIHT_TEST_SIGNING_KEYSTORE == ''
-        run: node tools/encrypt-signing-recovery.cjs
-      - uses: actions/upload-artifact@v4
-        if: env.VIHT_TEST_SIGNING_KEYSTORE == ''
-        with:
-          name: Viht-Signing-Recovery
-          path: signing-recovery.json
-          retention-days: 1
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: false
-      - name: Test, lint and build
+          test "$actual" = d0b6089540fa9af2a4a0a6b99140ca7f168c70e05df849b5abef4bed51fb1d66
+      - name: Build Viht Admin
         run: |
           chmod +x gradlew
-          ./gradlew testDebugUnitTest lintDebug assembleDebug --continue --console=plain --stacktrace -PciVersionCode=$((20001 + GITHUB_RUN_NUMBER))
-      - name: Enable KVM for core runtime verification
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - name: Verify compressed core on 16 KB Android
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          avd-name: viht-16kb
-          api-level: 35
-          disable-animations: true
-          arch: x86_64
-          target: google_apis_ps16k
-          emulator-options: -memory 4096 -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: bash tools/test-16k-core.sh
-      - name: Start packaged core without a VPN tunnel
+          ./gradlew :admin-app:lintDebug :admin-app:assembleDebug --console=plain -PciVersionCode="$GITHUB_RUN_NUMBER"
+      - name: Launch Viht Admin on Android
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 36
-          disable-animations: true
           arch: x86_64
           target: google_apis
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: ./gradlew connectedDebugAndroidTest --console=plain --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=com.pingwin.vpn.CoreStartupTest,com.pingwin.vpn.XrayHevRuntimeTest -PciVersionCode=$((20001 + GITHUB_RUN_NUMBER))
-      - name: Prepare universal APK
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash tools/smoke-admin.sh
+      - name: Verify and encrypt APK
         run: |
-          mkdir -p release-apk
-          analyzer=$(find "$ANDROID_HOME" -path "*/bin/apkanalyzer" | head -1)
-          test "$("$analyzer" manifest version-name app/build/outputs/apk/debug/app-debug.apk)" = "2.0.0.4.test"
-          test "$("$analyzer" manifest application-id app/build/outputs/apk/debug/app-debug.apk)" = "ru.anviht.vpn.test"
-          "$analyzer" manifest permissions app/build/outputs/apk/debug/*.apk > release-apk/permissions.txt
-          if grep -E "android.permission.(CAMERA|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|ACCESS_BACKGROUND_LOCATION|READ_MEDIA_IMAGES|READ_MEDIA_VIDEO|READ_MEDIA_VISUAL_USER_SELECTED|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE)" release-apk/permissions.txt; then echo "Unexpected sensitive permission in final APK"; exit 1; fi
-          "$analyzer" manifest print app/build/outputs/apk/debug/*.apk | grep 'extractNativeLibs="true"'
-          python3 tools/verify-native-packaging.py app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/*.apk release-apk/VihtVPN-2.0.0.4.test-universal.apk
-          sha256sum release-apk/*.apk > release-apk/SHA256SUMS.txt
+          mkdir release-admin
+          apk=release-admin/Viht-Admin-2.0.0.5.test.apk
+          cp admin-app/build/outputs/apk/debug/admin-app-debug.apk "$apk"
+          analyzer="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          test "$("$analyzer" manifest application-id "$apk")" = ru.anviht.admin.test
+          test "$("$analyzer" manifest version-name "$apk")" = 2.0.0.5.test
+          test "$("$analyzer" manifest version-code "$apk")" = "$GITHUB_RUN_NUMBER"
+          "$analyzer" manifest print "$apk" > release-admin/manifest.xml
+          if grep -E 'VpnService|BIND_VPN_SERVICE' release-admin/manifest.xml; then exit 1; fi
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          "$signer" verify --verbose --print-certs release-apk/VihtVPN-2.0.0.4.test-universal.apk > release-apk/signature-verification.txt
-          expected=$(keytool -exportcert -keystore "$VIHT_TEST_KEYSTORE" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f1)
-          actual=$(node tools/apk-signer-sha256.mjs release-apk/VihtVPN-2.0.0.4.test-universal.apk)
-          echo "Expected certificate: $expected; APK certificate: $actual"
-          test "$expected" = "$actual"
-          aligner=$(find "$ANDROID_HOME/build-tools" -name zipalign | sort -V | tail -1)
-          "$aligner" -c -P 16 -v 4 release-apk/VihtVPN-2.0.0.4.test-universal.apk > release-apk/alignment-verification.txt
-          for abi in arm64-v8a x86_64; do
-            unzip -Z1 release-apk/VihtVPN-2.0.0.4.test-universal.apk | grep "^lib/$abi/.*\.so$" > /dev/null || exit 1
-          done
-      - name: Encrypt private APK artifact
-        run: |
-          tar -czf release-apk.tgz -C release-apk .
-          node tools/encrypt-private-apk.cjs release-apk.tgz VihtVPN-Android-test.enc
+          "$signer" verify --verbose --print-certs "$apk" > release-admin/signature.txt
+          grep -F 'd0b6089540fa9af2a4a0a6b99140ca7f168c70e05df849b5abef4bed51fb1d66' release-admin/signature.txt
+          (cd release-admin && sha256sum *.apk > SHA256SUMS.txt)
+          tar -czf release-admin.tgz -C release-admin .
+          node tools/encrypt-private-apk.cjs release-admin.tgz Viht-Admin.enc tools/viht-admin-artifact-public.pem
       - uses: actions/upload-artifact@v4
         with:
-          name: VihtVPN-Android-test-encrypted
-          path: VihtVPN-Android-test.enc
+          name: Viht-Admin-encrypted
+          path: Viht-Admin.enc
+          if-no-files-found: error
           retention-days: 1
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: Android-check-reports
-          path: |
-            app/build/reports/tests/
-            app/build/reports/androidTests/
-            app/build/outputs/androidTest-results/
-            app/build/reports/lint-results-debug.*

@@ -1,0 +1,122 @@
+/* Client workspace: retain the admin palette, reduce visual weight and keep actions in clear groups. */
+body.viht-mobile-admin .admin-clients-card{background:transparent!important;border:0!important;box-shadow:none!important}
+body.viht-mobile-admin .admin-clients-feed{display:grid;gap:9px}
+body.viht-mobile-admin .admin-client-row{min-height:76px!important;padding:13px 15px!important;border:1px solid #bcd9eb19!important;border-radius:20px!important;background:linear-gradient(120deg,#18304061,#101c2a91)!important;box-shadow:inset 0 1px 0 #ffffff04!important;transition:scale 160ms ease,border-color 180ms ease,background-color 180ms ease;animation:admin-client-row-in 240ms both;animation-delay:calc(var(--client-row-index,0)*12ms);cursor:pointer}
+body.viht-mobile-admin .admin-client-row:active{scale:.993}
+body.viht-mobile-admin .admin-client-row:focus-visible{outline:2px solid #b0eed6;outline-offset:3px}
+body.viht-mobile-admin .admin-client-row-left{gap:12px!important;min-width:0}
+body.viht-mobile-admin .admin-client-avatar{position:relative!important;flex-shrink:0;overflow:hidden;background:linear-gradient(140deg,#27546e,#183849)!important;box-shadow:inset 0 0 0 1px #d3efff18!important}
+body.viht-mobile-admin .admin-client-avatar-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+body.viht-mobile-admin .admin-client-name-row{font-size:13px!important;letter-spacing:-.15px;line-height:1.4}
+body.viht-mobile-admin .admin-client-sub-row{margin-top:5px!important;font-size:10px!important;opacity:.8}
+body.viht-mobile-admin .admin-client-days-badge{font-size:12px!important;padding:8px 10px!important;border-radius:12px!important;background:#b0eed60c!important;border-color:#b0eed624!important;color:#b7ecd9!important;font-variant-numeric:tabular-nums;white-space:nowrap}
+body.viht-mobile-admin .admin-client-days-badge--zero{color:#e4b7bc!important;background:#ee8a9c0b!important;border-color:#ee8a9c20!important}
+body.viht-mobile-admin .admin-client-days-badge--warn{color:#edcea2!important;background:#eac58d0b!important;border-color:#eac58d20!important}
+body.viht-mobile-admin .admin-cm-overlay{animation:admin-client-backdrop-in 190ms ease-out!important}
+body.viht-mobile-admin .admin-cm-card.admin-cm-card{display:flex!important;flex-direction:column!important;width:min(560px,100%)!important;max-height:calc(100dvh - 32px)!important;overflow:hidden!important;border-radius:29px!important;border:1px solid #d7edf52a!important;background:linear-gradient(150deg,#203746f5,#101f2dfc)!important;box-shadow:0 35px 100px #0008,inset 0 1px 0 #ffffff0b!important;animation:admin-client-card-in 300ms cubic-bezier(.2,.8,.2,1)!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-head{padding:20px!important;flex-shrink:0;border:0!important;background:#ffffff02}
+body.viht-mobile-admin .admin-cm-card .admin-cm-avatar{height:44px!important;width:44px!important;min-width:44px!important;border-radius:15px!important;overflow:visible}
+body.viht-mobile-admin .admin-cm-card .admin-cm-avatar .admin-client-avatar-img{border-radius:15px}
+body.viht-mobile-admin .admin-cm-card .admin-cm-user-title{font-size:17px!important;letter-spacing:-.4px;font-weight:750;line-height:1.3!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-user-sub{font-size:10px!important;margin-top:5px;color:#a9bdcc!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-tabs{flex-shrink:0;margin:0 20px 5px!important;padding:5px!important;background:#091a2470!important;border:1px solid #d7efff0c!important;border-radius:16px!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-tab{font-size:11px!important;min-height:40px;padding:10px 5px!important;border-radius:12px!important;gap:5px!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-tab-pane{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overscroll-behavior:contain;padding:17px 20px 20px!important;gap:13px!important;scrollbar-width:thin}
+body.viht-mobile-admin .admin-cm-card .admin-cm-status-card{background:linear-gradient(115deg,#b0eed60c,#08172455)!important;border:1px solid #d4f5e50d!important;border-radius:19px!important;padding:17px!important;margin:0!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-status-val{font-size:35px!important;line-height:1;letter-spacing:-1.4px;font-variant-numeric:tabular-nums}
+body.viht-mobile-admin .admin-cm-card .admin-cm-status-label{font-size:9px!important;letter-spacing:1px}
+body.viht-mobile-admin .admin-cm-card .admin-cm-chips-row{gap:6px!important;flex-wrap:wrap!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-chip{font-size:11px!important;padding:9px 12px!important;border-radius:12px!important;background:#ffffff04!important;border:1px solid #e5f3ff14!important;min-height:35px!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-chip--active{background:#b4efdc14!important;color:#c1f2df!important;border-color:#b4efdc36!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-stepper-row{gap:7px!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-stepper-btn{width:43px!important;min-width:38px!important;height:47px!important;border-radius:14px!important;background:#ffffff05!important;border:1px solid #dcecf61a!important;box-shadow:inset 0 1px 0 #ffffff05!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-input-wrap{min-width:0!important;border-radius:14px!important;background:#08182490!important;border:1px solid #dcecf612!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-notify-row{padding:12px 13px!important;border-radius:15px!important;background:#08182466!important;border:1px solid #dcecf60b!important;font-size:11px!important;margin:0!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-actions-grid{gap:9px!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-btn{min-height:46px!important;border-radius:15px!important;font-size:12px!important;padding:12px!important;box-shadow:inset 0 1px 0 #ffffff08!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-btn--grant{background:linear-gradient(110deg,#a5e8d0,#c0f3df)!important;color:#143b30!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-link-btn{font-size:10px!important;opacity:.65;margin-top:0!important;padding:10px!important}
+body.viht-mobile-admin .admin-cm-toast-pill{border:1px solid #c7f4e52e!important;border-radius:19px!important;background:#152c38f5!important;animation:admin-client-card-in 250ms cubic-bezier(.2,.8,.2,1)}
+body.viht-mobile-admin .admin-cm-toast-pill.is-error{border-color:#ed9fa544!important;color:#f0bec2!important}
+.admin-feedback-dialog{box-sizing:border-box;width:min(390px,calc(100vw - 32px));max-height:calc(100dvh - 40px);overflow:auto;overscroll-behavior:contain;margin:auto;padding:27px;border-radius:28px;border:1px solid #d6edf435;background:linear-gradient(145deg,#243d4afc,#132431fc);color:#edf7fa;box-shadow:0 28px 100px #0009;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;--feedback-accent:#b2eed6}
+.admin-feedback-dialog[open]{animation:admin-feedback-in 260ms cubic-bezier(.2,.8,.2,1)}
+.admin-feedback-dialog::backdrop{background:#020811a8;backdrop-filter:blur(8px);animation:admin-client-backdrop-in 180ms ease-out}
+.admin-feedback-dialog.is-closing{pointer-events:none}
+.admin-feedback-dialog.is-danger{--feedback-accent:#f1c794}
+.admin-feedback-eyebrow{display:block;font-size:9px;font-weight:700;letter-spacing:1.7px;color:#a9c2ce;margin:19px 0 9px}
+.admin-feedback-dialog h2{margin:0;font-size:24px;line-height:1.15;letter-spacing:-.7px;color:#f1fafb}
+.admin-feedback-dialog p{font-size:12px;line-height:1.65;color:#adc1cd;margin:13px 0 18px}
+.admin-feedback-mark,.admin-feedback-check{display:grid;place-items:center;width:53px;height:53px;border-radius:18px;background:#b2eed610;border:1px solid #b2eed629;color:var(--feedback-accent);font-size:29px}
+.admin-feedback-dialog.is-danger .admin-feedback-mark{background:#eec58b0c;border-color:#eec58b29}
+.admin-feedback-receipt{display:grid;grid-template-columns:auto minmax(0,1fr);gap:13px 18px;padding:17px;margin:19px 0;border-radius:17px;background:#08192373;border:1px solid #d1e9f20d;font-size:11px;line-height:1.5}
+.admin-feedback-receipt>span{color:#9ab3c1}.admin-feedback-receipt>strong{text-align:right;color:#e0eff3;font-weight:600;overflow-wrap:anywhere}
+.admin-feedback-dialog small{display:block;font-size:10px;line-height:1.6;color:#9eb9c7;margin-bottom:15px}
+.admin-feedback-primary,.admin-feedback-secondary{width:100%;min-height:45px;border-radius:15px;font-family:inherit;font-size:12px;font-weight:650;padding:12px;border:1px solid #d7eef31a;cursor:pointer;transition:scale 150ms ease,background-color 150ms ease}
+.admin-feedback-primary{background:var(--feedback-accent);color:#17382e;border:0}.admin-feedback-dialog.is-danger .admin-feedback-primary{color:#3b2915}.admin-feedback-secondary{margin-top:8px;background:#ffffff04;color:#b3cbd6}.admin-feedback-primary:active,.admin-feedback-secondary:active{scale:.97}.admin-feedback-dialog button:disabled{opacity:.5;cursor:wait}.admin-feedback-dialog :focus-visible{outline:2px solid var(--feedback-accent);outline-offset:3px}
+.admin-feedback-value{font-size:43px;letter-spacing:-1.8px;font-weight:750;line-height:1.1;color:#b4efda;margin:22px 0;font-variant-numeric:tabular-nums}
+.admin-feedback-check svg{height:39px;width:39px;fill:none;stroke:#b4efda;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}.admin-feedback-check circle{stroke:#b4efda32}.admin-feedback-check path{stroke-dasharray:40;animation:admin-feedback-check 480ms cubic-bezier(.2,.8,.2,1) both}
+@keyframes admin-feedback-check{from{stroke-dashoffset:40}to{stroke-dashoffset:0}}@keyframes admin-feedback-in{from{opacity:0;transform:translate3d(0,13px,0) scale(.96)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}@keyframes admin-client-card-in{from{opacity:0;transform:translate3d(0,15px,0) scale(.985)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}@keyframes admin-client-backdrop-in{from{opacity:0}to{opacity:1}}@keyframes admin-client-row-in{from{opacity:0;translate:0 6px}to{opacity:1;translate:0 0}}
+@media(hover:hover){body.viht-mobile-admin .admin-client-row:hover{border-color:#b4efda3b!important}}
+@media(max-width:360px){body.viht-mobile-admin .admin-cm-card .admin-cm-head{padding:16px!important}body.viht-mobile-admin .admin-cm-card .admin-cm-tabs{margin-left:15px!important;margin-right:15px!important}body.viht-mobile-admin .admin-cm-card .admin-cm-tab-pane{padding:15px!important}body.viht-mobile-admin .admin-cm-card .admin-cm-chip{padding:8px 10px!important}.admin-feedback-dialog{padding:23px}}
+@media(prefers-reduced-motion:reduce){body.viht-mobile-admin .admin-client-row,body.viht-mobile-admin .admin-cm-card.admin-cm-card,body.viht-mobile-admin .admin-cm-overlay,.admin-feedback-dialog,.admin-feedback-dialog::backdrop,.admin-feedback-check path{animation:none!important;transition:none!important}}
+
+body.viht-mobile-admin .admin-cm-card[data-mode="days"] .admin-cm-chips-row{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px!important}body.viht-mobile-admin .admin-cm-card[data-mode="slots"] .admin-cm-chips-row{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px!important}body.viht-mobile-admin .admin-cm-card .admin-cm-chips-row .admin-cm-chip{min-width:0!important;padding:9px 4px!important;white-space:nowrap;font-size:10px!important}
+/* Mobile client workspace v2 — one readable list and a fixed client summary. */
+body.viht-mobile-admin .admin-shell:has(.admin-clients-page){padding-bottom:0!important}
+body.viht-mobile-admin .admin-clients-page{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important}
+body.viht-mobile-admin .admin-clients-head{display:flex!important;align-items:center!important;justify-content:space-between;gap:12px!important;padding:0 0 18px!important;background:none!important;border:0!important;box-shadow:none!important}
+body.viht-mobile-admin .admin-clients-head__left{display:flex!important;flex-wrap:wrap;align-items:baseline;gap:8px!important;min-width:0}
+body.viht-mobile-admin .admin-clients-head__title{display:flex;align-items:center;gap:9px;font-size:27px!important;letter-spacing:-1px}
+body.viht-mobile-admin .admin-clients-head__title svg{color:#b7ead9;flex-shrink:0}
+body.viht-mobile-admin .admin-clients-head__count{padding:0!important;border:0!important;background:none!important;font-size:11px!important;line-height:1.3;color:#8faabc!important;white-space:nowrap}
+body.viht-mobile-admin .admin-clients-btn-refresh{display:flex;align-items:center;gap:7px;min-height:40px;flex-shrink:0;border-radius:13px!important;background:#d4eef009!important;border:1px solid #d4eef01a!important}
+body.viht-mobile-admin .admin-clients-controls{padding:0 0 18px!important;border:0!important;background:none!important;box-shadow:none!important;overflow:visible!important}
+body.viht-mobile-admin .admin-clients-search-row{border:1px solid #c9e8f026;border-radius:16px;background:#12243280;overflow:hidden}
+body.viht-mobile-admin .admin-clients-search-input{height:47px!important;border:0!important;background:transparent!important;font-size:13px!important;padding-left:42px!important;min-width:0}
+body.viht-mobile-admin .admin-clients-search-icon{display:grid;place-items:center;color:#a5c5d1}
+body.viht-mobile-admin .admin-clients-filter-capsule{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px!important;padding:10px 0 0!important;background:none!important;border:0!important;height:auto!important;max-height:none!important;overflow:visible!important;width:100%!important}
+body.viht-mobile-admin .admin-clients-filter-btn{display:flex;align-items:center;justify-content:center;min-width:0!important;min-height:36px!important;height:auto!important;padding:8px 9px!important;font-size:11px!important;line-height:1.25;white-space:normal!important;border:1px solid #d7edf216!important;border-radius:12px!important;background:#d7edf206!important;color:#adc1cd!important}
+body.viht-mobile-admin .admin-clients-filter-btn--active{background:#b2eed618!important;border-color:#b2eed647!important;color:#cef4e7!important;box-shadow:inset 0 1px 0 #ffffff0a!important}
+body.viht-mobile-admin .admin-clients-card{overflow:hidden!important;background:#0e202cd9!important;border:1px solid #c9e8f025!important;border-radius:22px!important}
+body.viht-mobile-admin .admin-clients-card-head{padding:13px 15px!important;background:#d7edf205!important;border-bottom:1px solid #c9e8f012!important;font-size:9px!important;letter-spacing:.6px}
+body.viht-mobile-admin .admin-clients-feed{gap:0!important;padding:0!important}
+body.viht-mobile-admin .admin-client-row{margin:0!important;min-height:76px!important;border:0!important;border-bottom:1px solid #c9e8f012!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;padding:13px 14px!important}
+body.viht-mobile-admin .admin-client-row:last-child{border-bottom:0!important}
+body.viht-mobile-admin .admin-client-row-left{flex:1;min-width:0;gap:11px!important}
+body.viht-mobile-admin .admin-client-info{min-width:0;flex:1}
+body.viht-mobile-admin .admin-client-row .admin-client-avatar{width:38px!important;height:40px!important;min-width:38px!important;border-radius:13px!important}
+body.viht-mobile-admin .admin-client-row-right{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-shrink:0}
+body.viht-mobile-admin .admin-client-days-badge{padding:7px 9px!important;border-radius:11px!important;background:#b2eed60b!important;border-color:#b2eed61b!important;font-size:11px!important}
+body.viht-mobile-admin .admin-client-row-arrow{color:#6a889a;flex-shrink:0}
+body.viht-mobile-admin .admin-clients-pagination{display:grid!important;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px!important;padding:20px 0 0!important;margin:0!important;position:relative;z-index:1}
+body.viht-mobile-admin .admin-clients-page-btn{width:100%;height:42px!important;min-width:0!important;border-radius:13px!important;background:#d7edf206!important;border:1px solid #d7edf21a!important;font-size:11px!important}
+body.viht-mobile-admin .admin-clients-page-info{font-size:11px!important;white-space:nowrap}
+body.viht-mobile-admin .admin-cm-card.admin-cm-card{width:min(580px,100%)!important;border-radius:26px!important;background:linear-gradient(150deg,#1c3444fc,#0e202efc)!important;max-height:calc(100dvh - 28px)!important;height:auto!important;min-height:0!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-head{padding:19px 20px 15px!important;align-items:flex-start!important;gap:12px!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-user-preview{flex:1!important;min-width:0!important;align-items:center;gap:11px!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-user-meta{flex:1;min-width:0!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-user-title{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;max-width:none!important;line-height:1.3!important;font-size:17px!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-head-actions{flex-shrink:0;gap:6px!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-head-actions button{width:33px!important;min-width:33px!important;height:33px!important;min-height:33px!important;border-radius:11px!important}
+.admin-client-summary{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0 20px 15px;flex-shrink:0}
+.admin-client-summary>div{min-width:0;padding:14px;border-radius:17px;border:1px solid #d5edf012;background:linear-gradient(120deg,#b0eed608,#d5edf004)}
+.admin-client-summary>div>span{display:flex;align-items:center;gap:6px;font-size:10px;color:#9fbac9}
+.admin-client-summary strong{display:block;margin:10px 0 8px;font-size:30px;line-height:1;color:#c0efdc;letter-spacing:-1px;font-weight:700;font-variant-numeric:tabular-nums}
+.admin-client-summary strong small{font-size:13px;letter-spacing:0;color:#9eb8c7;font-weight:500}
+.admin-client-summary em{display:block;font-size:9px;line-height:1.4;color:#8da9ba;font-style:normal;overflow-wrap:anywhere}
+body.viht-mobile-admin .admin-cm-card .admin-cm-tabs{margin:0 20px 0!important;border-radius:14px!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-tab-pane{display:flex!important;flex-direction:column!important;flex:1 1 auto!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;padding:16px 20px 20px!important;gap:13px!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-tab-pane>*{flex-shrink:0!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-status-card,body.viht-mobile-admin .admin-cm-card .admin-cm-meter{display:none!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-chips-wrap,body.viht-mobile-admin .admin-cm-card .admin-cm-chips-row{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;flex:0 0 auto!important;margin:0!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-chip{height:auto!important;min-height:36px!important;padding:9px 4px!important;line-height:1.3!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-actions-grid{height:auto!important;min-height:46px!important;flex:0 0 auto!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-stepper-row{height:48px!important;min-height:48px!important;flex-shrink:0!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-devices-list{max-height:none!important;height:auto!important;overflow:visible!important}
+@media(max-width:900px){body.viht-mobile-admin .admin-clients-feed{display:block!important}body.viht-mobile-admin .admin-clients-desktop-table{display:none!important}body.viht-mobile-admin .admin-clients-filter-capsule{grid-template-columns:repeat(3,minmax(0,1fr))}body.viht-mobile-admin .admin-clients-filter-btn:last-child{grid-column:span 2}}
+@media(min-width:901px){body.viht-mobile-admin .admin-clients-feed{display:none!important}body.viht-mobile-admin .admin-clients-desktop-table{display:table!important}body.viht-mobile-admin .admin-clients-page{padding-bottom:40px!important}}
+@media(max-width:360px){body.viht-mobile-admin .admin-clients-head__title{font-size:24px!important}body.viht-mobile-admin .admin-clients-btn-refresh>span{display:none}.admin-client-summary{margin:0 15px 13px}.admin-client-summary>div{padding:12px}body.viht-mobile-admin .admin-cm-card .admin-cm-user-title{font-size:15px!important}}
+body.viht-mobile-admin .admin-cm-card.admin-cm-card{gap:0!important}
+body.viht-mobile-admin .admin-cm-card .admin-cm-meter-card{display:none!important}
+body.viht-mobile-admin .admin-client-row-right{flex-direction:row!important}
+.admin-client-summary em.is-warning{color:#edcea2}
