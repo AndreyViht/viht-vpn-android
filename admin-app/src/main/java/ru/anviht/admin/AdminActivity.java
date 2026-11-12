@@ -1,6 +1,7 @@
 package ru.anviht.admin;
 
-import android.app.Activity;
+import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
 import android.os.Bundle;
 import android.webkit.CookieManager;
 import android.webkit.WebResourceRequest;
@@ -9,7 +10,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import androidx.webkit.WebViewAssetLoader;
 
-public final class AdminActivity extends Activity {
+public final class AdminActivity extends ComponentActivity {
     private static final String HOST = "anviht.ru";
     private static final String PREFIX = "/__viht_admin_app__/";
     private WebView page;
@@ -39,12 +40,14 @@ public final class AdminActivity extends Activity {
                 return true;
             }
         });
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override public void handleOnBackPressed() {
+                page.evaluateJavascript("window.dispatchEvent(new CustomEvent('viht-back',{cancelable:true}))",
+                    result -> { if ("true".equals(result)) finish(); });
+            }
+        });
         setContentView(page);
         page.loadUrl("https://" + HOST + PREFIX + "admin.html");
     }
 
-    @Override public void onBackPressed() {
-        page.evaluateJavascript("window.dispatchEvent(new CustomEvent('viht-back',{cancelable:true}))",
-            result -> { if ("true".equals(result)) finish(); });
-    }
 }

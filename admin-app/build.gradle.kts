@@ -20,4 +20,7 @@ android {
     }
     buildTypes { debug { isDebuggable = false } }
 }
-dependencies { implementation("androidx.webkit:webkit:1.12.1") }
+dependencies {
+    implementation("androidx.activity:activity:1.10.1")
+    implementation("androidx.webkit:webkit:1.12.1")
+}
