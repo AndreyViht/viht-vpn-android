@@ -549,7 +549,7 @@ class AutoVlessVpnService :
     private fun prepareAndroidConfig(source: String): Pair<String, Int> {
         val root = JSONObject(source)
         // Per-connection info logs are costly under heavy traffic; keep them opt-in.
-        root.optJSONObject("log")?.put("level", if (DiagnosticLogStore.isDetailedEnabled(this)) "info" else "warn")
+        root.optJSONObject("log")?.put("level", if (DiagnosticLogStore.isDetailedEnabled(this)) "debug" else "warn")
         // Also upgrade configurations saved before mandatory payment bypass existed.
         PaymentNetworkPolicy.apply(root)
         val network = physicalDefaultNetwork ?: choosePhysicalNetwork() ?: error("Нет физического подключения к сети")
