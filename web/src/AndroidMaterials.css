@@ -26,3 +26,9 @@ html[data-viht-theme]{--accent:var(--v-accent);--text-primary:var(--v-text);--te
 .viht-billing-panel,.device-invite-dialog,.device-invite-card,.bypass-dialog{background:var(--v-surface,#142831)!important;color:var(--v-text,#e9f4f2)}.billing-pay{background:var(--v-accent,#a4efd5)!important}.billing-tariffs button[aria-pressed=true]{box-shadow:inset 3px 0 var(--v-accent,#a4efd5)}
 
 .liquid-window.is-android .ios-tab-item--active .ios-tab-item__icon,.liquid-window.is-android .ios-tab-item--active .ios-tab-item__label,.liquid-window.is-android .fluent-theme-badge{color:var(--accent)!important}.liquid-window.is-android .fluent-theme-badge{background:var(--viht-surface)!important}
+
+/* Bind the shared legacy controls and profile surfaces to the selected palette too. */
+.liquid-window.is-android{--bg-main:var(--v-bg,#09131f)!important;--bg-surface:var(--v-surface,#142831)!important;--bg-surface-elevated:var(--v-tint,#345361)!important;--bg-card:color-mix(in srgb,var(--v-surface,#142831) 72%,transparent)!important;--neon-green:var(--v-accent,#a4efd5)!important;--neon-green-light:var(--v-accent,#a4efd5)!important;--neon-cyan:var(--v-accent,#a4efd5)!important;--neon-green-glow:color-mix(in srgb,var(--v-accent,#a4efd5) 25%,transparent)!important;--text-muted:var(--v-muted,#a3b9c4)!important;--border-active:var(--v-line,#ffffff20)!important;--border-focus:var(--v-accent,#a4efd5)!important;--glass:color-mix(in srgb,var(--v-surface,#142831) 45%,transparent)!important}
+.liquid-window.is-android .viht-profile-compact .fluent-card{background:var(--bg-card)!important;border-color:var(--viht-line)!important;color:var(--text-primary)}
+html[data-viht-theme] .fluent-modal-card,html[data-viht-theme] .viht-ios-dialog{background:var(--v-surface,#142831)!important;color:var(--v-text,#e9f4f2);border-color:var(--v-line,#ffffff20)}
+.liquid-window.is-android .viht-release-history{border:0;background:transparent;padding:16px 0;border-top:1px solid var(--viht-line)}
