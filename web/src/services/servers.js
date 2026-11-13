@@ -9,11 +9,11 @@ function configToClient(config) {
   const params = new URLSearchParams({ type: stream.network || 'tcp', security });
   const fields = {
     encryption: user.encryption || 'none', flow: user.flow,
-    sni: tls.serverName, fp: tls.fingerprint, pbk: tls.publicKey, sid: tls.shortId,
+    sni: tls.serverName, fp: tls.fingerprint, pbk: tls.publicKey, sid: tls.shortId, spx: tls.spiderX,
     path: stream.wsSettings?.path || stream.xhttpSettings?.path || stream.httpSettings?.path,
     host: stream.wsSettings?.headers?.Host || stream.xhttpSettings?.host,
     serviceName: stream.grpcSettings?.serviceName, mode: stream.xhttpSettings?.mode,
-    alpn: Array.isArray(tls.alpn) ? tls.alpn.join(',') : undefined,
+    alpn: Array.isArray(tls.alpn) ? tls.alpn.join(',') : tls.alpn,
   };
   for (const [key, value] of Object.entries(fields)) {
     if (value != null && value !== '') params.set(key, String(value));
@@ -70,7 +70,7 @@ export function parseApiClients(clients = []) {
     // Subscription notices are dummy localhost entries, never connection targets.
     if (!host || ['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(host)
       || !url.username || !Number.isInteger(port) || port < 1 || port > 65535) continue;
-    let name = String(client.inbound_remarks || '').trim();
+    let name = String(client.inbound_remarks || client.name || client.remarks || '').trim();
     if (!name) {
       try { name = decodeURIComponent(url.hash.slice(1)); } catch { name = url.hash.slice(1); }
     }

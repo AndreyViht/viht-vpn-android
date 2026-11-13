@@ -1,160 +1,153 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Globe,
-  RefreshCw,
-  Activity,
-  Check,
-  Zap,
-} from 'lucide-react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {motion, useReducedMotion} from 'framer-motion';
+import {Activity, Check, RefreshCw, Pause, Play, ArrowDownUp} from 'lucide-react';
 import CountryFlag from './CountryFlag';
-import { t } from '../utils/i18n';
-import { springs, buttonPress } from '../utils/motion';
-import { formatServerPing, getServerCountry } from '../services/servers';
+import {getServerCountry} from '../services/servers';
+import './ServersLive.css';
 
-function ServersScreen({
-  accessDisabled=false,
-  servers,
-  currentServer,
-  connectionState,
-  onSelectServer,
-  onRefreshKeys,
-  refreshingKeys,
-  onRefreshPing,
-  refreshingPing,
-  lang = 'ru',
-}) {
-  const getCountryCode = getServerCountry;
-
-  const getPingColorClass = (ping) => {
-    if (!ping || ping <= 0) return 'gray';
-    if (ping < 60) return 'green';
-    if (ping < 120) return 'yellow';
-    return 'orange';
-  };
-
-  const cleanServerName = (rawName) => {
-    if (!rawName) return '';
-    let str = rawName;
-    str = str.replace(/[\uD83C][\uDDE6-\uDDFF][\uD83C][\uDDE6-\uDDFF]/g, '');
-    str = str.replace(/^(DE|NL|SE|RU|EU)\s+/gi, '');
-    str = str.trim().replace(/^[-–—•\s]+/, '').trim();
-    return str || rawName;
-  };
-
-  const availableServers = servers || [];
-
-  return (
-    <div className="fluent-page fluent-servers-page">
-        {accessDisabled && <div role="alert" className="guest-access-notice">Владелец отключил ваш доступ. Вы не можете пользоваться VPN. Для восстановления доступа обратитесь к владельцу подписки.</div>}
-      {/* Header */}
-      <div className="fluent-page-header">
-        <div className="fluent-page-header__actions">
-          <motion.button data-motion-press="true"
-            type="button"
-            className="btn btn--secondary btn--sm"
-            onClick={onRefreshPing}
-            aria-busy={refreshingPing}
-            disabled={accessDisabled || refreshingPing}
-            title={lang === 'en' ? 'TCP connection latency, without a proxy URL test' : 'Задержка TCP-соединения, без проверки URL через прокси'}
-            {...buttonPress}
-          >
-            <Activity size={14} className={refreshingPing ? 'shimmer-pulse' : ''} />
-            <span>{refreshingPing ? t('btn_pinging', lang) : (lang === 'en' ? 'TCP ping' : 'TCP-пинг')}</span>
-          </motion.button>
-
-          <motion.button data-motion-press="true"
-            type="button"
-            className="btn btn--secondary btn--sm"
-            onClick={onRefreshKeys}
-            aria-busy={refreshingKeys}
-            disabled={refreshingKeys}
-            title={t('btn_sync', lang)}
-            {...buttonPress}
-          >
-            <RefreshCw size={14} className={refreshingKeys ? 'spinning' : ''} />
-            <span>{refreshingKeys ? t('btn_syncing', lang) : t('btn_sync', lang)}</span>
-          </motion.button>
-        </div>
-      </div>
-
-      {/* Servers List with Shared Layout Spring Selection */}
-      <div className="fluent-servers-list">
-        {availableServers.length === 0 ? (
-          <div className="fluent-empty-state" style={{ padding: '36px 16px', textAlign: 'center', opacity: 0.7 }}>
-            <p style={{ fontWeight: 600, fontSize: '15px', marginBottom: '6px' }}>{lang === 'en' ? 'No available keys' : 'Нет доступных ключей'}</p>
-            <p style={{ fontSize: '13px' }}>{lang === 'en' ? 'Sync your subscription to load the current server list.' : 'Синхронизируйте подписку, чтобы загрузить актуальный список.'}</p>
-          </div>
-        ) : (
-          availableServers.map((server) => {
-            const isSelected = server.id === currentServer?.id;
-            const countryCode = getCountryCode(server);
-            const pingClass = getPingColorClass(server.ping);
-
-            return (
-              <motion.button data-motion-press="true"
-                type="button"
-                aria-pressed={isSelected}
-                key={server.id}
-                className={`fluent-server-row ${isSelected ? 'fluent-server-row--selected' : ''}`}
-                onClick={() => onSelectServer(server)}
-                whileTap={{ scale: 0.99 }}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: .16 }}
-              >
-                {/* Active border glow for selected card */}
-                <span className="fluent-server-selected-glow" aria-hidden="true" />
-
-                <div className="fluent-server-row__flag">
-                  <CountryFlag country={countryCode} />
-                </div>
-
-                <div className="fluent-server-row__details">
-                  <div className="fluent-server-row__name-line">
-                    <strong className="fluent-server-row__name">{cleanServerName(server.name)}</strong>
-                    {server.isRecommended && (
-                      <span className="fluent-chip fluent-chip--top">
-                        <Zap size={10} /> {t('best_ping', lang)}
-                      </span>
-                    )}
-                    {server.isYouTubeNoAds && (
-                      <span className="fluent-chip fluent-chip--yt">{t('no_ads', lang)}</span>
-                    )}
-                    {server.isLte && (
-                      <span className="fluent-chip fluent-chip--lte">LTE CDN</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="fluent-server-row__meta">
-                  <div className={`fluent-server-row__ping-box ${refreshingPing ? 'shimmer-active' : ''}`} title={lang === 'en' ? 'TCP connection latency' : 'Задержка TCP-соединения'}>
-                    <span className={`ping-status-dot ${pingClass}`} />
-                    <span className="fluent-server-row__ping-val">{formatServerPing(server, lang)}</span>
-                  </div>
-
-                  <div className={`fluent-server-radio ${isSelected ? 'selected' : ''}`}>
-                    <AnimatePresence>
-                      {isSelected && (
-                        <motion.div
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0, opacity: 0 }}
-                          transition={springs.tactile}
-                        >
-                          <Check size={13} />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-              </motion.button>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
+function serverName(name) {
+  return String(name || '').replace(/[\uD83C][\uDDE6-\uDDFF][\uD83C][\uDDE6-\uDDFF]/g, '').replace(/^(DE|NL|SE|RU|EU)\s+/i, '').replace(/^[-–—•\s]+/, '').trim();
 }
 
-export default React.memo(ServersScreen);
+function useLivePing(servers, enabled) {
+  const [samples, setSamples] = useState({});
+  const [measuring, setMeasuring] = useState(false);
+  const [error, setError] = useState('');
+  const current = useRef(servers);
+  const request = useRef(null);
+  const active = useRef(false);
+  const generation = useRef(0);
+  current.current = servers;
+  const signature = JSON.stringify(servers.map(server => [server.id, server.vless_uri]));
+  const measure = useCallback(async () => {
+    if (!active.current || document.hidden || window.__vihtUiBackground || request.current || !current.current.length) return;
+    if (!window.electronAPI?.pingServers) { setError('Замер доступен в приложении Viht'); return; }
+    const snapshot = current.current;
+    const epoch = generation.current;
+    const flight = {};
+    request.current = flight;
+    setMeasuring(true);
+    try {
+      const result = await window.electronAPI.pingServers(snapshot.map(server => ({...server, attempts:1, timeoutMs:900})));
+      if (!active.current || epoch !== generation.current) return;
+      const at = Date.now();
+      setSamples(previous => Object.fromEntries(snapshot.map(server => {
+        const value = result?.[server.id];
+        const reachable = Number.isFinite(value) && value >= 0;
+        const history = [...(previous[server.id]?.history || []), reachable ? value : null].slice(-12);
+        return [server.id, {ping:reachable ? value : null, at, history}];
+      })));
+      setError('');
+    } catch {
+      if (active.current && epoch === generation.current) setError('Не удалось измерить задержку. Повторяем автоматически.');
+    } finally {
+      if (request.current === flight) request.current = null;
+      if (active.current) setMeasuring(false);
+    }
+  }, []);
+  useEffect(() => {
+    active.current = enabled;
+    generation.current += 1;
+    setSamples(previous => Object.fromEntries(current.current.filter(server => previous[server.id]).map(server => [server.id, previous[server.id]])));
+    setError('');
+    setMeasuring(false);
+    if (!enabled) return;
+    void measure();
+    const interval = setInterval(measure,1000);
+    const resume = () => { if (!document.hidden && !window.__vihtUiBackground) void measure(); };
+    document.addEventListener('visibilitychange',resume);
+    window.addEventListener('focus',resume);
+    return () => {
+      active.current = false;
+      generation.current += 1;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange',resume);
+      window.removeEventListener('focus',resume);
+    };
+  }, [enabled, signature, measure]);
+  return {samples, measuring, error, measure};
+}
+
+export default React.memo(function ServersScreen({accessDisabled=false,servers=[],currentServer,connectionState,onSelectServer,onRefreshKeys,refreshingKeys,lang='ru'}) {
+  const [live,setLive] = useState(true);
+  const [syncResult,setSyncResult] = useState('');
+  const [syncTime,setSyncTime] = useState(null);
+  const [syncing,setSyncing] = useState(false);
+  const mounted = useRef(true);
+  const syncFlight = useRef(false);
+  const reduced = useReducedMotion();
+  const {samples,measuring,error} = useLivePing(servers,live && !accessDisabled);
+  const english = lang === 'en';
+  useEffect(() => {mounted.current=true;return()=>{mounted.current=false;};},[]);
+  const synchronize = async () => {
+    if (syncFlight.current) return;
+    syncFlight.current=true;
+    setSyncing(true);
+    setSyncResult('');
+    try {
+      const result = await onRefreshKeys();
+      if (!mounted.current) return;
+      if (Array.isArray(result)) {
+        setSyncTime(Date.now());
+        setSyncResult(english ? 'Server list updated' : 'Список серверов обновлён');
+      } else setSyncResult(english ? 'Sync failed. Try again.' : 'Не удалось обновить список. Повторите синхронизацию.');
+    } catch {
+      if (mounted.current) setSyncResult(english ? 'Sync failed. Try again.' : 'Не удалось обновить список. Повторите синхронизацию.');
+    } finally {
+      syncFlight.current=false;
+      if (mounted.current) setSyncing(false);
+    }
+  };
+  const busy = syncing || refreshingKeys;
+  return <section className="fluent-page viht-server-page">
+    <header className="viht-server-heading">
+      <h1>{english ? 'Servers' : 'Серверы'}</h1>
+      <p>{english ? 'Choose your connection location' : 'Выберите, через какую локацию подключаться'}</p>
+    </header>
+    {accessDisabled && <p role="alert" className="guest-access-notice">Доступ отключён владельцем подписки</p>}
+    <div className="viht-server-actions">
+      <button type="button" className="viht-server-action" aria-pressed={live} disabled={accessDisabled} onClick={()=>setLive(value=>!value)}>
+        <span className="viht-server-action-icon"><Activity size={19}/></span>
+        <span><strong>{english ? 'Live ping' : 'Живой пинг'}</strong><small>{live ? (english ? 'Every second · TCP' : 'Каждую секунду · TCP') : (english ? 'Paused' : 'Приостановлен')}</small></span>
+        {live ? <Pause size={14}/> : <Play size={14}/>}
+      </button>
+      <button type="button" className="viht-server-action" disabled={busy} aria-busy={busy} onClick={synchronize}>
+        <span className="viht-server-action-icon"><RefreshCw size={19} className={busy?'spinning':''}/></span>
+        <span><strong>{busy ? (english ? 'Updating…' : 'Обновляем…') : (english ? 'Sync' : 'Синхронизация')}</strong><small>{syncTime ? new Date(syncTime).toLocaleTimeString(english?'en-GB':'ru-RU',{hour:'2-digit',minute:'2-digit'}) : (english ? 'From your subscription' : 'Из вашей подписки')}</small></span>
+      </button>
+    </div>
+    {syncResult && <p className="viht-server-feedback" role="status">{syncResult}</p>}
+    {error && <p className="viht-server-feedback" role="status">{error}</p>}
+    <div className="viht-server-list">
+      {servers.map((server,index)=>{
+        const selected=server.id===currentServer?.id;
+        const sample=samples[server.id];
+        const ping=sample?.ping;
+        const reachable=Number.isFinite(ping);
+        const quality=!sample?'pending':!reachable?'unreachable':ping<80?'fast':ping<160?'normal':'slow';
+        const status=selected ? connectionState==='connected' ? (english?'Connected':'Подключено') : connectionState==='connecting' ? (english?'Connecting…':'Подключаемся…') : (english?'Selected':'Выбран') : (english?'Tap to select':'Нажмите для выбора');
+        const history=sample?.history || [];
+        const maximum=Math.max(100,...history.filter(Number.isFinite));
+        return <motion.button type="button" className={`viht-server-item ${selected?'is-selected':''}`} key={server.id} aria-pressed={selected} disabled={accessDisabled} onClick={()=>onSelectServer(server)}
+          initial={{opacity:0,y:reduced?0:10}} animate={{opacity:1,y:0}} transition={{duration:reduced?0:.28,delay:reduced?0:Math.min(index*.04,.2)}} whileTap={reduced?undefined:{scale:.985}}>
+          <span className="viht-server-flag"><CountryFlag country={getServerCountry(server)}/></span>
+          <span className="viht-server-info"><strong>{serverName(server.name)}</strong><small>{status}</small>
+            {(server.isLte || server.isYouTubeNoAds) && <span className="viht-server-feature">{server.isLte?'LTE':''}{server.isLte&&server.isYouTubeNoAds?' · ':''}{server.isYouTubeNoAds?'YouTube':''}</span>}
+          </span>
+          <span className={`viht-server-latency quality-${quality}`}>
+            <strong>{sample ? reachable ? <>{ping}<small>{english?'ms':'мс'}</small></> : (english?'No response':'Нет ответа') : '—'}</strong>
+            <span className="viht-ping-history" aria-hidden="true">{Array.from({length:12},(_,i)=>{
+              const value=history[i-(12-history.length)];
+              return <i key={i} style={{height:value==null?'3px':Math.max(4,Math.round(value/maximum*18))+'px',opacity:value == null ? .2 : .8}}/>;
+            })}</span>
+            <small>{!live ? (english?'Paused':'Пауза') : !sample ? (english?'Measuring…':'Измеряем…') : reachable ? ping<80?(english?'Low latency':'Быстрый отклик'):ping<160?(english?'Normal latency':'Обычный отклик'):(english?'High latency':'Высокая задержка') : (english?'Checking again':'Проверяем снова')}</small>
+          </span>
+          <span className="viht-server-check" aria-hidden="true">{selected&&<Check size={15}/>}</span>
+        </motion.button>;
+      })}
+    </div>
+    {!servers.length && <div className="viht-server-empty"><ArrowDownUp size={26}/><strong>{english?'No available servers':'Нет доступных серверов'}</strong><p>{english?'Sync to load your subscription.':'Нажмите «Синхронизация», чтобы получить серверы из подписки.'}</p></div>}
+    {!!servers.length && <p className="viht-server-footnote">{english?'TCP measures server connection latency.':'TCP-пинг показывает задержку соединения с сервером.'}{live&&measuring?' · '+(english?'Measuring':'Измеряем'):''}</p>}
+  </section>;
+});
+
