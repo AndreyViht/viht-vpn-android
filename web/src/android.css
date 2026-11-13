@@ -99,3 +99,7 @@ body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
   justify-content: center;
   font-variant-numeric: tabular-nums;
 }
+
+.liquid-window.is-android::after{content:"";position:absolute;inset:0 0 auto;height:150px;background:linear-gradient(180deg,#7ca5c71a,transparent);pointer-events:none;z-index:0;opacity:.7;transition:opacity .65s,background .65s}
+html[data-vpn-state="connected"] .liquid-window.is-android::after{background:linear-gradient(180deg,#68e7b71e,transparent);opacity:1}
+.liquid-window.is-android .viht-minimal-home{position:relative;z-index:1}

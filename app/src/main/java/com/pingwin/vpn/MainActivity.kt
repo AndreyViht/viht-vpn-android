@@ -1,5 +1,7 @@
 package com.pingwin.vpn
 
+import android.animation.ValueAnimator
+import android.graphics.drawable.GradientDrawable
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -169,6 +171,28 @@ class MainActivity : ComponentActivity() {
             view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
             insets
         }
+        val statusSurface = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.parseColor("#152330"), Color.parseColor("#0a111d")))
+        root.background = statusSurface
+        var statusAnimation: ValueAnimator? = null
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                VpnStatus.state.collect { state ->
+                    val connected = state == VpnConnectionState.CONNECTED
+                    statusAnimation?.cancel()
+                    val from = statusSurface.colors?.firstOrNull() ?: Color.parseColor("#152330")
+                    val to = Color.parseColor(if (connected) "#15352f" else "#152330")
+                    statusAnimation = ValueAnimator.ofArgb(from, to).apply {
+                        duration = 650
+                        addUpdateListener { statusSurface.colors = intArrayOf(it.animatedValue as Int, Color.parseColor("#0a111d")) }
+                        start()
+                    }
+                    WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
+                }
+            }
+        }
+        lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+            override fun onStop(owner: androidx.lifecycle.LifecycleOwner) { statusAnimation?.cancel() }
+        })
         ViewCompat.requestApplyInsets(root)
         webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
         lifecycleScope.launch {

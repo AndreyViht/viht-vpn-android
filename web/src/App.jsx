@@ -62,7 +62,7 @@ export default function App() {
   const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
   const [hwid, setHwid] = useState('');
-  const [appVersion, setAppVersion] = useState('2.0.0.4');
+  const [appVersion, setAppVersion] = useState('2.0.0.5');
   const [manualConnectOnly, setManualConnectOnly] = useState(true);
   const [toast, setToast] = useState(null); // { id, message, type: 'success' | 'ping' | 'error' }
   const [foreignVpnWarning, setForeignVpnWarning] = useState(null);
@@ -126,6 +126,7 @@ export default function App() {
 
   // VPN Connection State
   const [connectionState, setConnectionState] = useState('disconnected'); // 'disconnected' | 'connecting' | 'connected' | 'disconnecting' | 'error'
+  useEffect(() => { document.documentElement.dataset.vpnState = connectionState; }, [connectionState]);
   const connectionStateRef = useRef(connectionState);
   connectionStateRef.current = connectionState;
   const [nativeServerName,setNativeServerName] = useState('');
