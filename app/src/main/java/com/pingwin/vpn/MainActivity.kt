@@ -1,7 +1,5 @@
 package com.pingwin.vpn
 
-import android.animation.ValueAnimator
-import android.graphics.drawable.GradientDrawable
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -36,6 +34,13 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
     private lateinit var bridge: AndroidVihtBridge
+    private var statusInset = 0
+    private fun updateStatusInset() {
+        if (::webView.isInitialized && isTrustedPage) {
+            val px = statusInset / resources.displayMetrics.density
+            webView.evaluateJavascript("document.documentElement.style.setProperty('--viht-status-inset', '" + px + "px')", null)
+        }
+    }
     @Volatile var isTrustedPage: Boolean = false
         private set
     @Volatile var isUiReady: Boolean = false
@@ -75,6 +80,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() { super.onStart(); AppVisibility.setForeground(true); UpdateScheduler.sync(this); AppAnnouncements.schedule(this) }
     override fun onResume() {
         super.onResume()
+        AppVisibility.setForeground(true)
         if (::webView.isInitialized) webView.onResume()
         if (::bridge.isInitialized && isUiReady) {
             bridge.emit("app-visibility", org.json.JSONObject().put("background", false))
@@ -82,6 +88,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     override fun onPause() {
+        AppVisibility.setForeground(false)
         if (::bridge.isInitialized && isUiReady) bridge.emit("app-visibility", org.json.JSONObject().put("background", true))
         if (::webView.isInitialized) webView.onPause()
         super.onPause()
@@ -153,6 +160,7 @@ class MainActivity : ComponentActivity() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     isTrustedPage = url?.let(::local) == true
                     isUiReady=isTrustedPage
+                    updateStatusInset()
                     if (isUiReady && ::bridge.isInitialized) bridge.pageReady()
                 }
             }
@@ -168,31 +176,11 @@ class MainActivity : ComponentActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
-            view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
+            statusInset = bars.top
+            view.setPadding(bars.left, 0, bars.right, maxOf(bars.bottom, keyboard.bottom))
+            updateStatusInset()
             insets
         }
-        val statusSurface = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.parseColor("#152330"), Color.parseColor("#0a111d")))
-        root.background = statusSurface
-        var statusAnimation: ValueAnimator? = null
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                VpnStatus.state.collect { state ->
-                    val connected = state == VpnConnectionState.CONNECTED
-                    statusAnimation?.cancel()
-                    val from = statusSurface.colors?.firstOrNull() ?: Color.parseColor("#152330")
-                    val to = Color.parseColor(if (connected) "#15352f" else "#152330")
-                    statusAnimation = ValueAnimator.ofArgb(from, to).apply {
-                        duration = 650
-                        addUpdateListener { statusSurface.colors = intArrayOf(it.animatedValue as Int, Color.parseColor("#0a111d")) }
-                        start()
-                    }
-                    WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
-                }
-            }
-        }
-        lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
-            override fun onStop(owner: androidx.lifecycle.LifecycleOwner) { statusAnimation?.cancel() }
-        })
         ViewCompat.requestApplyInsets(root)
         webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
         lifecycleScope.launch {

@@ -1,6 +1,6 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {motion, AnimatePresence, useReducedMotion} from 'framer-motion';
-import {Power, ShieldCheck, ArrowDown, ArrowUp, ArrowUpRight, Loader2} from 'lucide-react';
+import {Power, ShieldCheck, ArrowDown, ArrowUp, ArrowUpRight, Loader2, CreditCard} from 'lucide-react';
 import {SessionTimer, TransferValue} from './LiveVpnValues';
 import './MinimalHome.css';
 
@@ -16,6 +16,14 @@ export default function MainVpnScreen({accessDisabled=false, user, currentServer
     : (english ? 'Connect' : 'Подключиться');
 
 
+  const [, refreshExpiry] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => refreshExpiry(value => value + 1), 60000);
+    return () => clearInterval(timer);
+  }, []);
+  const expires = user?.subscription_expires_at ? new Date(user.subscription_expires_at).getTime() : null;
+  const hours = expires ? Math.max(0, Math.floor((expires - Date.now()) / 3600000)) : Number(user?.subscription_days_left || 0) * 24 + Number(user?.subscription_hours_left || 0);
+  const validity = hours > 0 ? Math.floor(hours / 24) + (english ? ' d ' : ' дн. ') + hours % 24 + (english ? ' h' : ' ч.') : (english ? 'Expired' : 'Истекла');
   const renew = () => {
     if (!user?.is_guest) window.dispatchEvent(new Event('viht-open-tariffs'));
   };
@@ -53,9 +61,12 @@ export default function MainVpnScreen({accessDisabled=false, user, currentServer
       </motion.button>
       {!currentServer && !connected && <p className="viht-home-hint">{english ? 'Choose a server in Servers' : 'Выберите сервер во вкладке «Серверы»'}</p>}
     </div>
-    {!user?.is_guest && <button type="button" className="viht-home-renew" onClick={renew}>
-      {english ? 'Renew subscription' : 'Продлить подписку'}<ArrowUpRight size={15}/>
-    </button>}
+    <div className="viht-home-subscription">
+      <div><span>{english ? 'Subscription valid for' : 'Срок действия подписки'}</span><strong>{validity}</strong></div>
+      <button type="button" className="viht-home-renew" onClick={renew} disabled={user?.is_guest}>
+        <CreditCard size={15}/>{user?.is_guest ? (english ? 'Owner subscription' : 'Подписка владельца') : (english ? 'Renew subscription' : 'Продлить подписку')}
+      </button>
+    </div>
   </section>;
 }
 

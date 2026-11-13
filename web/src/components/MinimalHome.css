@@ -22,3 +22,16 @@
 html.viht-ui-background .viht-home-spinner{animation-play-state:paused}
 
 
+.viht-minimal-home{height:100%;min-height:100%;padding:12px 20px 112px}
+.viht-home-stage{min-height:250px;padding:18px 0}
+.viht-home-subscription{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;width:100%;padding:10px 0;background:none;border:0;box-shadow:none}
+.viht-home-subscription>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.viht-home-subscription span{font-size:10px;color:#aec5cd}
+.viht-home-subscription strong{font-size:12px;color:#e9f7f3;font-variant-numeric:tabular-nums}
+.viht-home-subscription .viht-home-renew{background:#72e6ad16!important;color:#91ebc5;border-radius:16px;padding:12px 10px;font-size:11px;white-space:nowrap}
+.viht-home-subscription .viht-home-renew:disabled{opacity:.6}
+.state-connecting .viht-orb-rim,.state-disconnecting .viht-orb-rim{border-color:#a7f0d633;border-top-color:#c6ffeb;border-right-color:#c6ffeb;animation:viht-functional-spin 1.5s linear infinite}
+.state-connected .viht-orb-halo{animation:viht-orb-breathe 3.8s ease-in-out infinite}
+@keyframes viht-orb-breathe{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:.85;transform:scale(1.035)}}
+@media(max-height:650px){.viht-minimal-home{padding-bottom:105px}.viht-home-stage{min-height:220px}.viht-connect-orb{width:220px}}
+@media(prefers-reduced-motion:reduce){.state-connected .viht-orb-halo{animation:none}.state-connecting .viht-orb-rim,.state-disconnecting .viht-orb-rim{animation:viht-functional-spin 2s linear infinite!important}}

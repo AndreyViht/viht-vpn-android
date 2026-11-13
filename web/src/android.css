@@ -60,7 +60,7 @@ body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 .liquid-window.is-android *,
 .liquid-window.is-android *::before,
 .liquid-window.is-android *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important}
-.liquid-window.is-android *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.12s!important}
+
 
 /* Android updates: one document flow; no side columns or nested scrolling. */
 .liquid-window.is-android .android-update-section{display:flex;flex-direction:column;align-items:stretch;gap:14px;width:100%;min-width:0;box-sizing:border-box}
@@ -103,3 +103,15 @@ body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 .liquid-window.is-android::after{content:"";position:absolute;inset:0 0 auto;height:150px;background:linear-gradient(180deg,#7ca5c71a,transparent);pointer-events:none;z-index:0;opacity:.7;transition:opacity .65s,background .65s}
 html[data-vpn-state="connected"] .liquid-window.is-android::after{background:linear-gradient(180deg,#68e7b71e,transparent);opacity:1}
 .liquid-window.is-android .viht-minimal-home{position:relative;z-index:1}
+/* The WebView draws behind system icons, with one continuous app background. */
+.liquid-window.is-android{box-sizing:border-box;padding-top:var(--viht-status-inset,0px)}
+.liquid-window.is-android .titlebar{background:transparent!important;border-bottom:0!important}
+.liquid-window.is-android .liquid-orb{display:none}
+.liquid-window.is-android::after{height:190px;background:linear-gradient(180deg,#23415c55,transparent);transition:opacity .65s ease}
+html[data-vpn-state="connected"] .liquid-window.is-android::after{background:linear-gradient(180deg,#23415c55,transparent)}
+.liquid-window.is-android .fluent-loading-box .spinning,.liquid-window.is-android .spinning,.liquid-window.is-android .viht-home-spinner{animation:viht-functional-spin .9s linear infinite}
+@keyframes viht-functional-spin{to{transform:rotate(360deg)}}
+.liquid-window.is-android .fluent-loading-box{animation:viht-loading-enter .3s ease both}
+@keyframes viht-loading-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.liquid-window.is-android .spinning,.liquid-window.is-android .viht-home-spinner{animation:viht-functional-spin 1.6s linear infinite}.liquid-window.is-android .fluent-loading-box{animation:none}}
+.liquid-window.is-android .spinning,.liquid-window.is-android .viht-home-spinner{animation-name:viht-functional-spin!important;animation-duration:.9s!important;animation-iteration-count:infinite!important;animation-timing-function:linear!important}

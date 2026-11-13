@@ -23,8 +23,8 @@ export const SessionTimer=React.memo(function SessionTimer({connectedAt}) {
     let timer;
     const update=()=>setNow(Date.now());
     const visibility=()=>{clearInterval(timer);if(!(document.hidden || window.__vihtUiBackground === true)){update();timer=setInterval(update,1000)}};
-    visibility();document.addEventListener('visibilitychange',visibility);
-    return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',visibility)};
+    visibility();document.addEventListener('visibilitychange',visibility);window.addEventListener('focus',visibility);
+    return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('focus',visibility)};
   },[]);
   const seconds=connectedAt?Math.max(0,Math.floor((now-connectedAt)/1000)):duration;
   const hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60),remaining=Math.floor(seconds%60);
