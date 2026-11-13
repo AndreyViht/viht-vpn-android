@@ -22,7 +22,7 @@ object VpnStatus {
         private set
     private val _traffic = MutableStateFlow(org.json.JSONObject())
     val traffic: StateFlow<org.json.JSONObject> = _traffic.asStateFlow()
-    fun traffic(value: org.json.JSONObject) { _traffic.value = value }
+    fun traffic(value: org.json.JSONObject) { _traffic.value = value.put("sampledAt", System.currentTimeMillis()) }
     fun markManualStop() { retryable = false }
     fun fail(message: String, canRetry: Boolean = true) {
         lastError = message; retryable = canRetry; set(VpnConnectionState.ERROR)

@@ -26,3 +26,26 @@ export function deviceAppLabel(device) {
   if (/v2raytun/i.test(name)) return `⚡ V2RayTun${version}`;
   return name ? name + version : 'VPN Клиент';
 }
+
+export function devicePresenceText(device, lang = 'ru', now = Date.now()) {
+  const english = lang === 'en';
+  if (device.revocation_pending) return english ? 'Disabling access…' : 'Отключаем доступ…';
+  if (device.disabled) return english ? 'Access disabled' : 'Доступ отключён';
+  if (deviceState(device) === 'online') return english ? 'VPN connected' : 'VPN подключён';
+  const vpnTime = Date.parse(device.last_vpn_activity_at || '');
+  const appTime = Date.parse(device.last_seen || '');
+  const time = Number.isFinite(vpnTime) ? vpnTime : appTime;
+  if (Number.isFinite(time) && time <= now + 10000) {
+    const age = Math.max(0, now - time);
+    const minutes = Math.floor(age / 60000);
+    let when;
+    if (minutes < 1) when = english ? 'just now' : 'только что';
+    else if (minutes < 60) when = minutes + (english ? ' min ago' : ' мин. назад');
+    else if (minutes < 1440) when = Math.floor(minutes / 60) + (english ? ' h ago' : ' ч. назад');
+    else when = new Date(time).toLocaleDateString(english ? 'en-GB' : 'ru-RU', {day:'numeric',month:'short'});
+    return (Number.isFinite(vpnTime) ? (english ? 'VPN active ' : 'VPN работал ') : (english ? 'App active ' : 'Приложение открывали ')) + when;
+  }
+  return deviceState(device) === 'offline'
+    ? (english ? 'VPN disconnected' : 'VPN выключен')
+    : (english ? 'Waiting for app to report' : 'Ожидаем связи с приложением');
+}

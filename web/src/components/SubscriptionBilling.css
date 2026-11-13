@@ -3,3 +3,14 @@
 .fluent-profile-page .fluent-page-header{gap:8px;flex-wrap:wrap}
 
 .billing-slot-picker{margin:22px 0;padding:20px;border:1px solid #b4efdb30;border-radius:19px;background:#b0f4db08;text-align:center}.billing-slot-picker p{font-size:13px;color:#acc3d1;margin:0 0 18px}.billing-slot-picker>div{display:flex;gap:26px;align-items:center;justify-content:center}.billing-slot-picker button{width:44px;height:44px;background:#ffffff0a;border:1px solid #ffffff25;border-radius:13px;font-size:25px}.billing-slot-picker button:disabled{opacity:.3;cursor:default}.billing-slot-picker strong{font-size:29px;min-width:32px}.billing-slot-picker>span{display:block;margin-top:16px;font-size:17px;color:#b1eed7}
+
+/* Payment sheets share the light, borderless server layout. */
+.viht-billing-panel{border:0;background:linear-gradient(145deg,#192c32,#101c25);box-shadow:0 24px 70px #0007}
+.billing-tariffs button,.billing-slot-picker{border:0;background:#b9f1d808}
+.billing-tariffs button[aria-pressed=true]{background:#a9efd222;box-shadow:inset 3px 0 #a4efd2}
+.billing-close{border:0}.billing-email{display:flex;flex-direction:column;gap:10px;font-size:13px;margin:20px 0;color:#dfefec}
+.billing-email input{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid #a9efd260;border-radius:12px 12px 0 0;background:#09191e80;padding:16px 12px;font:inherit;font-size:16px;color:#f3fffc;outline:none}
+.billing-email input:focus{border-color:#a9efd2;background:#0c2228}.billing-email small{color:#acc1c9;line-height:1.5;font-size:12px}
+.billing-pay{margin-top:18px;transition:transform .18s,opacity .18s}.billing-pay:active{transform:scale(.98)}
+.billing-loading svg,.billing-pay svg.spinning{animation:viht-billing-spin .8s linear infinite!important}
+@keyframes viht-billing-spin{to{transform:rotate(360deg)}}

@@ -1,4 +1,6 @@
 import './DevicesCompact.css';
+import './DevicesLight.css';
+import {DeviceRate} from './DeviceRate';
 import {OwnerInvite} from './SubscriptionInvite';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,7 +22,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { fetchActiveDevices, deviceAction } from '../services/api';
-import { slotUsage, deviceState, deviceAppLabel } from '../services/devices';
+import { slotUsage, deviceState, deviceAppLabel, devicePresenceText } from '../services/devices';
 import vihtLogo from '../assets/viht-logo.png';
 import { t, fixMojibake } from '../utils/i18n';
 import { springs, buttonPress } from '../utils/motion';
@@ -30,10 +32,16 @@ export function prefetchDevices(token,hwid){
  if(!token)return Promise.resolve(null);const key=token+':'+hwid;if(deviceRequests.has(key))return deviceRequests.get(key);
  const request=fetchActiveDevices(token,hwid).then(result=>{if(result?.ok){deviceSnapshots.set(token,{devices:result.devices||[],limits:result.limits});if(deviceSnapshots.size>8)deviceSnapshots.delete(deviceSnapshots.keys().next().value);}return result;}).finally(()=>deviceRequests.delete(key));deviceRequests.set(key,request);return request;
 }
+function maskHwid(value) {
+  const text = String(value || '').trim();
+  return text.length > 8 ? text.slice(0, 4) + '…' + text.slice(-4) : text ? '••••' : 'ID неизвестен';
+}
+
 function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBindingChanged }) {
-  const [devices, setDevices] = useState([]);
+  const [devices, setDevices] = useState(() => deviceSnapshots.get(token)?.devices || []);
   const [limits, setLimits] = useState(() => deviceSnapshots.get(token)?.limits || propLimits || { total_slots: 0, active_count: 0, slot_price: 0 });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !deviceSnapshots.has(token));
+  const [observedAt, setObservedAt] = useState(Date.now);
   const [unidentified, setUnidentified] = useState([]);
   const [bindingDevice, setBindingDevice] = useState(null);
   const [bindingTarget, setBindingTarget] = useState('');
@@ -54,22 +62,24 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
     setTimeout(() => setToast(null), 3500);
   };
 
-  useEffect(()=>{const refresh=()=>void loadDevices(true);window.addEventListener('viht-devices-refresh',refresh);return()=>window.removeEventListener('viht-devices-refresh',refresh)},[token,hwid]);
   const responseEpoch = useRef(0);
+  const pendingActions = useRef(new Set());
+  const [busyDevices, setBusyDevices] = useState(new Set());
   const devicesCountRef = useRef(devices.length);
   devicesCountRef.current = devices.length;
 
   const loadDevices = useCallback(async (silent = false) => {
-    if (!token) return;
+    if (!token || pendingActions.current.size) return;
     const epoch = ++responseEpoch.current;
     if (!silent && devicesCountRef.current === 0) setLoading(true);
-    else setRefreshing(true);
+    else if (!silent) setRefreshing(true);
 
     try {
       const res = await prefetchDevices(token, hwid);
       if (epoch !== responseEpoch.current) return;
       if (res && res.ok) {
         const devList = res.devices || [];
+        setObservedAt(Date.now());
         deviceSnapshots.set(token,{devices:devList,limits:res.limits});if(deviceSnapshots.size>8)deviceSnapshots.delete(deviceSnapshots.keys().next().value);
         setDevices(previous=>JSON.stringify(previous)===JSON.stringify(devList)?previous:devList);
         setUnidentified(res.unidentified_devices || []);
@@ -93,14 +103,14 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
     const poll = async (initial = false) => {
       if (disposed || inFlight) return;
       inFlight = true;
-      try { if (document.visibilityState !== 'hidden') await loadDevices(!initial); }
+      try { if (document.visibilityState !== 'hidden' && !window.__vihtUiBackground) await loadDevices(!initial); }
       finally {
         inFlight = false;
         if (!disposed) { clearTimeout(timer); timer = setTimeout(() => poll(), 5000); }
       }
     };
     poll(true);
-    const resume = () => { if (document.visibilityState === 'visible') { clearTimeout(timer); poll(); } };
+    const resume = () => { if (document.visibilityState === 'visible' && !window.__vihtUiBackground) { clearTimeout(timer); poll(); } };
     document.addEventListener('visibilitychange', resume);
     return () => { disposed = true; responseEpoch.current += 1; clearTimeout(timer); document.removeEventListener('visibilitychange', resume); };
   }, [loadDevices]);
@@ -138,7 +148,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
   };
 
   useEffect(()=>{
-    const refresh=event=>{if(!document.hidden&&(!event?.detail?.token||event.detail.token===token))void loadDevices(true)};
+    const refresh=event=>{if(!document.hidden&&!window.__vihtUiBackground&&(!event?.detail?.token||event.detail.token===token))void loadDevices(true)};
     for(const event of ['focus','online','viht-account-updated','viht-devices-refresh'])window.addEventListener(event,refresh);
     const off=window.electronAPI?.onAppResumed?.(refresh);
     return()=>{for(const event of ['focus','online','viht-account-updated','viht-devices-refresh'])window.removeEventListener(event,refresh);off?.()};
@@ -184,6 +194,20 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
       loadDevices(true);
     } finally {
       setRenameLoading(false);
+    }
+  };
+
+  const performDeviceAction = async (device, action) => {
+    const id = device.physical_device_id || device.id || device.device_id || device.hwid;
+    if (pendingActions.current.has(id)) return;
+    pendingActions.current.add(id);
+    responseEpoch.current += 1;
+    setBusyDevices(new Set(pendingActions.current));
+    try { await action(); }
+    finally {
+      pendingActions.current.delete(id);
+      setBusyDevices(new Set(pendingActions.current));
+      await loadDevices(true);
     }
   };
 
@@ -292,7 +316,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
   const openAddSlot = () => window.dispatchEvent(new CustomEvent('viht-open-tariffs', { detail: { product: 'slots' } }));
 
   return (
-    <div className="fluent-page fluent-devices-page devices-compact">
+    <div className="fluent-page fluent-devices-page devices-compact devices-light">
       {/* Toast alert */}
       <AnimatePresence>
         {toast && (
@@ -308,10 +332,10 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
         )}
       </AnimatePresence>
 
-      <section className="compact-device-summary" aria-label="Слоты подписки">
-        <div className="compact-device-heading"><span>Слоты <strong>{usage.used}<small> / {usage.total ?? '—'}</small></strong></span><button type="button" className="compact-refresh" onClick={()=>loadDevices(true)} disabled={refreshing} aria-label="Обновить устройства" title="Обновить"><RefreshCw size={17} className={refreshing?'spinning':''}/></button></div>
-        <div className="compact-device-commands"><OwnerInvite compact onAdded={()=>loadDevices(true)}/><button type="button" className="compact-slot-buy" onClick={openAddSlot}><PlusCircle size={14}/><span>Слот · {limits.slot_price||300} ₽</span></button></div>
-        <div className="fluent-slot-progress-bar"><motion.div className="fluent-slot-progress-fill" initial={false} animate={{width:usage.percent+'%'}} transition={springs.natural}/></div>
+      <section className="device-inline-summary" aria-label="Слоты подписки">
+        <span className="device-inline-usage">Слоты <strong>{usage.used}<small> / {usage.total ?? '—'}</small></strong></span>
+        <OwnerInvite compact onAdded={()=>loadDevices(true)}/>
+        <button type="button" className="device-inline-buy" onClick={openAddSlot}><PlusCircle size={14}/><span>Купить слот</span></button>
       </section>
 
       {unidentified.length > 0 && <div className="fluent-card" style={{padding:12,fontSize:12,color:'var(--text-secondary)'}}>Старые клиенты без идентификатора: {unidentified.length}. Слоты не занимают; определить физическое устройство для них нельзя.</div>}
@@ -325,6 +349,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
         <div style={{display:'flex',gap:10}}><button className="btn btn--primary" disabled={!bindingTarget||bindingBusy} onClick={linkToPhone}>{bindingBusy?'Привязка…':'Подтвердить'}</button><button className="btn btn--secondary" disabled={bindingBusy} onClick={()=>setBindingDevice(null)}>Отмена</button></div>
       </div></div>}
 
+      <p className="device-status-explanation">«В сети» — VPN подключён. «Не на связи» — приложение давно не передавало статус. Последняя активность указана под названием.</p>
       {/* Filter Tabs with Sliding Active Indicator */}
       <div className="fluent-devices-toolbar">
         <div className="fluent-filter-pills">
@@ -332,7 +357,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
             { id: 'all', label: `${lang==='en'?'All':'Все'} ${devices.length}` },
             { id: 'online', label: `${lang==='en'?'Online':'В сети'} ${devices.filter(d => deviceState(d) === 'online').length}` },
             { id: 'offline', label: `${lang==='en'?'Offline':'Не в сети'} ${devices.filter(d => deviceState(d) === 'offline').length}` },
-            { id: 'unknown', label: `${lang === 'en' ? 'Unknown' : 'Неизвестно'} ${devices.filter(d => deviceState(d) === 'unknown').length}` },
+            { id: 'unknown', label: `${lang === 'en' ? 'Not reporting' : 'Не на связи'} ${devices.filter(d => deviceState(d) === 'unknown').length}` },
           ].map((pill) => {
             const isActive = filter === pill.id;
             return (
@@ -377,7 +402,8 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
             {filteredDevices.map((device) => {
               const isEditing = editingId === (device.physical_device_id || device.id || device.device_id);
               const isCurrent = isCurrentDevice(device);
-              const isOnline = device.online && !device.disabled;
+              const busy = busyDevices.has(device.physical_device_id || device.id || device.device_id || device.hwid);
+              const isOnline = deviceState(device) === 'online';
               const rawName = device.custom_name || device.device_model || device.name || t('device_fallback_name', lang);
               const displayName = fixMojibake(rawName);
               const isVihtApp = isCurrent || (device.app_name && device.app_name.toLowerCase().includes('viht'));
@@ -389,8 +415,8 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                   className={`fluent-device-row ${device.disabled ? 'fluent-device-row--disabled' : ''}`}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }} exit={{opacity:0}}
-                  whileHover={{ y: -1, scale: 1.002 }}
-                  transition={springs.natural}
+
+                  transition={{duration:.2}}
                 >
                   <div className={`fluent-device-avatar ${isVihtApp ? 'fluent-device-avatar--viht' : ''}`}>
                     {isVihtApp ? (
@@ -430,8 +456,8 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                             <motion.button data-motion-press="true"
                               type="button"
                               className="fluent-btn-icon fluent-btn-icon--save"
-                              onClick={() => handleSaveRename(device)}
-                              disabled={renameLoading}
+                              onClick={() => performDeviceAction(device, () => handleSaveRename(device))}
+                              disabled={renameLoading || busy}
                               whileTap={{ scale: 0.9 }}
                               transition={springs.tactile}
                             >
@@ -460,6 +486,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                               type="button"
                               className="fluent-btn-icon fluent-btn-icon--edit"
                               onClick={() => handleStartRename(device)}
+                              disabled={busy}
                               title={t('device_title_rename', lang)}
                               whileTap={{ scale: 0.9 }}
                               transition={springs.tactile}
@@ -480,14 +507,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                         {getAppChipLabel(device)}
                       </span>
 
-                      {(device.hwid_short || device.hwid) && (
-                        <span
-                          className="fluent-chip fluent-chip--hwid"
-                          title={`Аппаратный HWID: ${device.hwid || device.hwid_short}`}
-                        >
-                          ID: {device.hwid_short || (device.hwid && device.hwid.length > 10 ? `${device.hwid.slice(0, 4)}...${device.hwid.slice(-4)}` : device.hwid)}
-                        </span>
-                      )}
+
                     </div>
 
                     <div className="fluent-device-meta">
@@ -505,19 +525,25 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                           </span>
                         ) : (
                           <span className="status-text status-text--offline">
-                            <span className="ping-status-dot gray" /> {deviceState(device) === 'unknown' ? (device.last_active || 'Нет данных о подключении') : (device.last_active || t('devices_offline', lang))}
+                            <span className="ping-status-dot gray" /> {devicePresenceText(device, lang, observedAt)}
                           </span>
                         )}
                       </span>
                     </div>
-
+                    <div className="device-light-identity">
+                      <span>{getAppChipLabel(device)}</span>
+                      <code>{maskHwid(device.hwid || device.hwid_short)}</code>
+                    </div>
+                    <DeviceRate device={device} current={isCurrent} observedAt={observedAt}/>
                   </div>
 
                   <div className="fluent-device-actions">
                     <motion.button data-motion-press="true"
                       type="button"
                       className={`btn btn--icon btn--sm ${device.disabled ? 'btn--activate' : 'btn--pause'}`}
-                      onClick={() => handleToggleDevice(device)}
+                      onClick={() => performDeviceAction(device, () => handleToggleDevice(device))}
+                      disabled={busy}
+                      aria-busy={busy}
                       title={device.disabled ? t('device_btn_enable', lang) : t('device_btn_disable', lang)}
                       whileTap={{ scale: 0.9 }}
                       transition={springs.tactile}
@@ -528,7 +554,8 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                     <motion.button data-motion-press="true"
                       type="button"
                       className="btn btn--icon btn--sm btn--delete"
-                      onClick={() => handleDeleteDevice(device)}
+                      onClick={() => performDeviceAction(device, () => handleDeleteDevice(device))}
+                      disabled={busy}
                       title={t('device_btn_delete', lang)}
                       whileTap={{ scale: 0.9 }}
                       transition={springs.tactile}
@@ -543,6 +570,10 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
           </>
         )}
       </div>
+      <p className="device-light-cadence">Скорость других устройств обновляется по данным их клиентов.</p>
+      <button type="button" className="device-light-refresh" onClick={()=>loadDevices(false)} disabled={refreshing} aria-busy={refreshing}>
+        <RefreshCw size={13} className={refreshing?'spinning':''}/>{refreshing?'Обновляем устройства…':'Обновить устройства'}
+      </button>
     </div>
   );
 }

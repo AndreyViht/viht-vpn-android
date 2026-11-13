@@ -15,7 +15,18 @@ object DevicePresenceReporter {
     private suspend fun report(context: Context) = requests.withLock {
         if (AndroidSessionStore.hasSession(context)) {
             try {
-                val reply=AndroidCabinetApi.request(context, JSONObject().put("action", "device-heartbeat").put("method", "POST"))
+                val sample = VpnStatus.traffic.value
+                val body = JSONObject()
+                val connected = VpnStatus.state.value == VpnConnectionState.CONNECTED
+                val age = System.currentTimeMillis() - sample.optLong("sampledAt", 0)
+                val down = sample.optDouble("speedDown", Double.NaN)
+                val up = sample.optDouble("speedUp", Double.NaN)
+                if (connected && age in 0..10_000 && down.isFinite() && up.isFinite()) {
+                    body.put("traffic", JSONObject()
+                        .put("download_bps", (down.coerceAtLeast(0.0) * 1048576).toLong())
+                        .put("upload_bps", (up.coerceAtLeast(0.0) * 1048576).toLong()))
+                }
+                val reply=AndroidCabinetApi.request(context, JSONObject().put("action", "device-heartbeat").put("method", "POST").put("body", body))
                 if (DeviceAccessPolicy.denied(reply) && VpnRunStore.desired(context)) AutoVlessVpnService.stop(context,"Устройство отключено в подписке")
                 if(VpnRunStore.desired(context))AppAnnouncements.whileConnected(context)
             }

@@ -62,7 +62,7 @@ export default function App() {
   const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
   const [hwid, setHwid] = useState('');
-  const [appVersion, setAppVersion] = useState('2.0.0.7');
+  const [appVersion, setAppVersion] = useState('2.0.0.8');
   const [manualConnectOnly, setManualConnectOnly] = useState(true);
   const [toast, setToast] = useState(null); // { id, message, type: 'success' | 'ping' | 'error' }
   const [foreignVpnWarning, setForeignVpnWarning] = useState(null);
@@ -1006,8 +1006,8 @@ export default function App() {
       <JoinSubscription signedIn={!!token} beforeJoin={handleLogout}/>
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
       {token&&user&&<AppAnnouncements key={'news:'+String(user.id||user.telegram_id||user.yandex_email)} accountId={String(user.id||user.telegram_id||user.yandex_email)} enabled={settings.notifyNews!==false} onUnreadChange={setNewsUnread}/>}
-      {token && user && !user.is_guest && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
-      {token && user && !user.is_guest && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => setProfileRetry(n => n + 1)} />}
+      {token && user && !user.is_guest && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} profileEmail={user.yandex_email || user.email || ""} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => { setProfileRetry(n => n + 1); setActiveTab("home"); showToast("Оплата получена. Обновляем подписку.", "success"); }} />}
+      {token && user && !user.is_guest && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} profileEmail={user.yandex_email || user.email || ""} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => { setProfileRetry(n => n + 1); setActiveTab("home"); showToast("Оплата получена. Обновляем подписку.", "success"); }} />}
       <UpdateBanner release={availableUpdate} onDismiss={()=>setAvailableUpdate(null)}/>
       <ForeignVpnModal
         detection={foreignVpnWarning}

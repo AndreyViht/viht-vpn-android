@@ -1,3 +1,4 @@
+import {Loader2} from 'lucide-react';
 import React,{useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import './IosDeviceAccess.css';
@@ -14,12 +15,7 @@ export default function IosDeviceAccess({enabled,request,qrForLink,onChanged,all
   if(typeof chosen!=='string')chosen=client;setClient(chosen);
   const epoch=++generation.current;setView('loading');setError('');setBusy(true);setCopied(false);setQr('');setSelected(null);
   try{const r=await ask('ios-create',{client:chosen});if(generation.current!==epoch)return;setInvite(r);setNow(Date.now());setView('invite');
-   try {
-    const image=await latest.current.qrForLink(r.link);
-    if(generation.current===epoch)setQr(typeof image==='string'?image:image.dataUrl);
-   } catch {
-    if(generation.current===epoch)setError('Не удалось показать QR-код. Скопируйте приглашение.');
-   }
+   const image=await latest.current.qrForLink(r.link);if(generation.current===epoch)setQr(typeof image==='string'?image:image.dataUrl);
   }catch(e){if(generation.current===epoch){setError(e.message);setView('error')}}finally{if(generation.current===epoch)setBusy(false)}
  }
  useEffect(()=>{
@@ -59,7 +55,7 @@ export default function IosDeviceAccess({enabled,request,qrForLink,onChanged,all
    <h2 id="viht-ios-title">{view==='confirm'?'Новое подключение iOS':view==='success'?result:'Подключить iPhone'}</h2>
    {view==='loading'&&<p>Создаём личное приглашение…</p>}
    {view==='invite'&&<><p>Добавьте приглашение как подписку в {client}. Затем подтвердите устройство в кабинете Viht и обновите подписку в приложении.</p>
-    {left>0?<>{qr?<img className="viht-ios-qr" src={qr} alt="Одноразовое приглашение iPhone"/>:busy?<p>Подготавливаем QR…</p>:null}<div className="viht-ios-timer">Один iPhone · {Math.floor(left/60)}:{String(left%60).padStart(2,'0')}</div>{allowOpen&&client==='Incy'&&<a className="viht-ios-primary" href={invite.link}>Открыть в Incy</a>}<button className="viht-ios-secondary" onClick={copy}>{copied?'Скопировано':'Скопировать приглашение'}</button><button className="viht-ios-text" onClick={cancel} disabled={busy}>Отменить приглашение</button></>:<><p>Срок приглашения истёк.</p><button className="viht-ios-primary" onClick={create} disabled={busy}>Создать новое</button></>}
+    {left>0?<>{qr?<img className="viht-ios-qr" src={qr} alt="Одноразовое приглашение iPhone"/>:<p className="device-invite-loading"><Loader2 className="spinning" size={20}/>Подготавливаем QR…</p>}<div className="viht-ios-timer">Один iPhone · {Math.floor(left/60)}:{String(left%60).padStart(2,'0')}</div>{allowOpen&&client==='Incy'&&<a className="viht-ios-primary" href={invite.link}>Открыть в Incy</a>}<button className="viht-ios-secondary" onClick={copy}>{copied?'Скопировано':'Скопировать приглашение'}</button><button className="viht-ios-text" onClick={cancel} disabled={busy}>Отменить приглашение</button></>:<><p>Срок приглашения истёк.</p><button className="viht-ios-primary" onClick={create} disabled={busy}>Создать новое</button></>}
     <small>Только поддерживаемые iOS-клиенты с передачей HWID. VPNET не сообщает модель: она может быть недоступна.</small><a className="viht-ios-text" href="https://apps.apple.com/ru/app/id6756558545" target="_blank" rel="noopener noreferrer">Установить VPNET</a><button className="viht-ios-text" disabled={busy} onClick={()=>create(client==='VPNET'?'Incy':'VPNET')}>{client==='VPNET'?'Использовать установленный Incy':'Использовать VPNET'}</button></>}
    {view==='confirm'&&selected&&<><p>Устройство запрашивает доступ к вашей подписке.</p><strong className="viht-ios-model">{selected.device_model||'iPhone'}</strong><dl><div><dt>Приложение</dt><dd>{selected.client_name||'Incy'} {selected.app_version||''}</dd></div><div><dt>Система</dt><dd>iOS {selected.os_version||''}</dd></div><div><dt>Запрос</dt><dd>{new Date(selected.requested_at).toLocaleString('ru-RU')}</dd></div></dl><details><summary>Подробнее об устройстве</summary><p>Идентификатор, переданный приложением</p><code>{selected.bound_hwid}</code></details><p>Будет занят один свободный слот. Оплата и управление подпиской останутся у вас.</p><button className="viht-ios-primary" onClick={()=>decide(true)} disabled={busy}>{busy?'Обрабатываем…':'Принять подключение'}</button><button className="viht-ios-secondary" onClick={()=>decide(false)} disabled={busy}>Отклонить</button></>}
    {view==='success'&&<><p>{result==='iPhone подключён'?'Доступ подтверждён. Обновите подписку в приложении, чтобы получить серверы.':'Рабочие ключи этому устройству не выдавались.'}</p><button className="viht-ios-primary" onClick={close}>Готово</button></>}

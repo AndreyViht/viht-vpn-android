@@ -125,7 +125,7 @@ export async function resetSubscriptionKeys(token) {
 }
 
 export async function fetchAppTariffs(token) { return cabinetRequest(token, 'app-tariffs'); }
-export async function createAppCheckout(token, days, requestId, options = {}) { return cabinetRequest(token, 'app-checkout', { method: 'POST', body: { days, requestId, product: options.product || 'subscription', ...(options.product === 'slots' ? { slots: options.slots } : {}) } }); }
+export async function createAppCheckout(token, days, requestId, options = {}) { return cabinetRequest(token, 'app-checkout', { method: 'POST', body: { days, requestId, email: options.email, product: options.product || 'subscription', ...(options.product === 'slots' ? { slots: options.slots } : {}) } }); }
 export async function fetchAppPaymentStatus(token, label) { return cabinetRequest(token, 'app-payment-status', { method: 'POST', body: { label } }); }
 
 export async function iosCabinetRequest(token,action,body){const r=await cabinetRequest(token,action,{method:body===undefined?"GET":"POST",body});if(!r.ok)throw Error(r.error||"Сервис iOS недоступен");return r.data;}

@@ -5,7 +5,9 @@ import { fetchAppTariffs, createAppCheckout, fetchAppPaymentStatus } from '../se
 import './SubscriptionBilling.css';
 import { normalizePayment, paymentPollDelay, archivePayment } from '../services/paymentTracking';
 
-export default function SubscriptionBilling({ token, accountId, onPaid, product = 'subscription' }) {
+export default function SubscriptionBilling({ token, accountId, profileEmail = "", onPaid, product = 'subscription' }) {
+  const [email, setEmail] = useState(profileEmail);
+  const [emailStep, setEmailStep] = useState(false);
   const isSlots = product === 'slots';
   const storageKey = 'viht_payment_v1:' + accountId + (isSlots ? ':slots' : '');
   const [slotCount, setSlotCount] = useState(1);
@@ -38,10 +40,10 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
   const trigger = useRef(null);
 
   useEffect(() => {
-    const show = event => { if ((event.detail?.product || 'subscription') !== product) return; trigger.current = document.activeElement; setPaid(false); setOpen(true); };
+    const show = event => { if ((event.detail?.product || 'subscription') !== product) return; trigger.current = document.activeElement; setPaid(false); setEmail(profileEmail); setEmailStep(false); setOpen(true); };
     window.addEventListener('viht-open-tariffs', show);
     return () => window.removeEventListener('viht-open-tariffs', show);
-  }, [product]);
+  }, [product, profileEmail]);
   useEffect(() => {
     if (!open) return;
     let active = true;
@@ -63,7 +65,7 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
     const keyboard = event => {
       if (event.key === 'Escape') { event.preventDefault(); setOpen(false); }
       if (event.key === 'Tab') {
-        const items = [...dialog.current.querySelectorAll('button:not(:disabled), a[href]')];
+        const items = [...dialog.current.querySelectorAll('button:not(:disabled), a[href], input:not(:disabled)')];
         if (!items.length) return;
         if (event.shiftKey && (document.activeElement === items[0] || document.activeElement === dialog.current)) { event.preventDefault(); items.at(-1).focus(); }
         else if (!event.shiftKey && (document.activeElement === items.at(-1) || document.activeElement === dialog.current)) { event.preventDefault(); items[0].focus(); }
@@ -95,7 +97,7 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
           if(result.data?.status==='paid'){
             if(target.label===order?.label){localStorage.removeItem(storageKey);localStorage.removeItem(storageKey+':draft');setOrder(null);}
             else saveHistory(historyRef.current.filter(item=>item.label!==target.label));
-            setPaid(true);setOpen(true);onPaidRef.current?.();
+            setPaid(true);setOpen(false);onPaidRef.current?.();window.dispatchEvent(new CustomEvent('viht-devices-refresh'));
           }
         }
       }catch(e){if(active)setError(e.message||'Проверьте подключение к интернету');}
@@ -114,6 +116,8 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
     localStorage.removeItem(storageKey);localStorage.removeItem(storageKey+':draft');setOrder(null);setPaid(false);
   };
   const pay = async () => {
+    if (!order && !emailStep) { setEmailStep(true); return; }
+    if (!order && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Укажите корректную электронную почту'); return; }
     if (payLock.current) return;
     payLock.current = true; setBusy(true); setError('');
     try {
@@ -124,9 +128,9 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
         const draftKey = storageKey + ':draft';
         let draft;
         try { draft = JSON.parse(localStorage.getItem(draftKey)); } catch {}
-        if (!draft?.requestId || (draft.product || 'subscription') !== product || (isSlots ? draft.slots !== slotCount : draft.days !== selected)) draft = { days: selected, product, slots: slotCount, requestId: crypto.randomUUID() };
+        if (!draft?.requestId || (draft.product || 'subscription') !== product || (isSlots ? draft.slots !== slotCount : draft.days !== selected) || draft.email !== email.trim()) draft = { days: selected, product, slots: slotCount, email: email.trim(), requestId: crypto.randomUUID() };
         localStorage.setItem(draftKey, JSON.stringify(draft));
-        const result = await createAppCheckout(token, draft.days, draft.requestId, { product, slots: draft.slots });
+        const result = await createAppCheckout(token, draft.days, draft.requestId, { product, slots: draft.slots, email: draft.email });
         if (!mounted.current) return;
         if (!result.ok || !result.data?.checkout?.label) throw Error(result.error || 'Не удалось создать оплату');
         checkout = normalizePayment(result.data.checkout);
@@ -135,7 +139,7 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
         if (checkout.price !== (isSlots ? slotCount * slotPrice : tariffs.find(t => t.days === selected)?.price)) { setError('Цена обновилась. Проверьте новую сумму и нажмите «Продолжить оплату».'); return; }
       }
       if (!mounted.current) return;
-      const result = await window.electronAPI.openPayment(checkout.paymentUrl);
+      const result = await window.electronAPI.openPayment(checkout.paymentUrl, checkout.label);
       if (!result?.ok) throw Error(result?.error || 'Не удалось открыть оплату');
     } catch (e) { setError(e.message || 'Не удалось открыть оплату'); }
     finally { payLock.current = false; setBusy(false); }
@@ -147,13 +151,14 @@ export default function SubscriptionBilling({ token, accountId, onPaid, product 
       {paid ? <div className="billing-success"><CheckCircle2 size={44} /><h3>{isSlots ? 'Слоты добавлены' : 'Подписка продлена'}</h3><p>{isSlots ? 'Оплата подтверждена. Обновляем лимит устройств.' : 'Оплата подтверждена. Обновляем срок подписки.'}</p><button onClick={() => setOpen(false)}>Готово</button></div> : <>
         {order ? <div className="billing-pending"><h3>{isSlots ? `Дополнительные слоты · ${order.slots}` : `Оплата · ${order.days} дней`}</h3><strong>{order.price} ₽</strong><p>{trackingPaused ? 'Автоматическая проверка приостановлена. Платёж не отменён: если банк уже списал деньги, нажмите «Проверить оплату».' : 'Подтверждение появится автоматически. Если вы ещё не оплатили, продолжите оплату ниже.'}</p></div> : <>
           <p className="billing-caption">{isSlots ? 'Слоты добавляются навсегда. Срок подписки не меняется.' : 'Оплаченные дни добавятся к оставшемуся сроку.'}</p>
-          {loading ? <p className="billing-loading"><Loader2 className="spinning" size={20} /> Загружаем тарифы…</p> : isSlots ? <div className="billing-slot-picker" hidden={!slotPrice}><p>Один слот · {slotPrice} ₽</p><div><button aria-label="Уменьшить количество слотов" disabled={slotCount <= 1} onClick={() => setSlotCount(n => n - 1)}>−</button><strong aria-live="polite">{slotCount}</strong><button aria-label="Увеличить количество слотов" disabled={slotCount >= slotMax} onClick={() => setSlotCount(n => n + 1)}>+</button></div><span>Итого: {slotCount * slotPrice} ₽</span></div> : <div className="billing-tariffs" role="group" aria-label="Выбор тарифа">{tariffs.map(t => <button key={t.days} aria-pressed={selected === t.days} onClick={() => setSelected(t.days)}><span>{t.title}</span><strong>{t.price} ₽</strong>{selected === t.days && <CheckCircle2 size={18} />}</button>)}</div>}
+          {loading ? <p className="billing-loading"><Loader2 className="spinning" size={20} /> Загружаем тарифы…</p> : isSlots ? <div className="billing-slot-picker" hidden={!slotPrice}><p>Один слот · {slotPrice} ₽</p><div><button aria-label="Уменьшить количество слотов" disabled={slotCount <= 1} onClick={() => setSlotCount(n => n - 1)}>−</button><strong aria-live="polite">{slotCount}</strong><button aria-label="Увеличить количество слотов" disabled={slotCount >= slotMax} onClick={() => setSlotCount(n => n + 1)}>+</button></div><span>Итого: {slotCount * slotPrice} ₽</span></div> : <div className="billing-tariffs" role="group" aria-label="Выбор тарифа">{tariffs.map(t => <button key={t.days} aria-pressed={selected === t.days} onClick={() => setSelected(t.days)}><span>{t.title || ({7:'7 дней',30:'1 месяц',90:'3 месяца',365:'1 год'}[t.days]) || `${t.days} дней`}</span><strong>{t.price} ₽</strong>{selected === t.days && <CheckCircle2 size={18} />}</button>)}</div>}
         </>}
+        {!order && emailStep && <label className="billing-email">Электронная почта<input type="email" autoComplete="email" inputMode="email" maxLength={254} value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" /><small>Для оформления платежа. Можно указать другую почту.</small></label>}
         {(order||history.length>0)&&<button className="billing-retry" disabled={checkingPayment} onClick={()=>manualCheck.current?.()}>{checkingPayment?'Проверяем оплату…':order?'Проверить оплату':'Проверить отложенные платежи'}</button>}
         {error && <p className="billing-error" role="alert">{error}</p>}
         {!order && !loading && !tariffs.length && <button className="billing-retry" onClick={() => setLoadAttempt(n => n + 1)}>Повторить загрузку</button>}
-        <button className="billing-pay" disabled={busy || (!order && (loading || (isSlots ? !slotPrice : !tariffs.some(t => t.days === selected))))} onClick={pay}>{busy ? <Loader2 className="spinning" size={18} /> : <CreditCard size={18} />}{order ? 'Продолжить оплату' : `Оплатить ${isSlots ? (slotPrice ? slotCount * slotPrice : '—') : (tariffs.find(t => t.days === selected)?.price ?? '')} ₽`}</button>
-        <p className="billing-footnote">Карта и другие доступные способы — в защищённой форме ЮMoney. Для подтверждения банк может открыть своё приложение.</p>
+        <button className="billing-pay" disabled={busy || (!order && (loading || (isSlots ? !slotPrice : !tariffs.some(t => t.days === selected))))} onClick={pay}>{busy ? <Loader2 className="spinning" size={18} /> : <CreditCard size={18} />}{order ? 'Продолжить оплату' : `Карта / СБП · ${isSlots ? (slotPrice ? slotCount * slotPrice : '—') : (tariffs.find(t => t.days === selected)?.price ?? '')} ₽`}</button>
+        <p className="billing-footnote">Карта и СБП — в защищённой форме Платеги. Для подтверждения банк может открыть своё приложение.</p>
         {order && <><button className="billing-retry" onClick={() => setOpen(false)}>Проверим оплату в фоне · закрыть</button><button className="billing-retry" onClick={postponeOrder}>{isSlots ? 'Изменить количество слотов' : 'Выбрать другой тариф'}</button><p className="billing-footnote">Если уже оплатили, дождитесь подтверждения. Изменение заказа не отменяет платёж в банке.</p></>}
       </>}
     </section>

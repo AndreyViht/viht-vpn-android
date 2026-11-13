@@ -45,7 +45,7 @@
     onInviteOpen:callback=>subscribe('invite-open',callback),
     scanInvite:options=>call('scanInvite',[options||{}],180000), guestInvite:(action,invite)=>call('guestInvite',[action,invite]), inviteQr:url=>call('inviteQr',[url]),
     openExternal: url => call('openExternal', [url]),
-    openPayment: url => call('openPayment', [url]),
+    openPayment: (url, label) => call('openPayment', [url, label]),
     getAnnouncements: () => call('getAnnouncements'), readAnnouncement: (id,revision) => call('readAnnouncement',[id,revision]),
     onAnnouncementOpen: callback => subscribe('announcement-open',callback),
     getUiSnapshot: () => call('getUiSnapshot'), cacheUiSnapshot: value => call('cacheUiSnapshot',[value]),

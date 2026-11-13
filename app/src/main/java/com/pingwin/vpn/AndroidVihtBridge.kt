@@ -156,8 +156,8 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "openNotificationSettings" -> { openIntent(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)); ok() }
                     "openPayment" -> {
                         val url = args.getString(0)
-                        YooMoneyCheckout.fromSavedUrl(url) // Validate before opening a native screen.
-                        openIntent(Intent(activity, PaymentActivity::class.java).putExtra("paymentUrl", url)); ok()
+                        require(PlategaCheckout.isEntry(url)) { "Недопустимая ссылка оплаты" }
+                        openIntent(Intent(activity, PaymentActivity::class.java).putExtra("paymentUrl", url).putExtra("paymentLabel", args.optString(1))); ok()
                     }
                     "openExternal" -> {
                         val url = Uri.parse(args.getString(0)); require(url.scheme in setOf("https", "http")) { "Недопустимая ссылка" }
