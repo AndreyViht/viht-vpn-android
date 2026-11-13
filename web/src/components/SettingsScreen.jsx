@@ -802,7 +802,7 @@ function SettingsScreen({
                   type="button"
                   className="btn btn--secondary btn--sm"
                   onClick={() => {
-                    void (window.electronAPI?.copyText ? window.electronAPI.copyText(logContent) : navigator.clipboard.writeText(logContent)).then(()=>setLogCopied(true)).catch(()=>setLogCopied(false));
+                    void (window.electronAPI?.copyText ? window.electronAPI.copyText(logContent) : navigator.clipboard.writeText(logContent)).then(result=>{if(result?.ok===false)throw Error(result.error);setLogCopied(true)}).catch(()=>setLogCopied(false));
                   }}
                   {...buttonPress}
                 >

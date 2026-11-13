@@ -1010,7 +1010,7 @@ export default function App() {
       {token&&user&&<AppAnnouncements key={'news:'+String(user.id||user.telegram_id||user.yandex_email)} accountId={String(user.id||user.telegram_id||user.yandex_email)} enabled={settings.notifyNews!==false} onUnreadChange={setNewsUnread}/>}
       {token && user && !user.is_guest && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} profileEmail={user.yandex_email || user.email || ""} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => { setProfileRetry(n => n + 1); setActiveTab("home"); if(settingsRef.current.notifyPayments!==false)showToast("Оплата получена. Обновляем подписку.", "success"); }} />}
       {token && user && !user.is_guest && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} profileEmail={user.yandex_email || user.email || ""} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => { setProfileRetry(n => n + 1); setActiveTab("home"); if(settingsRef.current.notifyPayments!==false)showToast("Оплата получена. Обновляем подписку.", "success"); }} />}
-      <UpdateBanner release={availableUpdate} onDismiss={()=>setAvailableUpdate(null)}/>
+      <UpdateBanner enabled={settings.notifyUpdate!==false} release={availableUpdate} onDismiss={()=>setAvailableUpdate(null)}/>
       <ForeignVpnModal
         detection={foreignVpnWarning}
         onClose={() => setForeignVpnWarning(null)}
