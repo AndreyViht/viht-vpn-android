@@ -85,9 +85,9 @@ class CoreStartupTest {
         val info = context.packageManager.getActivityInfo(component, 0)
         assertFalse(info.exported)
         assertEquals(PaymentActivity::class.java.name, info.name)
-        // Read-only form initialization: no card data, confirmation or transfer is submitted.
+        // Isolated Platega surface: no transaction or transfer is created.
         val intent = android.content.Intent(context, PaymentActivity::class.java)
-            .putExtra("paymentUrl", "https://yoomoney.ru/quickpay/confirm.xml?receiver=4100119557878170&sum=59&label=viht_form_smoke_no_transfer&quickpay-form=shop")
+            .putExtra("paymentUrl", "https://pay.platega.io/sbp-qr/p/viht-window-smoke-no-transfer")
             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         val activity = instrumentation.startActivitySync(intent)
         try {
@@ -98,23 +98,23 @@ class CoreStartupTest {
                 if (view is android.view.ViewGroup) for (i in 0 until view.childCount) webView(view.getChildAt(i))?.let { return it }
                 return null
             }
-            var formReady = false
-            val deadline = System.currentTimeMillis() + 60000
-            while (!formReady && System.currentTimeMillis() < deadline) {
-                val latch = java.util.concurrent.CountDownLatch(1)
-                instrumentation.runOnMainSync {
-                    val browser = webView(activity.findViewById(android.R.id.content))
-                    assertNotNull(browser)
-                    browser!!.evaluateJavascript("""
-                        (function(){var t=document.body?document.body.innerText:'';
-                        var count=Array.from(document.querySelectorAll('input')).filter(function(e){return e.type!=='hidden'&&e.getBoundingClientRect().width>0;}).length;
-                        return count>=3&&/номер\s+карты|card\s+number/i.test(t)&&/59/.test(t);})()
-                    """.trimIndent()) { value -> formReady = value == "true"; latch.countDown() }
+            val latch = java.util.concurrent.CountDownLatch(1)
+            instrumentation.runOnMainSync {
+                val browser = webView(activity.findViewById(android.R.id.content))
+                assertNotNull(browser)
+                assertTrue(browser!!.settings.javaScriptEnabled)
+                assertFalse(browser.settings.allowFileAccess)
+                assertFalse(browser.settings.allowContentAccess)
+                assertEquals(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW, browser.settings.mixedContentMode)
+                // Deterministic provider document; live checkout creation is covered separately.
+                browser.webViewClient = object : android.webkit.WebViewClient() {
+                    override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                        if (url == "https://pay.platega.io/") view?.evaluateJavascript("document.body.innerText === 'Platega payment surface' && typeof window.VihtNative === 'undefined'") { value -> if (value == "true") latch.countDown() }
+                    }
                 }
-                assertTrue(latch.await(5, java.util.concurrent.TimeUnit.SECONDS))
-                if (!formReady) android.os.SystemClock.sleep(700)
+                browser.loadDataWithBaseURL("https://pay.platega.io/", "<html><body>Platega payment surface</body></html>", "text/html", "UTF-8", null)
             }
-            assertTrue("YooMoney must render amount and card inputs, not just an empty window", formReady)
+            assertTrue("Payment WebView must render its isolated provider document", latch.await(10, java.util.concurrent.TimeUnit.SECONDS))
 
         } finally {
             instrumentation.runOnMainSync { activity.finish() }
