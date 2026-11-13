@@ -869,7 +869,7 @@ export default function App() {
 
   const handleUpdateSetting = useCallback(async (key, value) => {
     const networkChange = ['killSwitch', 'allowLan', 'bypassRussia', 'dnsAdblock', 'legacyVpnCore', 'excludedApps', 'excludedDomains', 'bypassRules', 'detailedLogs'].includes(key);
-    if (networkChange && settingsChangeRef.current) {
+    if ((networkChange || key === 'autoReconnect') && settingsChangeRef.current) {
       showToast('Дождитесь применения предыдущей сетевой настройки', 'info');
       return;
     }

@@ -179,7 +179,7 @@ function SettingsScreen({
   const handleCheckUpdate = async () => {
     setCheckingUpdate(true); setUpdateStatus('checking'); setUpdateError('');
     try {
-      if (!window.electronAPI?.checkForUpdates) throw new Error('Обновления доступны только в приложении Windows');
+      if (!window.electronAPI?.checkForUpdates) throw new Error('Обновления доступны в установленном приложении Viht');
       const result = await window.electronAPI.checkForUpdates();
       if (!result?.ok) throw new Error(result?.error || 'Не удалось проверить обновления');
       setUpdateInfo(result.hasUpdate ? result.releaseInfo : null);
@@ -732,7 +732,7 @@ function SettingsScreen({
                         <p className="settings-update-ready-text">
                           {currentLang === 'en'
                             ? `Version v${updateInfo?.version} is downloaded. Click the button to restart and apply.`
-                            : `Файл v${updateInfo?.version} скачан. Нажмите кнопку для перезапуска и обновления.`}
+                            : `Файл v${updateInfo?.version} скачан. Подтвердите установку в системном окне Android.`}
                         </p>
                         <motion.button data-motion-press="true"
                           type="button"
