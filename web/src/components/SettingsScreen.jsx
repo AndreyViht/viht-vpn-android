@@ -15,7 +15,7 @@ import {
   X,
   Sparkles,
   ArrowUpCircle,
-  Loader2,
+  Loader2, ChevronDown, ChevronRight,
 } from 'lucide-react';
 
 import { THEMES, t } from '../utils/i18n';
@@ -23,6 +23,7 @@ import { springs, buttonPress } from '../utils/motion';
 import { isAndroid } from '../utils/platform';
 import BypassEditor from './BypassEditor';
 import './SettingsModern.css';
+import {filterJournal,journalFilters} from '../utils/journalFilters.mjs';
 
 function FluentSwitch({ checked, onChange, label }) {
   return (
@@ -53,7 +54,7 @@ function FluentSwitch({ checked, onChange, label }) {
 function SettingsScreen({
   settings,
   onUpdateSetting,
-  clientVersion = '2.0.0.9',
+  clientVersion = '2.0.0.10',
   hwid,
   initialCategory = 'connection',
 }) {
@@ -79,10 +80,54 @@ function SettingsScreen({
     return () => { alive = false; off?.(); };
   }, [activeCategory]);
   useEffect(() => { setActiveCategory(initialCategory); }, [initialCategory]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [bypassOpen, setBypassOpen] = useState(false);
+  const [logFilter, setLogFilter] = useState('all');
+  const menuRef = React.useRef(null);
+  const menuButton = React.useRef(null);
+  const bypassButton = React.useRef(null);
+  const scrollPosition = React.useRef(0);
+  const pageRef = React.useRef(null);
+  const closeBypass = () => {
+    setBypassOpen(false);
+    requestAnimationFrame(() => {
+      const viewport = pageRef.current?.closest('.fluent-page-motion-wrap');
+      if (viewport) viewport.scrollTop = scrollPosition.current;
+      bypassButton.current?.focus({preventScroll:true});
+    });
+  };
+  React.useLayoutEffect(() => {
+    if (!bypassOpen) return;
+    const viewport = pageRef.current?.closest('.fluent-page-motion-wrap');
+    if (viewport) viewport.scrollTop = 0;
+    pageRef.current?.querySelector('.viht-settings-back')?.focus({preventScroll:true});
+  }, [bypassOpen]);
   const [logContent, setLogContent] = useState('');
   const [logCopied,setLogCopied]=useState(false);
   const [logLoading,setLogLoading]=useState(false);
   const [showLogModal, setShowLogModal] = useState(false);
+  useEffect(() => {
+    const back = event => {
+      if (event.key && event.key !== 'Escape') return;
+      if (!(menuOpen || bypassOpen || showLogModal)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (showLogModal) setShowLogModal(false);
+      else if (menuOpen) { setMenuOpen(false); menuButton.current?.focus(); }
+      else closeBypass();
+    };
+    const outside = event => {
+      if (menuOpen && !menuRef.current?.contains(event.target)) setMenuOpen(false);
+    };
+    window.addEventListener('viht-back', back, true);
+    window.addEventListener('keydown', back, true);
+    document.addEventListener('pointerdown', outside);
+    return () => {
+      window.removeEventListener('viht-back', back, true);
+      window.removeEventListener('keydown', back, true);
+      document.removeEventListener('pointerdown', outside);
+    };
+  }, [menuOpen, bypassOpen, showLogModal]);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [installingUpdate, setInstallingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState('idle'); // 'idle' | 'checking' | 'available' | 'up-to-date' | 'downloading' | 'ready' | 'error'
@@ -163,7 +208,7 @@ function SettingsScreen({
   ];
 
   const handleExportLog = async () => {
-    if(logLoading)return;setLogLoading(true);setLogCopied(false);
+    if(logLoading)return;setLogLoading(true);setLogCopied(false);setLogFilter('all');
     try {
     if (window.electronAPI?.exportDebugLog) {
       const text = await window.electronAPI.exportDebugLog();
@@ -216,11 +261,23 @@ function SettingsScreen({
 
   useEffect(() => { if (initialCategory === 'updates') handleCheckUpdate(); }, [initialCategory]);
 
+  const filteredLog = filterJournal(logContent, logFilter);
+  if (bypassOpen) return <div ref={pageRef} className="fluent-page fluent-settings-page"><BypassEditor settings={settings} onUpdateSetting={onUpdateSetting} onBack={closeBypass}/></div>;
   return (
-    <div className="fluent-page fluent-settings-page">
+    <div ref={pageRef} className="fluent-page fluent-settings-page">
       <div className="fluent-settings-layout">
         {/* Left Subnav Tabs with Sliding Layout Spring */}
-        <label className="viht-settings-select">Раздел настроек<select aria-label="Раздел настроек" value={activeCategory} onChange={e=>setActiveCategory(e.target.value)}>{categories.map(cat=><option key={cat.id} value={cat.id}>{cat.label}</option>)}</select><span aria-hidden="true">⌄</span></label>
+        <div className="viht-category" ref={menuRef}>
+          <button type="button" ref={menuButton} className="viht-category-trigger" aria-expanded={menuOpen} aria-controls="viht-settings-categories" onClick={()=>setMenuOpen(value=>!value)}>
+            <span><small>Настройки</small><strong>{categories.find(category=>category.id===activeCategory)?.label}</strong></span>
+            <ChevronDown size={20}/>
+          </button>
+          <AnimatePresence initial={false}>{menuOpen && <motion.div id="viht-settings-categories" className="viht-category-options" role="group" aria-label="Разделы настроек" initial={{opacity:0,y:-5}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-5}} transition={{duration:.16}}>
+            {categories.map(({id,label,icon:Icon})=><button type="button" key={id} aria-current={id===activeCategory?'true':undefined} onClick={()=>{setActiveCategory(id);setMenuOpen(false);menuButton.current?.focus()}}>
+              <Icon size={18}/><span>{label}</span>{id===activeCategory && <Check size={16}/>}
+            </button>)}
+          </motion.div>}</AnimatePresence>
+        </div>
 
         {/* Right Settings Body with Silky Section Transitions */}
         <div className="fluent-settings-content">
@@ -323,7 +380,7 @@ function SettingsScreen({
 
                   <div className="fluent-toggle-divider" />
 
-                  {isAndroid ? <BypassEditor settings={settings} onUpdateSetting={onUpdateSetting}/> : (<div
+                  {isAndroid ? <button type="button" ref={bypassButton} className="bypass-settings-row" onClick={()=>{const viewport=pageRef.current?.closest('.fluent-page-motion-wrap');scrollPosition.current=viewport?.scrollTop||0;setMenuOpen(false);setBypassOpen(true)}}><strong>Раздельное туннелирование</strong><ChevronRight size={18}/></button> : (<div
                     className="fluent-toggle-row"
                     onClick={() => onUpdateSetting('bypassRussia', settings.bypassRussia !== false ? false : true)}
                   >
@@ -795,18 +852,20 @@ function SettingsScreen({
                 </motion.button>
               </div>
               <div className="fluent-modal-body">
-                <pre className="fluent-log-pre">{logContent}</pre>
+                <div className="viht-log-filters" role="group" aria-label="Тип записей">{journalFilters.map(([id,label])=><button type="button" key={id} aria-pressed={id===logFilter} onClick={()=>{setLogFilter(id);setLogCopied(false)}}>{label}</button>)}</div>
+                <pre key={logFilter} className="fluent-log-pre">{filteredLog || 'Нет записей этого типа. Для DNS и маршрутов включите подробный журнал в разделе «Подключение».'}</pre>
               </div>
               <div className="fluent-modal-footer">
                 <motion.button data-motion-press="true"
                   type="button"
                   className="btn btn--secondary btn--sm"
+                  disabled={!filteredLog}
                   onClick={() => {
-                    void (window.electronAPI?.copyText ? window.electronAPI.copyText(logContent) : navigator.clipboard.writeText(logContent)).then(result=>{if(result?.ok===false)throw Error(result.error);setLogCopied(true)}).catch(()=>setLogCopied(false));
+                    void (window.electronAPI?.copyText ? window.electronAPI.copyText(filteredLog) : navigator.clipboard.writeText(filteredLog)).then(result=>{if(result?.ok===false)throw Error(result.error);setLogCopied(true)}).catch(()=>setLogCopied(false));
                   }}
                   {...buttonPress}
                 >
-                  {logCopied?'Скопировано':'Копировать журнал'}
+                  {logCopied?'Скопировано':logFilter==='all'?'Копировать журнал':'Копировать выбранное'}
                 </motion.button>
                 <motion.button data-motion-press="true"
                   type="button"

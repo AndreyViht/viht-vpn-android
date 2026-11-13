@@ -1,6 +1,6 @@
 import React,{useEffect,useState,useRef,useMemo} from 'react';
-import {createPortal} from 'react-dom';
-import {ChevronRight,X,Loader2,AppWindow} from 'lucide-react';
+
+import {ArrowLeft,Loader2,AppWindow} from 'lucide-react';
 import './BypassEditor.css';
 const icons=new Map();let activeIcons=0;const iconQueue=[];
 function pumpIcons(){while(activeIcons<3&&iconQueue.length){const job=iconQueue.shift();if(job.cancelled)continue;activeIcons++;Promise.resolve().then(()=>window.electronAPI?.getAppIcon?.(job.pkg)).then(value=>{if(typeof value==='string'){icons.set(job.pkg,value);if(icons.size>400)icons.delete(icons.keys().next().value);job.done(value)}}).catch(()=>{}).finally(()=>{activeIcons--;pumpIcons()})}}
@@ -39,9 +39,10 @@ function BypassForm({settings,onUpdateSetting}) {
   </div>;
 }
 
-export default function BypassEditor({settings,onUpdateSetting}) {
-  const [open,setOpen]=useState(false);const dialog=useRef(null),trigger=useRef(null);
-  useEffect(()=>{if(!open)return;const node=dialog.current;if(!node)return;try{if(!node.open)node.showModal()}catch{};node.setAttribute('data-open','true');const previous=document.body.style.overflow;document.body.style.overflow='hidden';const close=()=>setOpen(false);node.addEventListener('close',close);return()=>{node.removeEventListener('close',close);if(node.open)node.close();node.removeAttribute('data-open');document.body.style.overflow=previous;trigger.current?.focus()};},[open]);
-  const count=(settings.bypassRules?.domains||settings.excludedDomains||[]).length+(settings.bypassRules?.apps||settings.excludedApps||[]).length;
-  return <><button type="button" className="bypass-settings-row" ref={trigger} aria-haspopup="dialog" onClick={()=>setOpen(true)}><strong>Раздельное туннелирование</strong><span>{count?count+' искл.':settings.bypassRussia!==false?'Включено':'Выкл.'}</span><ChevronRight size={17}/></button>{open&&createPortal(<dialog className="bypass-dialog" ref={dialog} aria-labelledby="bypass-dialog-title" onClick={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)setOpen(false)}}}><header className="bypass-dialog-header"><h2 id="bypass-dialog-title">Раздельное туннелирование</h2><button type="button" aria-label="Закрыть настройки туннелирования" onClick={()=>setOpen(false)}><X size={20}/></button></header><BypassForm settings={settings} onUpdateSetting={onUpdateSetting}/></dialog>,document.body)}</>;
+export default function BypassEditor({settings,onUpdateSetting,onBack}) {
+  return <section className="viht-bypass-page" aria-labelledby="bypass-page-title">
+    <button type="button" className="viht-settings-back" onClick={onBack}><ArrowLeft size={18}/> Настройки</button>
+    <h1 id="bypass-page-title">Раздельное туннелирование</h1>
+    <BypassForm settings={settings} onUpdateSetting={onUpdateSetting}/>
+  </section>;
 }
