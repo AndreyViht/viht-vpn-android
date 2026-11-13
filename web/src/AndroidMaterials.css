@@ -1,0 +1,28 @@
+html[data-viht-theme]{--v-accent:#a4efd5;--v-bg:#09131f;--v-surface:#142831;--v-text:#e9f4f2;--v-muted:#a3b9c4;--v-line:#c8efe31c;--v-tint:#345361}
+html[data-viht-theme=oled]{--v-accent:#d9e7f2;--v-bg:#000;--v-surface:#11151a;--v-muted:#a8b2be;--v-tint:#293443}
+html[data-viht-theme=cyan]{--v-accent:#83dcfa;--v-bg:#051a29;--v-surface:#103647;--v-muted:#9dbdce;--v-tint:#235d78}
+html[data-viht-theme=purple]{--v-accent:#d4b5ff;--v-bg:#160d28;--v-surface:#302344;--v-muted:#beb0ce;--v-tint:#684780}
+html[data-viht-theme=amber]{--v-accent:#f9d69d;--v-bg:#21140d;--v-surface:#3c2b21;--v-muted:#c8b7a6;--v-tint:#77542f}
+html[data-viht-theme]{--accent:var(--v-accent);--text-primary:var(--v-text);--text-secondary:var(--v-muted);--viht-surface:var(--v-surface);--viht-line:var(--v-line)}
+.liquid-window.is-android{--accent:var(--v-accent,#a4efd5)!important;--text-primary:var(--v-text,#e9f4f2)!important;--text-secondary:var(--v-muted,#a3b9c4)!important;--viht-surface:var(--v-surface,#142831);--viht-line:var(--v-line,#ffffff15);padding-top:0!important;background:radial-gradient(ellipse at 10% 0%,var(--v-tint,#345361),transparent 60%),var(--v-bg,#09131f)!important;color:var(--text-primary);isolation:isolate}
+.liquid-window.is-android .titlebar{position:absolute;left:0;right:0;top:var(--viht-status-inset,0px);height:52px;min-height:52px;z-index:110;background:transparent!important;backdrop-filter:none!important}
+.liquid-window.is-android::before{content:"";position:absolute;top:0;left:0;right:0;height:calc(var(--viht-status-inset,0px) + 58px);z-index:105;pointer-events:none;background:linear-gradient(to bottom,color-mix(in srgb,var(--v-bg,#09131f) 75%,transparent),color-mix(in srgb,var(--v-bg,#09131f) 45%,transparent));backdrop-filter:blur(18px) saturate(145%)!important;-webkit-backdrop-filter:blur(18px) saturate(145%)!important;mask-image:linear-gradient(#000 88%,transparent);-webkit-mask-image:linear-gradient(#000 88%,transparent)}
+.liquid-window.is-android .fluent-app-layout{height:100%;min-height:0}
+.liquid-window.is-android .fluent-main-viewport{padding:0!important;overflow:hidden!important;contain:none}
+.liquid-window.is-android .fluent-page-motion-wrap{box-sizing:border-box;padding-top:calc(var(--viht-status-inset,0px) + 58px);scroll-padding-top:calc(var(--viht-status-inset,0px) + 64px);scrollbar-width:none;overscroll-behavior:contain}
+.liquid-window.is-android .fluent-page-motion-wrap::-webkit-scrollbar{display:none}
+.liquid-window.is-android .viht-minimal-home{min-height:100%;padding-bottom:120px}
+.liquid-window.is-android .ios-bottom-bar__island{background:color-mix(in srgb,var(--v-surface,#142831) 32%,transparent)!important;backdrop-filter:blur(22px) saturate(180%) contrast(1.08)!important;-webkit-backdrop-filter:blur(22px) saturate(180%) contrast(1.08)!important;border:1px solid #e8ffff38;box-shadow:inset 0 1px 1px #fff6,inset 0 -1px 1px #ffffff24,0 10px 30px #0003;transform:translateZ(0)}
+.liquid-window.is-android .viht-nav-lens{background:linear-gradient(145deg,#e8ffff2e,#ffffff05);border:1px solid #ffffff4a;box-shadow:inset 0 1px 2px #ffffff60,inset 0 -4px 12px #ffffff07;backdrop-filter:blur(5px) saturate(150%)!important;-webkit-backdrop-filter:blur(5px) saturate(150%)!important;transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+.liquid-window.is-android .ios-tab-item--active{color:var(--accent)!important}
+.liquid-window.is-android .viht-connect-orb{background:radial-gradient(ellipse at 25% 10%,#ffffff20,transparent 55%),linear-gradient(145deg,var(--v-tint,#345361),var(--v-bg,#09131f) 85%);color:var(--text-primary)}
+.liquid-window.is-android .viht-connect-orb.state-connected{--orb-color:var(--accent);border-color:var(--accent)}
+.liquid-window.is-android .viht-home-renew,.liquid-window.is-android .viht-server-action,.liquid-window.is-android .device-inline-summary button{color:var(--accent)}
+.liquid-window.is-android .viht-update-banner{position:absolute;top:calc(var(--viht-status-inset,0px) + 60px);left:12px;right:12px;z-index:115;background:var(--viht-surface);border-color:var(--viht-line)}
+.liquid-window.is-android .fluent-theme-name{color:var(--text-primary)}
+@supports(backdrop-filter:url("#viht-glass-distort")){.liquid-window.is-android .viht-nav-lens{backdrop-filter:blur(5px) saturate(150%) url("#viht-glass-distort")!important}}
+@media(prefers-reduced-motion:reduce){.liquid-window.is-android .viht-nav-lens{transition:none}.liquid-window.is-android .fluent-page-motion-wrap{scroll-behavior:auto}}
+
+.viht-billing-panel,.device-invite-dialog,.device-invite-card,.bypass-dialog{background:var(--v-surface,#142831)!important;color:var(--v-text,#e9f4f2)}.billing-pay{background:var(--v-accent,#a4efd5)!important}.billing-tariffs button[aria-pressed=true]{box-shadow:inset 3px 0 var(--v-accent,#a4efd5)}
+
+.liquid-window.is-android .ios-tab-item--active .ios-tab-item__icon,.liquid-window.is-android .ios-tab-item--active .ios-tab-item__label,.liquid-window.is-android .fluent-theme-badge{color:var(--accent)!important}.liquid-window.is-android .fluent-theme-badge{background:var(--viht-surface)!important}

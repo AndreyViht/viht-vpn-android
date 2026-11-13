@@ -3,6 +3,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class VpnRecoveryPolicyTest {
+    @Test fun reconnectPreferenceIsHonored(){assertTrue(VpnRecoveryPolicy.enabled(org.json.JSONObject()));assertFalse(VpnRecoveryPolicy.enabled(org.json.JSONObject().put("autoReconnect",false)));assertTrue(VpnRecoveryPolicy.enabled(org.json.JSONObject().put("autoReconnect",true)))}
     @Test fun disconnectOrNewRequestAlwaysCancelsRecovery() {
         assertFalse(VpnRecoveryPolicy.allowed(false,false,1,1))
         assertFalse(VpnRecoveryPolicy.allowed(true,true,1,1))

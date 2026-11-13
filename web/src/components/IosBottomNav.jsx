@@ -28,6 +28,7 @@ function IosBottomNav({
 
   return (
     <nav className="ios-bottom-bar" aria-label={lang === 'en' ? 'Main navigation' : 'Основная навигация'}>
+      <svg width="0" height="0" aria-hidden="true" style={{position:'absolute',pointerEvents:'none'}}><defs><filter id="viht-glass-distort" x="-10%" y="-10%" width="120%" height="120%" colorInterpolationFilters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.018 0.035" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="7" xChannelSelector="R" yChannelSelector="G"/></filter></defs></svg>
       <div ref={island} className="ios-bottom-bar__island" style={{touchAction:'none'}}
         onPointerDown={event=>{if(event.pointerType==='mouse'&&event.button!==0)return;const index=tabs.findIndex(tab=>tab.id===activeTab);gesture.current={id:event.pointerId,index};event.currentTarget.setPointerCapture(event.pointerId);}}
         onPointerMove={event=>{if(gesture.current?.id!==event.pointerId)return;const rect=island.current.getBoundingClientRect();const index=Math.max(0,Math.min(tabs.length-1,Math.floor((event.clientX-rect.left)/rect.width*tabs.length)));if(index!==gesture.current.index){gesture.current.index=index;onTabChange(tabs[index].id);}}}

@@ -86,12 +86,17 @@ internal class XrayHevRuntime(private val context: Context) {
     /** Also used by the isolated runtime test; no Android VPN/TUN is established here. */
     fun startCore(config: JSONObject, readyPort: Int) {
         check(process == null)
+        val detailed = DiagnosticLogStore.isDetailedEnabled(context)
+        if(detailed) config.put("log",JSONObject().put("loglevel","debug").put("dnsLog",true).put("access","").put("error",""))
         configFile.writeText(config.toString())
         try {
             // exec preserves the shell PID. Positional arguments avoid shell interpolation of paths.
             process = ProcessBuilder("/system/bin/sh", "-c", "echo $$; exec \"\$1\" run -config \"\$2\" >/dev/null 2>&1", "viht-xray", executable(context).absolutePath, configFile.absolutePath)
+                .apply { if(detailed) command()[2] = command()[2].replace(">/dev/null 2>&1", "2>&1") }
                 .redirectError(File("/dev/null")).start()
-            childPid = process!!.inputStream.bufferedReader().use { it.readLine()?.toLongOrNull() }
+            val reader=process!!.inputStream.bufferedReader()
+            childPid=reader.readLine()?.toLongOrNull()
+            if(detailed) Thread({runCatching{reader.useLines{lines->lines.forEach{DiagnosticLogStore.appendDetailed(context,"Xray: "+it)}}}},"viht-core-log").apply{isDaemon=true;start()} else reader.close()
             val deadline = SystemClock.elapsedRealtime() + 5000
             var ready = false
             while (SystemClock.elapsedRealtime() < deadline && process?.isAlive == true) {

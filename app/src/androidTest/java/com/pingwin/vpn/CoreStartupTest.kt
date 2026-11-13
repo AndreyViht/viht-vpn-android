@@ -122,6 +122,17 @@ class CoreStartupTest {
         }
     }
 
+    @Test fun applicationInventoryIncludesPackagesWithoutLauncherAndSuppliesIcons() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val entries=AndroidInstalledApps.list(context)
+        assertTrue(entries.length()>0)
+        val launcher=context.packageManager.queryIntentActivities(android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER),0).map{it.activityInfo.packageName}.toSet()
+        assertTrue((0 until entries.length()).any{!launcher.contains(entries.getJSONObject(it).getString("packageName"))})
+        assertTrue((0 until entries.length()).none{entries.getJSONObject(it).getString("packageName")==context.packageName})
+        assertTrue(AndroidInstalledApps.icon(context,context.packageName).startsWith("data:image/png;base64,"))
+        assertTrue(NetworkTrafficSampler.enrich(context,org.json.JSONObject().put("speedDown",0.25)).has("displaySpeedDown"))
+    }
+
     private fun stub(type: Class<*>): Any = Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, _ ->
         when (method.name) {
             "openTun" -> error("This test must never create a TUN")

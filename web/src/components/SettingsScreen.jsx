@@ -22,6 +22,7 @@ import { THEMES, t } from '../utils/i18n';
 import { springs, buttonPress } from '../utils/motion';
 import { isAndroid } from '../utils/platform';
 import BypassEditor from './BypassEditor';
+import './SettingsModern.css';
 
 function FluentSwitch({ checked, onChange, label }) {
   return (
@@ -52,7 +53,7 @@ function FluentSwitch({ checked, onChange, label }) {
 function SettingsScreen({
   settings,
   onUpdateSetting,
-  clientVersion = '1.5.3',
+  clientVersion = '2.0.0.9',
   hwid,
   initialCategory = 'connection',
 }) {
@@ -79,6 +80,8 @@ function SettingsScreen({
   }, [activeCategory]);
   useEffect(() => { setActiveCategory(initialCategory); }, [initialCategory]);
   const [logContent, setLogContent] = useState('');
+  const [logCopied,setLogCopied]=useState(false);
+  const [logLoading,setLogLoading]=useState(false);
   const [showLogModal, setShowLogModal] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [installingUpdate, setInstallingUpdate] = useState(false);
@@ -155,18 +158,22 @@ function SettingsScreen({
     { id: 'windows', label: isAndroid ? 'Android' : t('cat_windows', currentLang), icon: Monitor },
     { id: 'notifications', label: t('cat_notifications', currentLang), icon: Bell },
     { id: 'appearance', label: t('cat_appearance', currentLang), icon: Palette },
-    { id: 'advanced', label: t('cat_advanced', currentLang), icon: Shield },
+    { id: 'advanced', label: 'О приложении', icon: Info },
+    { id: 'updates', label: 'Обновления', icon: Download },
   ];
 
   const handleExportLog = async () => {
+    if(logLoading)return;setLogLoading(true);setLogCopied(false);
+    try {
     if (window.electronAPI?.exportDebugLog) {
       const text = await window.electronAPI.exportDebugLog();
       setLogContent(text);
       setShowLogModal(true);
     } else {
-      setLogContent('Экспорт логов доступен только в настольной среде Windows.');
+      setLogContent('Журнал недоступен. Откройте установленное приложение Viht.');
       setShowLogModal(true);
     }
+    }catch(error){setLogContent(error.message);setShowLogModal(true)}finally{setLogLoading(false)}
   };
 
   const handleCheckUpdate = async () => {
@@ -207,40 +214,13 @@ function SettingsScreen({
     finally { setInstallingUpdate(false); }
   };
 
-  useEffect(() => { if (initialCategory === 'advanced') handleCheckUpdate(); }, [initialCategory]);
+  useEffect(() => { if (initialCategory === 'updates') handleCheckUpdate(); }, [initialCategory]);
 
   return (
     <div className="fluent-page fluent-settings-page">
       <div className="fluent-settings-layout">
         {/* Left Subnav Tabs with Sliding Layout Spring */}
-        <div className="fluent-settings-tabs">
-          {categories.map((cat) => {
-            const Icon = cat.icon;
-            const isActive = activeCategory === cat.id;
-            return (
-              <motion.button data-motion-press="true"
-                key={cat.id}
-                type="button"
-                className={`fluent-settings-tab-btn ${isActive ? 'active' : ''}`}
-                onClick={() => setActiveCategory(cat.id)}
-                aria-pressed={isActive}
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.97 }}
-                transition={springs.tactile}
-              >
-                {isActive && (
-                  <motion.div
-                    className="fluent-settings-tab-active-bg"
-                    layoutId="settings-active-cat-bg"
-                    transition={springs.pill}
-                  />
-                )}
-                <Icon size={16} />
-                <span>{cat.label}</span>
-              </motion.button>
-            );
-          })}
-        </div>
+        <label className="viht-settings-select">Раздел настроек<select aria-label="Раздел настроек" value={activeCategory} onChange={e=>setActiveCategory(e.target.value)}>{categories.map(cat=><option key={cat.id} value={cat.id}>{cat.label}</option>)}</select><span aria-hidden="true">⌄</span></label>
 
         {/* Right Settings Body with Silky Section Transitions */}
         <div className="fluent-settings-content">
@@ -323,6 +303,61 @@ function SettingsScreen({
                     />
                   </div>
                 </div>
+                <div className="fluent-card fluent-settings-group">
+                  <div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>Подробный журнал</strong><span>DNS, маршруты, соединения и ошибки ядра. Локально, с ограничением объёма; после включения VPN переподключится.</span></div><FluentSwitch checked={settings.detailedLogs===true} label="Подробный журнал" onChange={()=>onUpdateSetting('detailedLogs',settings.detailedLogs!==true)}/></div><div className="fluent-toggle-divider"/>
+                  {/* DNS */}
+                  <div
+                    className="fluent-toggle-row"
+                    onClick={() => onUpdateSetting('dnsAdblock', settings.dnsAdblock !== false ? false : true)}
+                  >
+                    <div className="fluent-toggle-text">
+                      <strong>{t('setting_dns', currentLang)}</strong>
+                      <span>{t('setting_dns_desc', currentLang)}</span>
+                    </div>
+                    <FluentSwitch
+                      checked={settings.dnsAdblock !== false}
+                      label={t('setting_dns', currentLang)}
+                      onChange={() => onUpdateSetting('dnsAdblock', settings.dnsAdblock !== false ? false : true)}
+                    />
+                  </div>
+
+                  <div className="fluent-toggle-divider" />
+
+                  {isAndroid ? <BypassEditor settings={settings} onUpdateSetting={onUpdateSetting}/> : (<div
+                    className="fluent-toggle-row"
+                    onClick={() => onUpdateSetting('bypassRussia', settings.bypassRussia !== false ? false : true)}
+                  >
+                    <div className="fluent-toggle-text">
+                      <strong>{t('setting_split_ru', currentLang)}</strong>
+                      <span>{t('setting_split_ru_desc', currentLang)}</span>
+                    </div>
+                    <FluentSwitch
+                      checked={settings.bypassRussia !== false}
+                      label={t('setting_split_ru', currentLang)}
+                      onChange={() => onUpdateSetting('bypassRussia', settings.bypassRussia !== false ? false : true)}
+                    />
+                  </div>)}
+                  <div className="fluent-toggle-divider" />
+
+                  {/* Экспорт логов */}
+                  <div className="fluent-toggle-row">
+                    <div className="fluent-toggle-text">
+                      <strong>{t('setting_export_logs', currentLang)}</strong>
+                      <span>{t('setting_export_logs_desc', currentLang)}</span>
+                    </div>
+                    <motion.button data-motion-press="true"
+                      type="button"
+                      className="btn btn--secondary btn--sm"
+                      onClick={handleExportLog}
+                      {...buttonPress}
+                    >
+                      <FileText size={13} />
+                      <span>{logLoading?'Подготовка…':t('btn_export_logs', currentLang)}</span>
+                    </motion.button>
+                  </div>
+                </div>
+
+
               </motion.div>
             )}
 
@@ -352,12 +387,13 @@ function SettingsScreen({
               >
                 <h3 className="fluent-section-title">{t('cat_notifications', currentLang)}</h3>
                 <p className="fluent-section-desc">
-                  {currentLang === 'en' ? 'Alerts in Windows 10/11 Notification Center.' : 'Оповещения в Центре уведомлений Windows 10/11.'}
+                  {currentLang === 'en' ? 'Connection, payment and update alerts.' : 'Оповещения о соединении, оплатах, новостях и обновлениях.'}
                 </p>
 
                 <div className="fluent-card fluent-settings-group">
                   {isAndroid && <div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>Уведомление VPN</strong><span>Сервер и скорость загрузки/отдачи. Показ включается и выключается в настройках этого уведомления Android.</span></div><FluentSwitch checked={vpnNotification} label="Уведомление VPN" onChange={()=>window.electronAPI?.openVpnNotificationSettings?.()}/></div>}
 
+                  <div className="fluent-toggle-row"><div className="fluent-toggle-text"><strong>Подтверждение оплаты</strong><span>Сообщать о зачислении платежа и обновлении подписки.</span></div><FluentSwitch checked={settings.notifyPayments!==false} label="Подтверждение оплаты" onChange={()=>onUpdateSetting('notifyPayments',settings.notifyPayments===false)}/></div><div className="fluent-toggle-divider"/>
                   {/* О подключении */}
                   <div
                     className="fluent-toggle-row"
@@ -503,9 +539,9 @@ function SettingsScreen({
                           whileTap={{ scale: 0.97 }}
                           transition={springs.tactile}
                         >
-                          {isSelected && <motion.span className="liquid-theme-lens" layoutId="theme-lens" transition={springs.pill} />}
+                          
                           <div
-                            className="fluent-theme-preview"
+                            className="fluent-theme-preview viht-theme-miniature"
                             style={{
                               background: th.bg,
                               boxShadow: isSelected ? `0 0 16px ${th.accentGlow}` : undefined,
@@ -522,7 +558,7 @@ function SettingsScreen({
                             />
                           </div>
 
-                          <span className="fluent-theme-name">{themeName}</span>
+                          <span className="fluent-theme-name">{themeName}</span><small className="viht-theme-caption">Фон · поверхности · кнопки · стекло</small>
 
                           {isSelected && (
                             <motion.div
@@ -543,76 +579,23 @@ function SettingsScreen({
             )}
 
             {/* 5. РАСШИРЕННЫЕ */}
-            {activeCategory === 'advanced' && (
+            {['advanced','updates'].includes(activeCategory) && (
               <motion.div
-                key="cat-advanced"
+                key={activeCategory}
                 className="fluent-settings-section"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={springs.natural}
               >
-                <h3 className="fluent-section-title">{t('cat_advanced', currentLang)}</h3>
+                <h3 className="fluent-section-title">{activeCategory==='updates'?'Обновления':'О приложении'}</h3>
                 <p className="fluent-section-desc">
-                  {currentLang === 'en' ? 'Diagnostics, DNS routing, and system logs.' : 'Диагностика, маршрутизация DNS и системные журналы.'}
+                  {activeCategory==='updates'?'Новые версии, загрузка и история изменений.':'Информация о клиенте и технологии подключения.'}
                 </p>
-
-                <div className="fluent-card fluent-settings-group">
-                  {/* DNS */}
-                  <div
-                    className="fluent-toggle-row"
-                    onClick={() => onUpdateSetting('dnsAdblock', settings.dnsAdblock !== false ? false : true)}
-                  >
-                    <div className="fluent-toggle-text">
-                      <strong>{t('setting_dns', currentLang)}</strong>
-                      <span>{t('setting_dns_desc', currentLang)}</span>
-                    </div>
-                    <FluentSwitch
-                      checked={settings.dnsAdblock !== false}
-                      label={t('setting_dns', currentLang)}
-                      onChange={() => onUpdateSetting('dnsAdblock', settings.dnsAdblock !== false ? false : true)}
-                    />
-                  </div>
-
-                  <div className="fluent-toggle-divider" />
-
-                  {isAndroid ? <BypassEditor settings={settings} onUpdateSetting={onUpdateSetting}/> : (<div
-                    className="fluent-toggle-row"
-                    onClick={() => onUpdateSetting('bypassRussia', settings.bypassRussia !== false ? false : true)}
-                  >
-                    <div className="fluent-toggle-text">
-                      <strong>{t('setting_split_ru', currentLang)}</strong>
-                      <span>{t('setting_split_ru_desc', currentLang)}</span>
-                    </div>
-                    <FluentSwitch
-                      checked={settings.bypassRussia !== false}
-                      label={t('setting_split_ru', currentLang)}
-                      onChange={() => onUpdateSetting('bypassRussia', settings.bypassRussia !== false ? false : true)}
-                    />
-                  </div>)}
-                  <div className="fluent-toggle-divider" />
-
-                  {/* Экспорт логов */}
-                  <div className="fluent-toggle-row">
-                    <div className="fluent-toggle-text">
-                      <strong>{t('setting_export_logs', currentLang)}</strong>
-                      <span>{t('setting_export_logs_desc', currentLang)}</span>
-                    </div>
-                    <motion.button data-motion-press="true"
-                      type="button"
-                      className="btn btn--secondary btn--sm"
-                      onClick={handleExportLog}
-                      {...buttonPress}
-                    >
-                      <FileText size={13} />
-                      <span>{t('btn_export_logs', currentLang)}</span>
-                    </motion.button>
-                  </div>
-                </div>
-
 
                 {/* О программе & проверка обновлений */}
                 <div className="fluent-card fluent-about-card">
+                  {activeCategory==='advanced' && <>
                   <div className="fluent-about-header">
                     <Info size={16} />
                     <strong>{currentLang === 'en' ? 'About VihtVPN' : 'О приложении VihtVPN'}</strong>
@@ -636,8 +619,8 @@ function SettingsScreen({
                       <code>{hwid ? `${hwid.slice(0, 10)}...${hwid.slice(-6)}` : '—'}</code>
                     </div>
                   </div>
-
-                  <div className="fluent-about-update-action android-update-section">
+                  <div className="fluent-about-row"><span>Протокол</span><strong>Viht Project № 1</strong></div><p className="fluent-section-desc">Фирменная конфигурация Viht на базе VLESS / Xray.</p></>}
+                  {activeCategory==='updates' && (                  <div className="fluent-about-update-action android-update-section">
                     <div className="viht-update-actions-row">
                       <motion.button data-motion-press="true"
                         type="button"
@@ -770,8 +753,11 @@ function SettingsScreen({
                     {updateError && (
                       <p className="settings-update-error" style={{ marginTop: '8px' }}>{updateError}</p>
                     )}
-                  </div>
+                  </div>)}
                 </div>
+
+
+
               </motion.div>
             )}
           </AnimatePresence>
@@ -798,7 +784,7 @@ function SettingsScreen({
               transition={springs.cushioned}
             >
               <div className="fluent-modal-header">
-                <h3 className="fluent-modal-title">Системный журнал (electron-debug.log)</h3>
+                <h3 className="fluent-modal-title">Журнал диагностики Viht</h3>
                 <motion.button data-motion-press="true"
                   type="button"
                   className="fluent-modal-close"
@@ -816,12 +802,11 @@ function SettingsScreen({
                   type="button"
                   className="btn btn--secondary btn--sm"
                   onClick={() => {
-                    navigator.clipboard.writeText(logContent);
-                    alert('Лог скопирован в буфер обмена!');
+                    void (window.electronAPI?.copyText ? window.electronAPI.copyText(logContent) : navigator.clipboard.writeText(logContent)).then(()=>setLogCopied(true)).catch(()=>setLogCopied(false));
                   }}
                   {...buttonPress}
                 >
-                  Копировать в буфер
+                  {logCopied?'Скопировано':'Копировать журнал'}
                 </motion.button>
                 <motion.button data-motion-press="true"
                   type="button"

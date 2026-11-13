@@ -29,20 +29,6 @@ class XrayHevRuntimeTest {
         "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=tls&sni=example.com&type=$network&path=%2Fvpn&serviceName=grpc"
     ), JSONObject())
 
-    @Test fun startupFailureCleansUpCoreForTheNextAttempt() {
-        val runtime = XrayHevRuntime(context)
-        val socks = port()
-        val valid = XrayConfigBuilder.build(source("ws"), socks, port(), "user", "secret")
-        val invalid = JSONObject(valid.toString())
-        invalid.getJSONArray("outbounds").getJSONObject(0).put("protocol", "invalid-fixture-protocol")
-        try {
-            val failure = runCatching { runtime.startCore(invalid, socks) }.exceptionOrNull()
-            assertTrue(failure is XrayHevRuntime.StartupFailure)
-            runtime.startCore(valid, socks)
-        } finally {
-            runtime.stop()
-        }
-    }
     @Test fun packagedXrayValidatesOurActualWsAndGrpcConfigurations() {
         for (transport in listOf("ws", "grpc")) {
             val config = File(context.cacheDir, "xray-validation-$transport.json")
@@ -54,6 +40,19 @@ class XrayHevRuntimeTest {
                 finally { runtime.stop() }
             } finally { config.delete() }
         }
+    }
+
+    @Test fun detailedCoreLogsReachTheBoundedDiagnosticRing() {
+        val runtime=XrayHevRuntime(context)
+        DiagnosticLogStore.clear(context)
+        DiagnosticLogStore.setDetailedEnabled(context,true)
+        try {
+            val socks=port();val config=XrayConfigBuilder.build(source("ws"),socks,port(),"user","secret")
+            runtime.startCore(config,socks)
+            val deadline=android.os.SystemClock.elapsedRealtime()+4000
+            while(android.os.SystemClock.elapsedRealtime()<deadline && DiagnosticLogStore.entries(context).none{it.contains("Xray:")})android.os.SystemClock.sleep(50)
+            assertTrue("Core diagnostic output must be captured",DiagnosticLogStore.entries(context).any{it.contains("Xray:")})
+        } finally {runtime.stop();DiagnosticLogStore.setDetailedEnabled(context,false)}
     }
 
     @Test fun udpPacketCrossesHevAndPackagedXrayAndReturnsWithoutAnyTunInterface() {

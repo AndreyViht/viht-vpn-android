@@ -2,9 +2,9 @@ import React,{useEffect,useState} from 'react';
 import {useTelemetryValue} from '../services/telemetry';
 
 function formatSpeed(num) {
-  if(num<=0)return '0.0 MB/s';
-  if(num<.05)return `${Math.round(num*1024)} KB/s`;
-  return `${num.toFixed(1)} MB/s`;
+  if(!Number.isFinite(num)||num<=0)return '0 Б/с';
+  if(num<.05)return `${(num*1024).toFixed(1)} КБ/с`;
+  return `${num.toFixed(2)} МБ/с`;
 }
 function formatBytes(bytes) {
   if(bytes<=0)return '0 MB';
@@ -31,3 +31,5 @@ export const SessionTimer=React.memo(function SessionTimer({connectedAt}) {
   const pair=value=>String(value).padStart(2,'0');
   return hours>0?`${pair(hours)}:${pair(minutes)}:${pair(remaining)}`:`${pair(minutes)}:${pair(remaining)}`;
 });
+
+export function TrafficScope(){const measured=useTelemetryValue('networkMeasured');return <small className="viht-traffic-scope">{measured?'Сеть телефона · включая прямые подключения':'Трафик VPN · прямые загрузки отдельно'}</small>;}

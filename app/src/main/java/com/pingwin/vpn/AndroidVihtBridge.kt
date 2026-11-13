@@ -76,19 +76,16 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "getVpnEngineInfo" -> {
                         val settings = JSONObject(preferences.getString("vpnSettings", "{}") ?: "{}")
                         val connected = VpnStatus.state.value == VpnConnectionState.CONNECTED
-                        val xray = true
-                        ok().put("engine", if (xray) "Xray 26.10.31" else "Xray 26.10.31")
-                            .put("adapter", if (xray) "Android VpnService / hev-socks5-tunnel 2.19.3" else "Android VpnService / hev-socks5-tunnel 2.19.3")
+                        val xray = XrayHevRuntime.active != null
+                        ok().put("engine", if (connected) XrayHevRuntime.lastEngine else "Xray 26.10.31 · резервное ядро автоматически")
+                            .put("adapter", if (!connected) "Android VpnService · выбирается при подключении" else if (xray) "hev-socks5-tunnel 2.19.3" else "Android VpnService / gVisor")
                     }
                     "getAnnouncements" -> AppAnnouncements.refresh(activity,false)
                     "readAnnouncement" -> AppAnnouncements.read(activity,args.getString(0),args.getString(1))
                     "getUiSnapshot" -> ok().put("snapshot",AndroidSessionStore.uiSnapshot(activity) ?: JSONObject.NULL).put("vpn",VpnStatus.snapshot())
                     "cacheUiSnapshot" -> { AndroidSessionStore.cacheUi(activity,args.getJSONObject(0)); ok() }
-                    "getInstalledApps" -> {
-                        val intent=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-                        val apps=activity.packageManager.queryIntentActivities(intent,0).map { info -> info.activityInfo.packageName to info.loadLabel(activity.packageManager).toString() }.distinctBy { it.first }.filter { it.first!=activity.packageName }.sortedBy { it.second.lowercase() }
-                        JSONArray().apply { apps.forEach { (pkg,label) -> put(JSONObject().put("packageName",pkg).put("label",label)) } }
-                    }
+                    "getInstalledApps" -> AndroidInstalledApps.list(activity)
+                    "getAppIcon" -> AndroidInstalledApps.icon(activity,args.getString(0))
                     "getVpnNotificationSettings" -> ok().put("enabled",VpnNotification.enabled(activity)).put("tileAdded",preferences.getBoolean("tileAdded",false))
                     "openVpnNotificationSettings" -> { val manager=activity.getSystemService(android.app.NotificationManager::class.java); val intent=Intent(if(manager.areNotificationsEnabled()) Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS else Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,activity.packageName).putExtra(Settings.EXTRA_CHANNEL_ID,VpnNotification.CHANNEL); openIntent(intent); ok() }
                     "getVpnStatus" -> VpnStatus.snapshot()
@@ -129,7 +126,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "vpnDisconnect" -> { disconnect(); ok() }
                     "vpnUpdateSettings" -> applySettings(args.getJSONObject(0))
                     "pingServers" -> ping(args.getJSONArray(0))
-                    "exportDebugLog" -> VpnPerformanceSnapshot.capture(activity) + "\n" + DiagnosticLogStore.entries(activity).joinToString("\n")
+                    "exportDebugLog" -> VpnPerformanceSnapshot.capture(activity) + "\n" + DiagnosticLogStore.entries(activity).joinToString("\n").takeLast(350000)
                     "setDesktopPreferences" -> {
                         val value = args.getJSONObject(0)
                         if(value.has("notifyNews")||value.has("autoReconnect")||value.has("sendDiagnostics")) {
@@ -145,7 +142,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "getLoginItemSettings" -> JSONObject().put("openAtLogin", false).put("startMinimized", false)
                     "setLoginItemSettings" -> error("Автозапуск Windows недоступен на Android")
                     "copyText" -> { withContext(Dispatchers.Main) {
-                        val value=args.getString(0); require(value.length <= 8192)
+                        val value=args.getString(0); require(value.length <= 400000)
                         val clip=android.content.ClipData.newPlainText("Viht",value)
                         if (Build.VERSION.SDK_INT >= 33) clip.description.extras=android.os.PersistableBundle().apply { putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE,true) }
                         (activity.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(clip)
@@ -238,7 +235,8 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     private suspend fun applySettings(settings: JSONObject): JSONObject {
         VpnBypassSettings.domains(settings); VpnBypassSettings.packages(settings)
         val previous = JSONObject(preferences.getString("vpnSettings", "{}") ?: "{}")
-        val changed = previous.optBoolean("legacyVpnCore", false) != settings.optBoolean("legacyVpnCore", false) || listOf("bypassRussia", "dnsAdblock", "allowLan").any { previous.optBoolean(it, true) != settings.optBoolean(it, true) } || VpnBypassSettings.domains(previous)!=VpnBypassSettings.domains(settings) || VpnBypassSettings.packages(previous)!=VpnBypassSettings.packages(settings)
+        DiagnosticLogStore.setDetailedEnabled(activity, settings.optBoolean("detailedLogs",false))
+        val changed = previous.optBoolean("legacyVpnCore", false) != settings.optBoolean("legacyVpnCore", false) || listOf("bypassRussia", "dnsAdblock", "allowLan", "detailedLogs").any { previous.optBoolean(it, true) != settings.optBoolean(it, true) } || VpnBypassSettings.domains(previous)!=VpnBypassSettings.domains(settings) || VpnBypassSettings.packages(previous)!=VpnBypassSettings.packages(settings)
         val state=VpnStatus.state.value
         if(changed && state==VpnConnectionState.CONNECTING) return error("Дождитесь завершения подключения")
         if(!changed || state in setOf(VpnConnectionState.DISCONNECTED,VpnConnectionState.ERROR)) {
@@ -275,6 +273,7 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                 val host = server.optString("host").ifBlank { uri.host }
                 val port = server.optInt("port", if (uri.port < 0) 443 else uri.port)
                 val addresses = network.getAllByName(host)
+                DiagnosticLogStore.appendDetailed(activity,"DNS probe: $host; addresses=${addresses.size}; network=$network")
                 val address = addresses.firstOrNull { it is java.net.Inet4Address } ?: addresses.first()
                 (1..server.optInt("attempts",2).coerceIn(1,2)).mapNotNull {
                     runCatching {

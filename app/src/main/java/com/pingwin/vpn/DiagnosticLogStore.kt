@@ -1,203 +1,25 @@
 package com.pingwin.vpn
-
 import android.content.Context
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
+/** Bounded in-memory ring; batched disk writes never run on the UI thread. */
 object DiagnosticLogStore {
-
-    private const val PREFS_NAME =
-        "pingwin_diagnostic_log"
-
-    private const val KEY_ENTRIES =
-        "entries"
-
-    private const val KEY_DETAILED =
-        "detailed_enabled"
-
-    private const val MAX_ENTRIES =
-        200
-
-    fun isDetailedEnabled(
-        context: Context
-    ): Boolean =
-        prefs(context).getBoolean(
-            KEY_DETAILED,
-            false
-        )
-
-    fun setDetailedEnabled(
-        context: Context,
-        enabled: Boolean
-    ) {
-        prefs(context)
-            .edit()
-            .putBoolean(
-                KEY_DETAILED,
-                enabled
-            )
-            .apply()
-    }
-
-    fun append(
-        context: Context,
-        message: String
-    ) {
-        appendBatch(
-            context,
-            listOf(message)
-        )
-    }
-
-    fun appendDetailed(
-        context: Context,
-        message: String
-    ) {
-        if (
-            !isDetailedEnabled(context)
-        ) {
-            return
-        }
-
-        append(
-            context,
-            message
-        )
-    }
-
-    fun appendDetailedBatch(
-        context: Context,
-        messages: List<String>
-    ) {
-        if (
-            !isDetailedEnabled(context) ||
-            messages.isEmpty()
-        ) {
-            return
-        }
-
-        appendBatch(
-            context,
-            messages
-        )
-    }
-
-    fun entries(
-        context: Context
-    ): List<String> {
-        val raw =
-            prefs(context)
-                .getString(
-                    KEY_ENTRIES,
-                    ""
-                )
-                .orEmpty()
-
-        if (raw.isBlank()) {
-            return emptyList()
-        }
-
-        val original =
-            raw.lines()
-                .filter {
-                    it.isNotBlank()
-                }
-
-        val redacted =
-            original
-                .map { entry ->
-                    DiagnosticLogRedactor.redact(
-                        entry
-                    )
-                }
-                .filter {
-                    it.isNotBlank()
-                }
-                .takeLast(
-                    MAX_ENTRIES
-                )
-
-        if (redacted != original) {
-            prefs(context)
-                .edit()
-                .putString(
-                    KEY_ENTRIES,
-                    redacted.joinToString("\n")
-                )
-                .apply()
-        }
-
-        return redacted
-    }
-
-    fun clear(
-        context: Context
-    ) {
-        prefs(context)
-            .edit()
-            .remove(
-                KEY_ENTRIES
-            )
-            .apply()
-    }
-
-    private fun appendBatch(
-        context: Context,
-        messages: List<String>
-    ) {
-        if (messages.isEmpty()) {
-            return
-        }
-
-        val current =
-            entries(context)
-                .toMutableList()
-
-        val time =
-            timestamp()
-
-        messages.forEach { message ->
-            if (message.isNotBlank()) {
-                val redacted =
-                    DiagnosticLogRedactor.redact(
-                        message
-                    )
-
-                if (redacted.isNotBlank()) {
-                    current +=
-                        "$time  $redacted"
-                }
-            }
-        }
-
-        val trimmed =
-            current.takeLast(
-                MAX_ENTRIES
-            )
-
-        prefs(context)
-            .edit()
-            .putString(
-                KEY_ENTRIES,
-                trimmed.joinToString("\n")
-            )
-            .apply()
-    }
-
-    private fun prefs(
-        context: Context
-    ) =
-        context.getSharedPreferences(
-            PREFS_NAME,
-            Context.MODE_PRIVATE
-        )
-
-    private fun timestamp(): String =
-        SimpleDateFormat(
-            "dd.MM HH:mm:ss",
-            Locale.getDefault()
-        ).format(
-            Date()
-        )
+ private const val MAX_ENTRIES=1200
+ private val lock=Any();private val ring=java.util.ArrayDeque<String>();private var app:Context?=null;private var dirty=false;private var dropped=0;private var bucket=0L;private var count=0
+ private val worker=Executors.newSingleThreadScheduledExecutor { task -> Thread(task,"viht-log-writer").apply{isDaemon=true} }
+ init { worker.scheduleWithFixedDelay({runCatching{flush()}},2,2,TimeUnit.SECONDS) }
+ private fun prefs(c:Context)=c.getSharedPreferences("pingwin_diagnostic_log",Context.MODE_PRIVATE)
+ private fun initialize(c:Context){if(app==null){app=c.applicationContext;prefs(c).getString("entries","").orEmpty().lineSequence().filter{it.isNotBlank()}.take(MAX_ENTRIES).forEach{ring.addLast(it)}}}
+ fun isDetailedEnabled(context:Context)=prefs(context).getBoolean("detailed_enabled",false)
+ fun setDetailedEnabled(context:Context,enabled:Boolean){prefs(context).edit().putBoolean("detailed_enabled",enabled).apply();append(context,"Detailed diagnostics: $enabled")}
+ fun append(context:Context,message:String){synchronized(lock){initialize(context);val second=System.currentTimeMillis()/1000;if(second!=bucket){bucket=second;count=0;if(dropped>0){ring.addLast("Diagnostic rate limit: $dropped entries omitted");dropped=0}};if(++count>80){dropped++;return};val clean=DiagnosticLogRedactor.redact(message.take(2500));if(clean.isNotBlank()){ring.addLast(SimpleDateFormat("dd.MM HH:mm:ss.SSS",Locale.US).format(Date())+"  "+clean);while(ring.size>MAX_ENTRIES)ring.removeFirst();dirty=true}}}
+ fun appendDetailed(context:Context,message:String){if(isDetailedEnabled(context))append(context,message)}
+ fun appendDetailedBatch(context:Context,messages:List<String>){if(isDetailedEnabled(context))messages.takeLast(80).forEach{append(context,it)}}
+ fun entries(context:Context):List<String> = synchronized(lock){initialize(context);ring.toList()}
+ fun clear(context:Context){synchronized(lock){initialize(context);ring.clear();dirty=true};worker.execute{flush()}}
+ private fun flush(){val snapshot=synchronized(lock){val c=app;if(!dirty||c==null)return;dirty=false;Pair(c,ring.joinToString("\n").takeLast(400000))};prefs(snapshot.first).edit().putString("entries",snapshot.second).apply()}
 }

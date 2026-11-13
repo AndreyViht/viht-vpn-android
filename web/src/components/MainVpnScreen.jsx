@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {motion, AnimatePresence, useReducedMotion} from 'framer-motion';
 import {Power, ShieldCheck, ArrowDown, ArrowUp, ArrowUpRight, Loader2, CreditCard} from 'lucide-react';
-import {SessionTimer, TransferValue} from './LiveVpnValues';
+import {SessionTimer, TransferValue, TrafficScope} from './LiveVpnValues';
 import './MinimalHome.css';
 
 export default function MainVpnScreen({accessDisabled=false, user, currentServer, connectionState, connectedAt, onToggleConnection, lang='ru'}) {
@@ -54,9 +54,10 @@ export default function MainVpnScreen({accessDisabled=false, user, currentServer
             {connected ? <SessionTimer connectedAt={connectedAt}/> : pending ? '•••' : 'VPN'}
           </span>
           <span className={`viht-orb-speeds ${connected ? 'is-visible' : ''}`}>
-            <span><ArrowDown size={12}/>{connected ? <TransferValue field="speedDown"/> : '—'}</span>
-            <span><ArrowUp size={12}/>{connected ? <TransferValue field="speedUp"/> : '—'}</span>
+            <span><ArrowDown size={12}/>{connected ? <TransferValue field="displaySpeedDown"/> : '—'}</span>
+            <span><ArrowUp size={12}/>{connected ? <TransferValue field="displaySpeedUp"/> : '—'}</span>
           </span>
+          {connected && <TrafficScope/>}
         </span>
       </motion.button>
       {!currentServer && !connected && <p className="viht-home-hint">{english ? 'Choose a server in Servers' : 'Выберите сервер во вкладке «Серверы»'}</p>}

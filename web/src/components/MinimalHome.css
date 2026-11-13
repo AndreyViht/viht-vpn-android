@@ -1,7 +1,7 @@
-.viht-minimal-home{min-height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:12px 20px 22px;color:#edf8f6}
+.viht-minimal-home{min-height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:12px 20px 22px;color:var(--text-primary)}
 .viht-home-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:330px;padding:28px 0}
-.viht-connect-orb{--orb-color:#bedee8;position:relative;isolation:isolate;display:grid;place-items:center;width:min(282px,78vw);aspect-ratio:1;border-radius:50%;border:1px solid #d9f9ff55;background:radial-gradient(ellipse at 28% 10%,#d7f5ff24,transparent 48%),linear-gradient(145deg,#284752aa,#101e2ddd 70%);color:#e9f6f5;box-shadow:inset 0 1px 2px #eaffff44,inset 0 -15px 40px #0004,0 22px 60px #0003;cursor:pointer;transition:background .7s,border-color .7s,box-shadow .7s}
-.viht-connect-orb.state-connected{--orb-color:#9af2ce;border-color:#b8ffe077;box-shadow:inset 0 1px 2px #eaffff66,inset 0 -15px 40px #0003,0 0 65px #6ceab31c,0 22px 60px #0003}
+.viht-connect-orb{--orb-color:#bedee8;position:relative;isolation:isolate;display:grid;place-items:center;width:min(282px,78vw);aspect-ratio:1;border-radius:50%;border:1px solid #d9f9ff55;background:radial-gradient(ellipse at 28% 10%,#d7f5ff24,transparent 48%),linear-gradient(145deg,#284752aa,#101e2ddd 70%);color:var(--text-primary);box-shadow:inset 0 1px 2px #eaffff44,inset 0 -15px 40px #0004,0 22px 60px #0003;cursor:pointer;transition:background .7s,border-color .7s,box-shadow .7s}
+.viht-connect-orb.state-connected{--orb-color:var(--accent);border-color:#b8ffe077;box-shadow:inset 0 1px 2px #eaffff66,inset 0 -15px 40px #0003,0 0 65px #6ceab31c,0 22px 60px #0003}
 .viht-connect-orb:disabled{cursor:default}.viht-connect-orb:focus-visible{outline:2px solid #e4fff6;outline-offset:9px}
 .viht-orb-halo{position:absolute;inset:-22px;border-radius:50%;border:1px solid #a8e8db0d;opacity:.35;transform:scale(.98);transition:opacity .8s,transform .8s;pointer-events:none}
 .state-connected .viht-orb-halo{opacity:1;transform:scale(1.04)}

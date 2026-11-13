@@ -186,7 +186,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { var initial=true; VpnStatus.state.collect { bridge.emit("vpn-state", VpnStatus.snapshot().put("snapshot",initial)); initial=false } }
-                launch { VpnStatus.traffic.collect { bridge.emit("vpn-traffic", it) } }
+                launch { VpnStatus.traffic.collect { bridge.emit("vpn-traffic", NetworkTrafficSampler.enrich(this@MainActivity, it)) } }
             }
         }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {

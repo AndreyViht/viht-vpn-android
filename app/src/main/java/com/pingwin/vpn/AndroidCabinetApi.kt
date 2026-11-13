@@ -34,7 +34,9 @@ object AndroidCabinetApi {
                     else throw failure
                 }
             }
+            val requestStarted=android.os.SystemClock.elapsedRealtime()
             var reply = send()
+            DiagnosticLogStore.appendDetailed(context,"API action=$action method=$method status=${reply.status} elapsed=${android.os.SystemClock.elapsedRealtime()-requestStarted}ms")
             repeat(2) { attempt ->
                 if (reply.status !in setOf(502, 503, 504)) return@repeat
                 delay(350L * (attempt + 1))

@@ -12,6 +12,14 @@ import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 
 class AndroidUpdateBridge(private val activity: MainActivity, private val progress: (JSONObject) -> Unit) {
+    private var speedAt=0L;private var speedBytes=0L;private var speedValue=0.0
+    @Synchronized private fun measuredSpeed(bytes:Long,running:Boolean):Double {
+        val now=android.os.SystemClock.elapsedRealtime()
+        if(!running){speedAt=0;speedValue=0.0;return 0.0}
+        if(speedAt==0L||bytes<speedBytes){speedAt=now;speedBytes=bytes;return 0.0}
+        if(now-speedAt>=400){speedValue=(bytes-speedBytes).coerceAtLeast(0)/((now-speedAt)/1000.0)/1048576.0;speedAt=now;speedBytes=bytes}
+        return speedValue
+    }
     private val downloadLock=Mutex()
     private val preferences=activity.getSharedPreferences("viht_update_release",Context.MODE_PRIVATE)
     @Volatile private var available: UpdateRelease? = UpdateReleaseCache.decode(preferences.getString("available",null),BuildConfig.VERSION_NAME)
@@ -44,7 +52,7 @@ class AndroidUpdateBridge(private val activity: MainActivity, private val progre
             complete && !ready -> "APK не прошёл проверку подписи, версии или контрольной суммы"
             else -> null }
         val snapshot=JSONObject().put("percent",state?.progress ?: 0).put("downloadedMb","%.1f".format((state?.downloadedBytes ?: 0).coerceAtLeast(0)/1048576.0))
-            .put("totalMb","%.1f".format((state?.totalBytes ?: release?.apkSizeBytes ?: 0).coerceAtLeast(0)/1048576.0)).put("speedMb","0.0")
+            .put("totalMb","%.1f".format((state?.totalBytes ?: release?.apkSizeBytes ?: 0).coerceAtLeast(0)/1048576.0)).put("speedMb",String.format(java.util.Locale.US,"%.2f",measuredSpeed(state?.downloadedBytes ?: 0,downloading)))
         return JSONObject().put("available",release?.let(::describe) ?: JSONObject.NULL).put("downloadedVersion",if(ready)release?.version else JSONObject.NULL)
             .put("downloading",downloading).put("progress",snapshot).put("error",error ?: JSONObject.NULL)
     }

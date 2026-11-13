@@ -27,6 +27,7 @@ import { springs, pageVariants } from './utils/motion';
 import './App.css';
 import './liquid-glass.css';
 import './android.css';
+import './AndroidMaterials.css';
 import ProfileErrorScreen from './components/ProfileErrorScreen';
 import { clearAccountStorage, normalizeProfile, subscriptionIsActive } from './services/account';
 import { publishTelemetry } from './services/telemetry';
@@ -62,7 +63,7 @@ export default function App() {
   const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
   const [hwid, setHwid] = useState('');
-  const [appVersion, setAppVersion] = useState('2.0.0.8');
+  const [appVersion, setAppVersion] = useState('2.0.0.9');
   const [manualConnectOnly, setManualConnectOnly] = useState(true);
   const [toast, setToast] = useState(null); // { id, message, type: 'success' | 'ping' | 'error' }
   const [foreignVpnWarning, setForeignVpnWarning] = useState(null);
@@ -618,11 +619,10 @@ export default function App() {
 
   // 5. Auto-Connect on application startup (Requirement 5)
   useEffect(() => {
-    if (loading || manualConnectOnly) return;
+    if (loading || manualConnectOnly || !token || !user) return;
     if (autoConnectAttemptedRef.current) return;
-    autoConnectAttemptedRef.current = true;
-
     if (!settings.autoConnect) {
+      autoConnectAttemptedRef.current = true;
       console.log('[VihtVPN] AutoConnect disabled in settings.');
       return;
     }
@@ -646,6 +646,7 @@ export default function App() {
       return;
     }
 
+    autoConnectAttemptedRef.current = true;
     if (connectionStateRef.current === 'disconnected') {
       console.log(`[VihtVPN] AutoConnect executing on startup for: ${targetServer.name}`);
       manualDisconnectRef.current = false;
@@ -867,7 +868,7 @@ export default function App() {
   }, [token]);
 
   const handleUpdateSetting = useCallback(async (key, value) => {
-    const networkChange = ['killSwitch', 'allowLan', 'bypassRussia', 'dnsAdblock', 'legacyVpnCore', 'excludedApps', 'excludedDomains', 'bypassRules'].includes(key);
+    const networkChange = ['killSwitch', 'allowLan', 'bypassRussia', 'dnsAdblock', 'legacyVpnCore', 'excludedApps', 'excludedDomains', 'bypassRules', 'detailedLogs'].includes(key);
     if (networkChange && settingsChangeRef.current) {
       showToast('Дождитесь применения предыдущей сетевой настройки', 'info');
       return;
@@ -992,6 +993,7 @@ export default function App() {
   const isSubActive =
     subscriptionIsActive(user);
 
+  useEffect(()=>{document.documentElement.dataset.vihtTheme=settings?.theme||'emerald'},[settings?.theme]);
   const currentLang = settings?.language || 'ru';
 
   return (
@@ -1006,8 +1008,8 @@ export default function App() {
       <JoinSubscription signedIn={!!token} beforeJoin={handleLogout}/>
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
       {token&&user&&<AppAnnouncements key={'news:'+String(user.id||user.telegram_id||user.yandex_email)} accountId={String(user.id||user.telegram_id||user.yandex_email)} enabled={settings.notifyNews!==false} onUnreadChange={setNewsUnread}/>}
-      {token && user && !user.is_guest && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} profileEmail={user.yandex_email || user.email || ""} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => { setProfileRetry(n => n + 1); setActiveTab("home"); showToast("Оплата получена. Обновляем подписку.", "success"); }} />}
-      {token && user && !user.is_guest && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} profileEmail={user.yandex_email || user.email || ""} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => { setProfileRetry(n => n + 1); setActiveTab("home"); showToast("Оплата получена. Обновляем подписку.", "success"); }} />}
+      {token && user && !user.is_guest && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} profileEmail={user.yandex_email || user.email || ""} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => { setProfileRetry(n => n + 1); setActiveTab("home"); if(settingsRef.current.notifyPayments!==false)showToast("Оплата получена. Обновляем подписку.", "success"); }} />}
+      {token && user && !user.is_guest && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} profileEmail={user.yandex_email || user.email || ""} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => { setProfileRetry(n => n + 1); setActiveTab("home"); if(settingsRef.current.notifyPayments!==false)showToast("Оплата получена. Обновляем подписку.", "success"); }} />}
       <UpdateBanner release={availableUpdate} onDismiss={()=>setAvailableUpdate(null)}/>
       <ForeignVpnModal
         detection={foreignVpnWarning}
@@ -1131,7 +1133,7 @@ export default function App() {
                     
                     {...pageVariants}
                   >
-                    <SettingsScreen initialCategory={focusUpdates ? 'advanced' : 'connection'}
+                    <SettingsScreen initialCategory={focusUpdates ? 'updates' : 'connection'}
                       settings={settings}
                       onUpdateSetting={handleUpdateSetting}
                       clientVersion={appVersion}

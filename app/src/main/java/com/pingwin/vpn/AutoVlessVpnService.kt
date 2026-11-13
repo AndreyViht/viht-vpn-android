@@ -134,6 +134,7 @@ class AutoVlessVpnService :
     private var commandServer: CommandServer? = null
     private var singBoxLogClient: SingBoxLogClient? = null
     private var xrayRuntime: XrayHevRuntime? = null
+    private var lastNotificationTick = 0L
     @Volatile private var tunDescriptor: ParcelFileDescriptor? = null
     private val tunLock = Any()
 
@@ -172,7 +173,7 @@ class AutoVlessVpnService :
             getString(R.string.vpn_service_starting)
         )
 
-        notificationTask = recoveryTimer.scheduleWithFixedDelay({ if(!destroyed && VpnRunStore.desired(this) && VpnStatus.state.value in setOf(VpnConnectionState.CONNECTED,VpnConnectionState.CONNECTING)) runCatching { xrayRuntime?.publishTraffic(); updateForegroundNotification("VPN работает") } },3,3,java.util.concurrent.TimeUnit.SECONDS)
+        notificationTask = recoveryTimer.scheduleWithFixedDelay({ if(!destroyed && VpnRunStore.desired(this) && VpnStatus.state.value in setOf(VpnConnectionState.CONNECTED,VpnConnectionState.CONNECTING)) runCatching { xrayRuntime?.publishTraffic(); val now=android.os.SystemClock.elapsedRealtime(); if(now-lastNotificationTick>=3000){lastNotificationTick=now;updateForegroundNotification("VPN работает")} } },1,1,java.util.concurrent.TimeUnit.SECONDS)
     }
 
     private var libboxSetup = false
