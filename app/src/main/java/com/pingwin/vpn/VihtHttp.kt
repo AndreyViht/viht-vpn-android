@@ -1,14 +1,40 @@
 package com.pingwin.vpn
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import java.net.UnknownHostException
 import java.net.HttpURLConnection
 import java.net.URL
 
 data class HttpReply(val status: Int, val body: String)
 
 object VihtHttp {
+    @Volatile private var connectivity: ConnectivityManager? = null
+
+    fun initialize(context: Context) {
+        connectivity = context.applicationContext.getSystemService(ConnectivityManager::class.java)
+    }
+
     fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(), body: String? = null, readTimeoutMs: Int = 15_000): HttpReply {
-        require(URL(url).protocol == "https") { "Only HTTPS service requests are allowed" }
-        val connection = URL(url).openConnection() as HttpURLConnection
+        val endpoint = URL(url)
+        try {
+            return send(endpoint, method, headers, body, readTimeoutMs, null)
+        } catch (failure: UnknownHostException) {
+            if (!endpoint.host.equals("anviht.ru", ignoreCase = true)) throw failure
+            val manager = connectivity ?: throw failure
+            for (network in PhysicalNetworks.ranked(manager)) {
+                try {
+                    return send(endpoint, method, headers, body, readTimeoutMs, network)
+                } catch (_: UnknownHostException) { /* Try the next physical network. */ }
+            }
+            throw UnknownHostException("Не удалось найти адрес anviht.ru. Проверьте подключение к интернету.").apply { initCause(failure) }
+        }
+    }
+
+    private fun send(url: URL, method: String, headers: Map<String, String>, body: String?, readTimeoutMs: Int, network: Network?): HttpReply {
+        require(url.protocol == "https") { "Only HTTPS service requests are allowed" }
+        val connection = (network?.openConnection(url) ?: url.openConnection()) as HttpURLConnection
         return try {
             connection.requestMethod = method
             connection.connectTimeout = 10_000

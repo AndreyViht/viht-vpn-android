@@ -469,10 +469,9 @@ class AutoVlessVpnService :
         }
     }
 
-    private fun choosePhysicalNetwork(exclude: Network? = null): Network? {
-        val candidates = connectivityManager.allNetworks.filter { network -> network != exclude && connectivityManager.getNetworkCapabilities(network)?.let { it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) } == true }
-        return candidates.firstOrNull { connectivityManager.getNetworkCapabilities(it)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true } ?: candidates.firstOrNull()
-    }
+    private fun choosePhysicalNetwork(exclude: Network? = null): Network? =
+        PhysicalNetworks.ranked(connectivityManager, exclude).firstOrNull()
+
     private fun startHealthChecks(port: Int, request: Int) {
         healthTask?.cancel(false)
         val epoch = coreEpoch.get()
@@ -552,18 +551,26 @@ class AutoVlessVpnService :
         root.optJSONObject("log")?.put("level", if (DiagnosticLogStore.isDetailedEnabled(this)) "debug" else "warn")
         // Also upgrade configurations saved before mandatory payment bypass existed.
         PaymentNetworkPolicy.apply(root)
-        val network = physicalDefaultNetwork ?: choosePhysicalNetwork() ?: error("Нет физического подключения к сети")
-        physicalDefaultNetwork = network
         val outbounds = root.getJSONArray("outbounds")
-        for (index in 0 until outbounds.length()) {
+        val hosts = (0 until outbounds.length()).mapNotNull { index ->
             val outbound = outbounds.getJSONObject(index)
             val host = outbound.optString("server")
-            if (host.isNotBlank() && !host.matches(Regex("[0-9a-fA-F:.]+"))) {
-                val addresses = network.getAllByName(host)
-                val address = addresses.firstOrNull { it is Inet4Address } ?: addresses.firstOrNull() ?: error("Не найден адрес VPN-сервера")
-                outbound.put("server", address.hostAddress)
-            }
+            if (host.isNotBlank() && !host.matches(Regex("[0-9a-fA-F:.]+"))) outbound to host else null
         }
+        val candidates = PhysicalNetworks.ranked(connectivityManager)
+        check(candidates.isNotEmpty()) { "Нет физического подключения к сети" }
+        val resolution = candidates.firstNotNullOfOrNull { network ->
+            try {
+                network to hosts.map { (outbound, host) ->
+                    val addresses = network.getAllByName(host)
+                    val address = addresses.firstOrNull { it is Inet4Address } ?: addresses.first()
+                    outbound to address.hostAddress
+                }
+            } catch (_: java.net.UnknownHostException) { null }
+        } ?: throw java.net.UnknownHostException("Не удалось найти адрес VPN-сервера через Wi-Fi или мобильную сеть.")
+        val (network, resolved) = resolution
+        physicalDefaultNetwork = network
+        resolved.forEach { (outbound, address) -> outbound.put("server", address) }
         val dnsServer = connectivityManager.getLinkProperties(network)?.dnsServers?.firstOrNull()?.hostAddress
         val dnsServers = root.getJSONObject("dns").getJSONArray("servers")
         for (index in 0 until dnsServers.length()) {
