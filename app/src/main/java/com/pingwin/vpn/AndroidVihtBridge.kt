@@ -96,6 +96,14 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     }
                     "getStoredOwnerSession" -> AndroidSessionStore.storedSession(activity)
                     "clearOwnerSession" -> { AuthCallbackServer.stop(); AndroidSessionStore.clear(activity); ok() }
+                    "startNativeYandex" -> {
+                        if (!BuildConfig.YANDEX_NATIVE_LOGIN) JSONObject().put("available", false)
+                        else {
+                            AndroidBrowserAuth.cancel(activity)
+                            withContext(Dispatchers.Main) { activity.launchNativeYandex() }
+                            ok().put("available", true)
+                        }
+                    }
                     "startAuthServer" -> {
                         val provider = args.getString(0)
                         AuthCallbackServer.stop()
@@ -289,6 +297,32 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     }
     @Volatile private var pendingInvite: String? = null
     private fun deliverInvite(){if(!activity.isUiReady)return;val value=pendingInvite?:return;pendingInvite=null;emit("invite-open",JSONObject().put("invite",value))}
+    fun failNativeYandex(cancelled: Boolean = false) {
+        emit("auth-error", error("Не удалось войти через Яндекс ID.").put("cancelled", cancelled).put("yandexNative", true))
+    }
+
+    fun completeNativeYandex(oauthToken: String) {
+        scope.launch {
+            try {
+                val reply = VihtHttp.request(
+                    "https://raupcrooynbdkfhclwak.supabase.co/functions/v1/yandex-android-session",
+                    "POST",
+                    mapOf("Authorization" to "OAuth " + oauthToken),
+                    "{}"
+                )
+                if (reply.status !in 200..299) { failNativeYandex(); return@launch }
+                val session = JSONObject(reply.body)
+                val accepted = AndroidSessionStore.accept(activity, session.getString("access_token"), session.getString("refresh_token"), "yandex")
+                preferences.edit().putString("provider", "yandex").apply()
+                emit("auth-success", JSONObject().put("token", accepted).put("originalToken", accepted).put("provider","yandex"))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                failNativeYandex()
+            }
+        }
+    }
+
     fun completeBrowserAuth(uri: Uri?) {
         if(uri?.scheme=="vihtvpn"&&uri.host=="join"){val invite=uri.getQueryParameter("invite");if(invite!=null&&Regex("[a-f0-9]{64}").matches(invite)){pendingInvite=invite;deliverInvite()};return}
         if (uri?.scheme != "vihtvpn" || uri.host != "auth" || uri.path != "/callback") return

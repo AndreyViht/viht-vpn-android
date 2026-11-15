@@ -29,9 +29,30 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.webkit.WebViewAssetLoader
+import com.yandex.authsdk.YandexAuthSdk
+import com.yandex.authsdk.YandexAuthOptions
+import com.yandex.authsdk.YandexAuthLoginOptions
+import com.yandex.authsdk.YandexAuthResult
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private val yandexLauncher by lazy {
+        val sdk = YandexAuthSdk.create(YandexAuthOptions(this))
+        registerForActivityResult(sdk.contract) { result ->
+            if (!::bridge.isInitialized) return@registerForActivityResult
+            when (result) {
+                is YandexAuthResult.Success -> bridge.completeNativeYandex(result.token.value)
+                is YandexAuthResult.Failure -> bridge.failNativeYandex()
+                YandexAuthResult.Cancelled -> bridge.failNativeYandex(cancelled = true)
+            }
+        }
+    }
+
+    fun launchNativeYandex() {
+        check(BuildConfig.YANDEX_NATIVE_LOGIN)
+        yandexLauncher.launch(YandexAuthLoginOptions())
+    }
+
     private lateinit var webView: WebView
     private lateinit var bridge: AndroidVihtBridge
     private var statusInset = 0
@@ -122,6 +143,7 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (BuildConfig.YANDEX_NATIVE_LOGIN) yandexLauncher
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT

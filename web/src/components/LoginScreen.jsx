@@ -5,19 +5,35 @@ import SocialIcon from './SocialIcon';
 
 export default function LoginScreen({removalNotice=false,onDismissRemoval}) {
   const [waitingBrowser, setWaitingBrowser] = useState(false);
+  const [nativeWaiting, setNativeWaiting] = useState(false);
+  const [browserFallback, setBrowserFallback] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => window.electronAPI?.onAuthError?.((data) => {
     setWaitingBrowser(false);
+    setNativeWaiting(false);
+    setBrowserFallback(Boolean(data?.yandexNative && !data?.cancelled));
+    if (data?.cancelled) return;
     setError(data?.error || 'Не удалось завершить вход. Повторите попытку.');
   }), []);
 
-  const startBrowserAuth = async (provider = 'yandex') => {
+  const startBrowserAuth = async (provider = 'yandex', forceBrowser = false) => {
     try {
       setWaitingBrowser(true);
       setError('');
       try {
         localStorage.setItem('viht_chosen_provider', provider);
       } catch {}
+
+      if (provider === 'yandex' && !forceBrowser && window.electronAPI?.startNativeYandex) {
+        setNativeWaiting(true);
+        const native = await window.electronAPI.startNativeYandex();
+        if (native?.available) return;
+        setNativeWaiting(false);
+        if (native?.ok === false) {
+          setBrowserFallback(true);
+          throw new Error('Не удалось открыть Яндекс ID.');
+        }
+      }
 
       if (window.electronAPI?.startAuthServer) {
         const result = await window.electronAPI.startAuthServer(provider);
@@ -63,12 +79,13 @@ export default function LoginScreen({removalNotice=false,onDismissRemoval}) {
       {waitingBrowser ? (
         <div className="login-waiting-card">
           <Loader2 className="login-spinner" size={40} />
-          <h3 className="login-waiting-title">Авторизация в браузере...</h3>
+          <h3 className="login-waiting-title">{nativeWaiting ? 'Вход через Яндекс ID…' : 'Авторизация в браузере…'}</h3>
           <p className="login-waiting-desc">
-            Мы открыли страницу входа в вашем браузере. Завершите авторизацию через Яндекс или ВК, и приложение откроет ваш аккаунт.
+            {nativeWaiting ? 'Завершите вход в Яндекс ID.' : 'Завершите вход в браузере, чтобы открыть свой аккаунт в Viht.'}
           </p>
           <button 
             type="button" 
+            hidden={nativeWaiting}
             className="btn btn--secondary btn--full"
             onClick={() => { window.electronAPI?.cancelAuthServer?.(); setWaitingBrowser(false); }}
           >
@@ -111,6 +128,7 @@ export default function LoginScreen({removalNotice=false,onDismissRemoval}) {
           </button>
 
           {error && <p className="login-error-text" role="alert">{error}</p>}
+          {browserFallback && <button type="button" className="login-link-btn" onClick={()=>startBrowserAuth('yandex', true)}>Войти через сайт</button>}
           <div className="login-footer">
             <span>Ещё нет аккаунта?</span>
             <button type="button" className="login-link-btn" onClick={openWebsite}>

@@ -12,6 +12,8 @@ val pingwinStorePassword = providers.gradleProperty("PINGWIN_STORE_PASSWORD")
 val pingwinKeyAlias = providers.gradleProperty("PINGWIN_KEY_ALIAS")
 val pingwinKeyPassword = providers.gradleProperty("PINGWIN_KEY_PASSWORD")
 
+val yandexNativeLogin = providers.gradleProperty("vihtYandexNativeLogin").map { it.toBooleanStrict() }.orElse(true)
+
 android {
     namespace = "com.pingwin.vpn"
     compileSdk {
@@ -19,11 +21,13 @@ android {
     }
 
     defaultConfig {
+        manifestPlaceholders["YANDEX_CLIENT_ID"] = "8bae435b834b473c84e424088436d23e"
+        buildConfigField("boolean", "YANDEX_NATIVE_LOGIN", yandexNativeLogin.get().toString())
         applicationId = "ru.anviht.vpn"
         minSdk = 26
         targetSdk = 36
-        versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 20010
-        versionName = "2.0.0.10"
+        versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 20011
+        versionName = "2.0.0.11"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -87,6 +91,7 @@ android {
 }
 
 dependencies {
+    implementation("com.yandex.android:authsdk:3.1.3")
     implementation("androidx.fragment:fragment:1.9.1")
     implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
     implementation("com.google.firebase:firebase-messaging")
