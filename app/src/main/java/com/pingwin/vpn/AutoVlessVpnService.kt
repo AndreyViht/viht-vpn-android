@@ -1352,16 +1352,14 @@ class AutoVlessVpnService :
                     }
 
                     if (physicalNetworkCallback !== this) return
-                    physicalDefaultNetwork = network
-
-                    if (BuildConfig.DEBUG) Log.d(
-                        TAG,
-                        "Physical network available: $network"
-                    )
-
-                    notifyDefaultInterface(
+                    val selected = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         network
-                    )
+                    } else {
+                        choosePhysicalNetwork() ?: network
+                    }
+                    physicalDefaultNetwork = selected
+                    if (BuildConfig.DEBUG) Log.d(TAG, "Physical network available: $network, selected: $selected")
+                    notifyDefaultInterface(selected)
                 }
 
                 override fun onLinkPropertiesChanged(
