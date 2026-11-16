@@ -58,6 +58,8 @@
     clearOwnerSession: () => { queued.delete('auth-success'); return call('clearOwnerSession'); },
     startNativeYandex: () => call('startNativeYandex'),
     startNativeVk: () => call('startNativeVk'),
+    checkVpnConnection: (server) => call('checkVpnConnection', [server], 45000),
+    vpnHaptic: () => call('vpnHaptic'),
     startAuthServer: provider => call('startAuthServer', [provider]), cancelAuthServer: () => call('cancelAuthServer'),
     onAuthSuccess: callback => subscribe('auth-success', callback), onAuthError: callback => subscribe('auth-error', callback),
     cabinetRequest: options => call('cabinetRequest', [options], 65000),

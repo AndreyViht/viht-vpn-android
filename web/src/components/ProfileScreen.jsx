@@ -17,7 +17,9 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import SocialIcon from './SocialIcon';
-import { fetchPayments, resetSubscriptionKeys } from '../services/api';
+import {useAndroidConfirmation} from './AndroidActionSheet';
+import { readLocalPayments, paymentRecordsEvent } from '../services/paymentTracking';
+import { fetchPayments, fetchAppPaymentStatus, resetSubscriptionKeys } from '../services/api';
 import { fixMojibake, t } from '../utils/i18n';
 import { springs, buttonPress, cardPress } from '../utils/motion';
 
@@ -29,9 +31,19 @@ function ProfileScreen({
   onSwitchProvider,
   lang = 'ru',
 }) {
+  const [confirm, confirmationSheet] = useAndroidConfirmation();
   const [activeTab, setActiveTab] = useState('accounts'); // 'accounts' | 'payments'
 
   // Payments data
+  const accountId = String(user?.id || user?.telegram_id || user?.yandex_email || 'current');
+  const [localPayments, setLocalPayments] = useState([]);
+  const [resumingPayment, setResumingPayment] = useState(null);
+  useEffect(() => {
+    const refresh = () => setLocalPayments(readLocalPayments(accountId));
+    refresh();
+    window.addEventListener(paymentRecordsEvent,refresh);
+    return () => window.removeEventListener(paymentRecordsEvent,refresh);
+  },[accountId]);
   const [payments, setPayments] = useState([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [paymentsLoaded, setPaymentsLoaded] = useState(false);
@@ -79,8 +91,24 @@ function ProfileScreen({
     const off=window.electronAPI?.onAppResumed?.(refresh);
     return()=>{window.removeEventListener('focus',refresh);window.removeEventListener('online',refresh);window.removeEventListener('viht-account-updated',refresh);off?.()};
   },[activeTab,token,loadPayments]);
+  const resumePayment = async payment => {
+    setResumingPayment(payment.label);
+    try {
+      const result = await fetchAppPaymentStatus(token,payment.label);
+      if (!result.ok) throw Error(result.error || 'Не удалось проверить статус платежа.');
+      if (result.data?.status !== 'pending') {
+        window.dispatchEvent(new Event('focus'));
+        showToast(result.data?.status === 'processing' ? 'Платёж получен. Ожидаем зачисление.' : 'Статус платежа изменился. Обновляем историю.');
+        return;
+      }
+      const launch = await window.electronAPI?.openPayment?.(payment.paymentUrl,payment.label);
+      if (!launch?.ok) throw Error(launch?.error || 'Не удалось открыть оплату.');
+    } catch (error) { showToast(error.message,true); }
+    finally { setResumingPayment(null); }
+  };
+
   const handleResetKeys = async () => {
-    if (!window.confirm('Вы уверены, что хотите сбросить ключи подключения? Все текущие ссылки на устройствах перестанут работать и потребуется обновить подключение.')) {
+    if (!await confirm('Сбросить ключи?', 'Текущие ссылки перестанут работать. На устройствах потребуется обновить подключение.', 'Сбросить ключи')) {
       return;
     }
     setResettingKeys(true);
@@ -143,9 +171,18 @@ function ProfileScreen({
     <section className="fluent-card viht-profile-identity"><div className="viht-profile-avatar"><User size={25}/></div><div><small>ЛИЧНЫЙ КАБИНЕТ</small><h2>{displayName}</h2><span>{user?.email||user?.yandex_email||'Viht VPN'}</span></div></section>
     <section className="fluent-card viht-profile-sub"><div><small>ОСТАЛОСЬ ПОДПИСКИ</small><strong>{formatSubTime(user)}</strong></div><button className="btn btn--primary" onClick={()=>window.dispatchEvent(new Event('viht-open-tariffs'))}><CreditCard size={16}/>Продлить</button></section>
     <div className="viht-profile-segments"><button aria-pressed={activeTab==='accounts'} onClick={()=>setActiveTab('accounts')}>Аккаунты</button><button aria-pressed={activeTab==='payments'} onClick={()=>setActiveTab('payments')}>Платежи</button></div>
-    {activeTab==='accounts'?<section className="fluent-card viht-profile-accounts">{accounts.map((account,index)=><div className="viht-profile-account" key={account.provider+':'+index}><SocialIcon type={account.provider==='telegram'?'tg':account.provider} size={26}/><div><strong>{account.title||(account.provider==='yandex'?'Яндекс ID':account.provider==='vk'?'VK ID':'Telegram')}</strong><span>{account.identifier||account.email||account.username||'Подключён'}</span></div></div>)}<button className="viht-profile-cabinet" onClick={openCabinet}>Управление аккаунтом на сайте <ExternalLink size={14}/></button></section>:<section className="fluent-card viht-profile-payments">{paymentsLoading?<p>Загружаем платежи…</p>:payments.length?payments.map((payment,index)=><div key={payment.id||index}><span>{formatSource(payment.source||payment.provider)}<small>{new Date(payment.created_at||payment.paid_at).toLocaleDateString('ru-RU')}</small></span><strong>{payment.amount_rub??payment.amount??payment.price??0} ₽</strong></div>):<p>Платежей пока нет</p>}</section>}
+    {activeTab==='accounts'?<section className="fluent-card viht-profile-accounts">{accounts.map((account,index)=><div className="viht-profile-account" key={account.provider+':'+index}><SocialIcon type={account.provider==='telegram'?'tg':account.provider} size={26}/><div><strong>{account.title||(account.provider==='yandex'?'Яндекс ID':account.provider==='vk'?'VK ID':'Telegram')}</strong><span>{account.identifier||account.email||account.username||'Подключён'}</span></div></div>)}<button className="viht-profile-cabinet" onClick={openCabinet}>Управление аккаунтом на сайте <ExternalLink size={14}/></button></section>:<section className="fluent-card viht-profile-payments">
+      {localPayments.map(payment => <div className="viht-payment-record" key={payment.label}>
+        <span>{payment.product==='slots'?'Покупка слотов':'Продление подписки'}
+          <small>{payment.status==='expired'?'Срок истёк':payment.status==='canceled'?'Отменён или срок истёк':payment.status==='processing'?'Подтверждён, ожидаем зачисление':'Ожидаем подтверждение'}</small>
+        </span>
+        {['expired','canceled','processing'].includes(payment.status) ? <strong>{payment.price || '—'} ₽</strong>
+          : <button className="btn btn--secondary btn--sm" disabled={resumingPayment!==null} type="button" onClick={()=>resumePayment(payment)}>{resumingPayment===payment.label?'Проверяем…':'Продолжить оплату'}</button>}
+      </div>)}
+      {paymentsLoading?<p>Загружаем платежи…</p>:payments.length?payments.map((payment,index)=><div key={payment.id||index}><span>{formatSource(payment.source||payment.provider)}<small>Оплачено · {new Date(payment.created_at||payment.paid_at).toLocaleDateString('ru-RU')}</small></span><strong>{payment.amount_rub??payment.amount??payment.price??0} ₽</strong></div>):(!localPayments.length && <p>Платежей пока нет</p>)}</section>}
     <section className="fluent-card viht-profile-action"><div><RotateCcw size={20}/><div><strong>Сбросить ключи</strong><p>Текущие ссылки перестанут работать. На устройствах потребуется обновить подключение.</p></div></div><button type="button" className="btn btn--secondary" disabled={resettingKeys} onClick={handleResetKeys}>{resettingKeys?'Сбрасываем…':'Сбросить ключи'}</button></section>
-    <section className="fluent-card viht-profile-action viht-profile-logout"><div><LogOut size={20}/><div><strong>Выйти из аккаунта</strong><p>Завершить вход на этом устройстве. Подписка и остальные устройства сохранятся.</p></div></div><button type="button" className="btn btn--secondary" onClick={()=>{if(window.confirm('Выйти из аккаунта на этом устройстве?'))onLogout?.()}}>Выйти из аккаунта</button></section>
+    {confirmationSheet}
+    <section className="fluent-card viht-profile-action viht-profile-logout"><div><LogOut size={20}/><div><strong>Выйти из аккаунта</strong><p>Завершить вход на этом устройстве. Подписка и остальные устройства сохранятся.</p></div></div><button type="button" className="btn btn--secondary" onClick={async()=>{if(await confirm('Выйти из аккаунта?', 'Подписка и остальные устройства сохранятся.', 'Выйти'))onLogout?.()}}>Выйти из аккаунта</button></section>
   </div>;
 }
 export default React.memo(ProfileScreen);

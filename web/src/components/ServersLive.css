@@ -34,3 +34,5 @@
 @media(max-width:360px){.viht-server-item{gap:8px;padding:16px 5px}.viht-server-latency{min-width:80px}.viht-server-info>strong{font-size:14px}.viht-server-actions{gap:7px}.viht-server-action{padding:11px 8px;gap:7px}.viht-server-action small{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.viht-ping-history i,.viht-server-item::before{transition:none}.viht-server-feedback{animation:none}}
 
+
+.viht-best-server{margin-top:8px;width:100%;min-height:48px}.viht-best-server:disabled{opacity:.65;cursor:default}.viht-ping-timestamp{display:block;font-size:10px;color:var(--text-secondary);font-variant-numeric:tabular-nums}

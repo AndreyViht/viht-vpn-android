@@ -12,6 +12,7 @@ enum class VpnConnectionState {
 }
 
 object VpnStatus {
+    @Volatile var healthPort: Int = 0
     @Volatile var activeConnectionName: String? = null
         private set
     @Volatile var connectedAt: Long = 0L

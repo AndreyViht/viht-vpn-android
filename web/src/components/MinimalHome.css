@@ -35,3 +35,10 @@ html.viht-ui-background .viht-home-spinner{animation-play-state:paused}
 @keyframes viht-orb-breathe{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:.85;transform:scale(1.035)}}
 @media(max-height:650px){.viht-minimal-home{padding-bottom:105px}.viht-home-stage{min-height:220px}.viht-connect-orb{width:220px}}
 @media(prefers-reduced-motion:reduce){.state-connected .viht-orb-halo{animation:none}.state-connecting .viht-orb-rim,.state-disconnecting .viht-orb-rim{animation:viht-functional-spin 2s linear infinite!important}}
+
+.viht-orb-location{max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--text-primary)}
+.viht-connect-orb.state-error .viht-orb-icon{color:#ffb4ab}
+.viht-connect-orb.state-error .viht-orb-rim{border-color:#ffb4ab75}
+.viht-phone-traffic,.viht-home-error{max-width:min(100%,300px);margin:12px auto 0;text-align:center;color:var(--text-secondary);font-size:13px}
+.viht-phone-traffic summary,.viht-home-error button{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:8px 13px;cursor:pointer}
+.viht-home-error button{border:0;border-radius:14px;background:var(--viht-surface);color:var(--text-primary)}

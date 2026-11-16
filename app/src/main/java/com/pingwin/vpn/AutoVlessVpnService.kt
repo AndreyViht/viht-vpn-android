@@ -41,9 +41,6 @@ import java.net.Inet6Address
 import java.net.InetSocketAddress
 import java.net.Inet4Address
 import java.net.ServerSocket
-import java.net.Proxy
-import java.net.HttpURLConnection
-import java.net.URL
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.Executors
@@ -392,7 +389,7 @@ class AutoVlessVpnService :
                 }
 
                 check(tunDescriptor != null) { "VPN interface was not established" }
-                check(probeHealthy(prepared.second)) { "VPN не подтвердил передачу трафика" }
+                check(VpnDiagnostics.probeTunnel(prepared.second)) { "Туннель запустился, но не подтвердил передачу данных." }
                 if (destroyed || latestServiceStartId != startId) {
                     releaseVpnResources()
                     currentSessionStartId = 0
@@ -421,6 +418,7 @@ class AutoVlessVpnService :
                 )
                 everConnected = true; retryAttempt = 0
                 VpnRunStore.markVerified(this)
+                VpnStatus.healthPort = prepared.second
                 startHealthChecks(prepared.second, startId)
                 DevicePresenceReporter.connected(this)
 
@@ -472,7 +470,7 @@ class AutoVlessVpnService :
         healthTask = recoveryTimer.scheduleWithFixedDelay({
             if (!VpnRecoveryPolicy.allowed(VpnRunStore.desired(this),destroyed,request,latestServiceStartId) || epoch != coreEpoch.get()) return@scheduleWithFixedDelay
             runCatching { wakeLock?.acquire(600_000L) }
-            val healthy = probeHealthy(port)
+            val healthy = VpnDiagnostics.probeTunnel(port)
             if (epoch != coreEpoch.get()) return@scheduleWithFixedDelay
             failures = if (healthy) 0 else failures + 1
             if (VpnRecoveryPolicy.failed(failures)) requestRecovery(request)
@@ -551,7 +549,7 @@ class AutoVlessVpnService :
             if (host.isNotBlank() && !host.matches(Regex("[0-9a-fA-F:.]+"))) outbound to host else null
         }
         val candidates = PhysicalNetworks.ranked(connectivityManager)
-        check(candidates.isNotEmpty()) { "Нет физического подключения к сети" }
+        check(candidates.isNotEmpty()) { "Сеть недоступна. Проверьте Wi-Fi и мобильные данные." }
         val resolution = candidates.firstNotNullOfOrNull { network ->
             try {
                 network to hosts.map { (outbound, host) ->
@@ -579,18 +577,8 @@ class AutoVlessVpnService :
         route.put("rules", rules)
         return root.toString() to port
     }
-    private fun probeHealthy(port: Int): Boolean = listOf("https://www.gstatic.com/generate_204","https://cp.cloudflare.com/generate_204").any { url -> runCatching { verifyTunnel(port,url); true }.getOrDefault(false) }
-    private fun verifyTunnel(port: Int, target: String = "https://www.gstatic.com/generate_204") {
-        val connection = URL(target).openConnection(Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", port))) as HttpURLConnection
-        try {
-            connection.connectTimeout = 8000; connection.readTimeout = 8000
-            connection.instanceFollowRedirects = false; connection.useCaches = false
-            connection.setRequestProperty("Connection", "close")
-            check(connection.responseCode == 204) { "VPN-ключ не подтвердил передачу трафика" }
-        } finally { connection.disconnect() }
-    }
-
     private fun releaseVpnResources() {
+        VpnStatus.healthPort = 0
         coreEpoch.incrementAndGet()
         healthTask?.cancel(false); healthTask = null
         runCatching { xrayRuntime?.stop() }

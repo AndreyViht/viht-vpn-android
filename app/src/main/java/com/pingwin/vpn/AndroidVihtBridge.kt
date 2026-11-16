@@ -138,6 +138,11 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                     "vpnConnect" -> connect(args.getJSONObject(0), args.optJSONObject(1) ?: JSONObject())
                     "vpnDisconnect" -> { disconnect(); ok() }
                     "vpnUpdateSettings" -> applySettings(args.getJSONObject(0))
+                    "checkVpnConnection" -> withContext(Dispatchers.IO) { VpnDiagnostics.check(activity, args.optJSONObject(0)) }
+                    "vpnHaptic" -> {
+                        withContext(Dispatchers.Main) { activity.window.decorView.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY) }
+                        ok()
+                    }
                     "pingServers" -> ping(args.getJSONArray(0))
                     "exportDebugLog" -> VpnPerformanceSnapshot.capture(activity) + "\n" + DiagnosticLogStore.entries(activity).joinToString("\n").takeLast(350000)
                     "setDesktopPreferences" -> {

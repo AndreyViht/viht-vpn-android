@@ -32,4 +32,12 @@ export const SessionTimer=React.memo(function SessionTimer({connectedAt}) {
   return hours>0?`${pair(hours)}:${pair(minutes)}:${pair(remaining)}`:`${pair(minutes)}:${pair(remaining)}`;
 });
 
-export function TrafficScope(){const measured=useTelemetryValue('networkMeasured');return <small className="viht-traffic-scope">{measured?'Сеть телефона · включая прямые подключения':'Трафик VPN · прямые загрузки отдельно'}</small>;}
+export function PhoneTrafficDetails() {
+  const measured = useTelemetryValue('networkMeasured');
+  return <details className="viht-phone-traffic">
+    <summary>Весь телефон</summary>
+    {measured ? <div>↓ <TransferValue field="displaySpeedDown"/> · ↑ <TransferValue field="displaySpeedUp"/></div>
+      : <div>Общий замер недоступен или ещё не получен</div>}
+    {measured && <small>Включая приложения вне VPN</small>}
+  </details>;
+}

@@ -77,6 +77,13 @@ export default React.memo(function ServersScreen({accessDisabled=false,servers=[
   const syncFlight = useRef(false);
   const reduced = useReducedMotion();
   const {samples,measuring,error} = useLivePing(servers,live && !accessDisabled);
+  const best = servers.map(server => {
+    const sample = samples[server.id];
+    const values = (sample?.history || []).slice(-5).filter(Number.isFinite).sort((a,b)=>a-b);
+    const middle = Math.floor(values.length / 2);
+    const median = values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
+    return {server, score: median, eligible: values.length >= 3 && Number.isFinite(sample?.ping) && Date.now()-sample.at < 10000};
+  }).filter(item=>item.eligible).sort((a,b)=>a.score-b.score)[0];
   const english = lang === 'en';
   useEffect(() => {mounted.current=true;return()=>{mounted.current=false;};},[]);
   const synchronize = async () => {
@@ -116,6 +123,10 @@ export default React.memo(function ServersScreen({accessDisabled=false,servers=[
         <span><strong>{busy ? (english ? 'Updating…' : 'Обновляем…') : (english ? 'Sync' : 'Синхронизация')}</strong><small>{syncTime ? new Date(syncTime).toLocaleTimeString(english?'en-GB':'ru-RU',{hour:'2-digit',minute:'2-digit'}) : (english ? 'From your subscription' : 'Из вашей подписки')}</small></span>
       </button>
     </div>
+    {servers.length > 0 && <button type="button" className="viht-server-action viht-best-server" disabled={accessDisabled || !live || !best} onClick={()=>onSelectServer(best.server)}>
+      <span className="viht-server-action-icon"><ArrowDownUp size={19}/></span>
+      <span><strong>{english ? 'Best server' : 'Лучший сервер'}</strong><small>{live && best ? serverName(best.server.name) + ' · ' + Math.round(best.score) + (english ? ' ms' : ' мс') : (english ? 'Waiting for recent measurements' : 'Ждём свежих замеров')}</small></span>
+    </button>}
     {syncResult && <p className="viht-server-feedback" role="status">{syncResult}</p>}
     {error && <p className="viht-server-feedback" role="status">{error}</p>}
     <div className="viht-server-list">
@@ -140,6 +151,7 @@ export default React.memo(function ServersScreen({accessDisabled=false,servers=[
               const value=history[i-(12-history.length)];
               return <i key={i} style={{height:value==null?'3px':Math.max(4,Math.round(value/maximum*18))+'px',opacity:value == null ? .2 : .8}}/>;
             })}</span>
+            {sample && <time className="viht-ping-timestamp" dateTime={new Date(sample.at).toISOString()}>{new Date(sample.at).toLocaleTimeString(english?'en-GB':'ru-RU')}</time>}
             <small>{!live ? (english?'Paused':'Пауза') : !sample ? (english?'Measuring…':'Измеряем…') : reachable ? ping<80?(english?'Low latency':'Быстрый отклик'):ping<160?(english?'Normal latency':'Обычный отклик'):(english?'High latency':'Высокая задержка') : (english?'Checking again':'Проверяем снова')}</small>
           </span>
           <span className="viht-server-check" aria-hidden="true">{selected&&<Check size={15}/>}</span>

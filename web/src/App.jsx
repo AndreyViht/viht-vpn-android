@@ -28,6 +28,7 @@ import './App.css';
 import './liquid-glass.css';
 import './android.css';
 import './AndroidMaterials.css';
+import VpnDiagnosticsPanel from './components/VpnDiagnosticsPanel';
 import ProfileErrorScreen from './components/ProfileErrorScreen';
 import { clearAccountStorage, normalizeProfile, subscriptionIsActive } from './services/account';
 import { publishTelemetry } from './services/telemetry';
@@ -63,13 +64,23 @@ export default function App() {
   const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
   const [hwid, setHwid] = useState('');
-  const [appVersion, setAppVersion] = useState('2.0.0.13');
+  const [appVersion, setAppVersion] = useState('2.0.0.14');
   const [manualConnectOnly, setManualConnectOnly] = useState(true);
   const [toast, setToast] = useState(null); // { id, message, type: 'success' | 'ping' | 'error' }
   const [foreignVpnWarning, setForeignVpnWarning] = useState(null);
 
   // Navigation tab: 'home' | 'servers' | 'devices' | 'profile' | 'settings'
   const [activeTab, setActiveTab] = useState('home');
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.removeProperty('--viht-header-collapse');
+    return () => root.style.removeProperty('--viht-header-collapse');
+  },[activeTab]);
+  const updateHeader = useCallback(event => {
+    if (window.electronAPI?.platform !== 'android') return;
+    const collapse = Math.min(12, Math.max(0,event.currentTarget.scrollTop / 4));
+    document.documentElement.style.setProperty('--viht-header-collapse',collapse+'px');
+  },[]);
   useEffect(() => { const back=e=>{ if(!e.defaultPrevented&&!e.detail?.modal&&activeTab!=='home'){e.preventDefault();setActiveTab('home');} };window.addEventListener('viht-back',back);return()=>window.removeEventListener('viht-back',back); },[activeTab]);
 
   // Connection keys come exclusively from the current subscription.
@@ -126,6 +137,7 @@ export default function App() {
   const [refreshingPing, setRefreshingPing] = useState(false);
 
   // VPN Connection State
+  const [connectionError, setConnectionError] = useState('');
   const [connectionState, setConnectionState] = useState('disconnected'); // 'disconnected' | 'connecting' | 'connected' | 'disconnecting' | 'error'
   useEffect(() => { document.documentElement.dataset.vpnState = connectionState; }, [connectionState]);
   const connectionStateRef = useRef(connectionState);
@@ -405,6 +417,7 @@ export default function App() {
           if (data?.state) {
             const previousState=connectionStateRef.current;
             setConnectionState(data.state);
+            setConnectionError(data.state === 'error' ? data.error || '' : '');
             if(data.serverName) setNativeServerName(data.serverName);
             if(data.state==='disconnected') setNativeServerName('');
             try { localStorage.setItem('viht_vpn_state', data.state); } catch {}
@@ -1004,6 +1017,7 @@ export default function App() {
       {/* Native Windows 11 TitleBar */}
       <TitleBar title="Viht" isConnected={connectionState === 'connected'} user={user} onOpenHelp={handleOpenHelp} onOpenNews={()=>window.dispatchEvent(new Event('viht-open-news'))} newsUnread={newsUnread} minimizeToTray={settings.minimizeToTray !== false} />
       <OwnerPairConfirmation onOpen={()=>setActiveTab('devices')} onAdded={()=>window.dispatchEvent(new Event('viht-devices-refresh'))}/>
+      <VpnDiagnosticsPanel server={currentServer}/>
       <IosDeviceAccess allowOpen={false} copyLink={link=>window.electronAPI.copyText(link)} enabled={!!token&&!!user&&!user.is_guest} request={(action,body)=>iosCabinetRequest(token,action,body)} qrForLink={async link=>{const r=await window.electronAPI.inviteQr(link);if(!r.ok)throw Error(r.error);return r.dataUrl}} onChanged={()=>window.dispatchEvent(new Event("viht-devices-refresh"))}/>
       <JoinSubscription signedIn={!!token} beforeJoin={handleLogout}/>
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
@@ -1047,6 +1061,7 @@ export default function App() {
                     key="page-home"
                     className="fluent-page-motion-wrap"
                     ref={pageMotionRef}
+                    onScroll={updateHeader}
                     
                     
                     {...pageVariants}
@@ -1056,6 +1071,8 @@ export default function App() {
                       currentServer={connectionState === 'connected' && nativeServerName ? {...currentServer,name:nativeServerName} : currentServer}
                       connectionState={connectionState}
                       connectedAt={connectedAt}
+                      connectionError={connectionError}
+                      reconnecting={connectionState==='connecting' && hadConnectedSessionRef.current}
                       onToggleConnection={handleToggleConnection}
                       onOpenServerSelector={() => setActiveTab('servers')}
                       lang={currentLang}
@@ -1068,6 +1085,7 @@ export default function App() {
                     key="page-servers"
                     className="fluent-page-motion-wrap"
                     ref={pageMotionRef}
+                    onScroll={updateHeader}
                     
                     
                     {...pageVariants}
@@ -1091,6 +1109,7 @@ export default function App() {
                     key="page-devices"
                     className="fluent-page-motion-wrap"
                     ref={pageMotionRef}
+                    onScroll={updateHeader}
                     
                     
                     {...pageVariants}
@@ -1109,6 +1128,7 @@ export default function App() {
                     key="page-profile"
                     className="fluent-page-motion-wrap"
                     ref={pageMotionRef}
+                    onScroll={updateHeader}
                     
                     
                     {...pageVariants}
@@ -1129,6 +1149,7 @@ export default function App() {
                     key="page-settings"
                     className="fluent-page-motion-wrap"
                     ref={pageMotionRef}
+                    onScroll={updateHeader}
                     
                     
                     {...pageVariants}

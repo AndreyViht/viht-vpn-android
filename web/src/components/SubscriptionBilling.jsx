@@ -3,13 +3,13 @@ import { createPortal } from 'react-dom';
 import { X, CheckCircle2, Loader2, CreditCard } from 'lucide-react';
 import { fetchAppTariffs, createAppCheckout, fetchAppPaymentStatus } from '../services/api';
 import './SubscriptionBilling.css';
-import { normalizePayment, paymentPollDelay, archivePayment } from '../services/paymentTracking';
+import { normalizePayment, paymentPollDelay, archivePayment, paymentStorageKey, paymentRecordsEvent } from '../services/paymentTracking';
 
 export default function SubscriptionBilling({ token, accountId, profileEmail = "", onPaid, product = 'subscription' }) {
   const [email, setEmail] = useState(profileEmail);
   const [emailStep, setEmailStep] = useState(false);
   const isSlots = product === 'slots';
-  const storageKey = 'viht_payment_v1:' + accountId + (isSlots ? ':slots' : '');
+  const storageKey = paymentStorageKey(accountId, product);
   const [slotCount, setSlotCount] = useState(1);
   const [slotPrice, setSlotPrice] = useState(null);
   const [slotMax, setSlotMax] = useState(20);
@@ -78,14 +78,15 @@ export default function SubscriptionBilling({ token, accountId, profileEmail = "
   }, [open]);
   useEffect(() => {
     if(order)localStorage.setItem(storageKey,JSON.stringify(order));
+    window.dispatchEvent(new Event(paymentRecordsEvent));
     let active=true,timer;
-    const saveHistory=items=>{historyRef.current=items;localStorage.setItem(storageKey+':history',JSON.stringify(items));setHistory(items);};
+    const saveHistory=items=>{historyRef.current=items;localStorage.setItem(storageKey+':history',JSON.stringify(items));setHistory(items);window.dispatchEvent(new Event(paymentRecordsEvent));};
     const check=async(force=false)=>{
       if(inFlight.current||(document.hidden || window.__vihtUiBackground === true))return;
       const paused=paymentPollDelay(order)===null;
       setTrackingPaused(paused);
       if(paused&&!force)return;
-      const targets=force?[...(order?[order]:[]),...historyRef.current]:order?[order]:[];
+      const targets=force?[...(order?[order]:[]),...historyRef.current.filter(item=>!(['canceled','expired'].includes(item.status)))]:order?[order]:[];
       if(!targets.length)return;
       inFlight.current=true;setCheckingPayment(true);
       try {
@@ -94,7 +95,23 @@ export default function SubscriptionBilling({ token, accountId, profileEmail = "
           if(!active)return;
           if(!result.ok){setError(result.error||'Не удалось проверить оплату. Повторите проверку позже.');break;}
           setError('');
-          if(result.data?.status==='paid'){
+          const status = result.data?.status;
+          if (status === 'processing' && target.status !== status) {
+            const next = {...target,status};
+            if (target.label === order?.label) {
+              localStorage.setItem(storageKey,JSON.stringify(next));setOrder(next);
+              window.dispatchEvent(new Event(paymentRecordsEvent));
+            } else saveHistory(archivePayment(historyRef.current,next));
+          }
+          if (status === 'canceled' || status === 'expired') {
+            saveHistory(archivePayment(historyRef.current,{...target,status}));
+            if (target.label === order?.label) {
+              localStorage.removeItem(storageKey);localStorage.removeItem(storageKey+':draft');setOrder(null);
+              window.dispatchEvent(new Event(paymentRecordsEvent));
+              setError(status==='expired'?'Срок платежа истёк. Выберите тариф, чтобы оплатить снова.':'Платёж отменён или его срок истёк. Выберите тариф, чтобы оплатить снова.');
+            }
+          }
+          if(status==='paid'){
             if(target.label===order?.label){localStorage.removeItem(storageKey);localStorage.removeItem(storageKey+':draft');setOrder(null);}
             else saveHistory(historyRef.current.filter(item=>item.label!==target.label));
             setPaid(true);setOpen(false);onPaidRef.current?.();window.dispatchEvent(new CustomEvent('viht-devices-refresh'));

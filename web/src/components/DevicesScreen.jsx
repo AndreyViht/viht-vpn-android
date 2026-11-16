@@ -2,6 +2,7 @@ import './DevicesCompact.css';
 import './DevicesLight.css';
 import {DeviceRate} from './DeviceRate';
 import {OwnerInvite} from './SubscriptionInvite';
+import {AndroidActionSheet, useAndroidConfirmation} from './AndroidActionSheet';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -20,6 +21,7 @@ import {
   Shield,
   AlertCircle,
   Loader2,
+  Ellipsis,
 } from 'lucide-react';
 import { fetchActiveDevices, deviceAction } from '../services/api';
 import { slotUsage, deviceState, deviceAppLabel, devicePresenceText } from '../services/devices';
@@ -38,6 +40,8 @@ function maskHwid(value) {
 }
 
 function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBindingChanged }) {
+  const [confirm, confirmationSheet] = useAndroidConfirmation();
+  const [actions, setActions] = useState(null);
   const [devices, setDevices] = useState(() => deviceSnapshots.get(token)?.devices || []);
   const [limits, setLimits] = useState(() => deviceSnapshots.get(token)?.limits || propLimits || { total_slots: 0, active_count: 0, slot_price: 0 });
   const [loading, setLoading] = useState(() => !deviceSnapshots.has(token));
@@ -126,7 +130,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
     finally { setBindingBusy(false); }
   };
   const bindCurrentDevice = async device => {
-    if (!window.confirm(`Подтвердите: сейчас Viht открыт на устройстве «${device.custom_name||device.device_model}». Его VPN-приложения должны занимать один слот.`)) return;
+    if (!await confirm('Объединить приложения', `Подтвердите: сейчас Viht открыт на устройстве «${device.custom_name||device.device_model}». Его VPN-приложения должны занимать один слот.`)) return;
     const result=await deviceAction(token,{command:'bind-current',device_id:device.binding_device_id||device.device_id||device.id});
     if (!result?.ok) { showToast(result?.error||'Не удалось привязать Viht',true); return; }
     await loadDevices(true); onBindingChanged?.(); showToast('Viht привязан к этому устройству. Дополнительный слот не занят.');
@@ -141,7 +145,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
     } catch(error) { showToast(error.message,true); }
   };
   const separateClient = async client => {
-    if (!window.confirm('Считать этот клиент отдельным телефоном? Потребуется отдельный свободный слот.')) return;
+    if (!await confirm('Занять отдельный слот', 'Считать этот клиент отдельным телефоном? Потребуется отдельный свободный слот.')) return;
     const result=await deviceAction(token,{command:'unlink',device_id:client.device_id||client.id});
     if (!result?.ok) showToast(result?.error||'Не удалось отделить клиент',true);
     await loadDevices(true);
@@ -249,7 +253,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
   // Delete / revoke device with shrink animation
   const handleDeleteDevice = async (device) => {
     const devName = device.custom_name || device.device_model || 'устройство';
-    if (!window.confirm(`Отвязать «${devName}» от подписки${device.client_count > 1 ? ` вместе со всеми ${device.client_count} VPN-приложениями` : ''}?`)) {
+    if (!await confirm('Отвязать устройство', `Отвязать «${devName}» от подписки${device.client_count > 1 ? ` вместе со всеми ${device.client_count} VPN-приложениями` : ''}?`)) {
       return;
     }
 
@@ -538,30 +542,11 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                   </div>
 
                   <div className="fluent-device-actions">
-                    <motion.button data-motion-press="true"
-                      type="button"
-                      className={`btn btn--icon btn--sm ${device.disabled ? 'btn--activate' : 'btn--pause'}`}
-                      onClick={() => performDeviceAction(device, () => handleToggleDevice(device))}
-                      disabled={busy}
-                      aria-busy={busy}
-                      title={device.disabled ? t('device_btn_enable', lang) : t('device_btn_disable', lang)}
-                      whileTap={{ scale: 0.9 }}
-                      transition={springs.tactile}
-                    >
-                      <Power size={14} />
-                    </motion.button>
-
-                    <motion.button data-motion-press="true"
-                      type="button"
-                      className="btn btn--icon btn--sm btn--delete"
-                      onClick={() => performDeviceAction(device, () => handleDeleteDevice(device))}
-                      disabled={busy}
-                      title={t('device_btn_delete', lang)}
-                      whileTap={{ scale: 0.9 }}
-                      transition={springs.tactile}
-                    >
-                      <Trash2 size={14} />
-                    </motion.button>
+                    <button type="button" className="viht-device-more" disabled={busy}
+                      aria-label={'Действия · ' + (device.custom_name || device.device_model || 'Устройство')}
+                      onClick={()=>setActions(device)}>
+                      <Ellipsis size={20}/>
+                    </button>
                   </div>
 
                 </motion.div>
@@ -570,6 +555,22 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
           </>
         )}
       </div>
+      {actions && <AndroidActionSheet title={actions.custom_name || actions.device_model || 'Действия с устройством'} onClose={()=>setActions(null)}>
+        <div className="viht-sheet-list">
+          <button type="button" onClick={()=>{
+            const device = actions;
+            setActions(null);
+            performDeviceAction(device, ()=>handleToggleDevice(device));
+          }}>{actions.disabled ? 'Включить доступ' : 'Приостановить доступ'}</button>
+          <button type="button" onClick={()=>{
+            const device = actions;
+            setActions(null);
+            performDeviceAction(device, ()=>handleDeleteDevice(device));
+          }}>Отвязать от подписки</button>
+        </div>
+        <div className="viht-sheet-actions"><button type="button" onClick={()=>setActions(null)}>Закрыть</button></div>
+      </AndroidActionSheet>}
+      {confirmationSheet}
       <p className="device-light-cadence">Скорость других устройств обновляется по данным их клиентов.</p>
       <button type="button" className="device-light-refresh" onClick={()=>loadDevices(false)} disabled={refreshing} aria-busy={refreshing}>
         <RefreshCw size={13} className={refreshing?'spinning':''}/>{refreshing?'Обновляем устройства…':'Обновить устройства'}

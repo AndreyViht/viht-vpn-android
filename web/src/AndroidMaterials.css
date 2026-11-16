@@ -32,3 +32,10 @@ html[data-viht-theme]{--accent:var(--v-accent);--text-primary:var(--v-text);--te
 .liquid-window.is-android .viht-profile-compact .fluent-card{background:var(--bg-card)!important;border-color:var(--viht-line)!important;color:var(--text-primary)}
 html[data-viht-theme] .fluent-modal-card,html[data-viht-theme] .viht-ios-dialog{background:var(--v-surface,#142831)!important;color:var(--v-text,#e9f4f2);border-color:var(--v-line,#ffffff20)}
 .liquid-window.is-android .viht-release-history{border:0;background:transparent;padding:16px 0;border-top:1px solid var(--viht-line)}
+
+.liquid-window.is-android .titlebar{height:calc(52px - var(--viht-header-collapse,0px));min-height:calc(52px - var(--viht-header-collapse,0px))}
+.liquid-window.is-android::before{height:calc(var(--viht-status-inset,0px) + 58px - var(--viht-header-collapse,0px))}
+.viht-payment-record button{min-height:48px}
+html[data-viht-back] .liquid-window.is-android .fluent-main-viewport,
+html[data-viht-back] dialog[open]{scale:calc(1 - var(--viht-back-progress,0) * .1);opacity:calc(1 - var(--viht-back-progress,0) * .12)}
+@media(prefers-reduced-motion:reduce){html[data-viht-back] .liquid-window.is-android .fluent-main-viewport,html[data-viht-back] dialog[open]{scale:1;opacity:1}}

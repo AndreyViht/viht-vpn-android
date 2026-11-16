@@ -54,7 +54,7 @@ function FluentSwitch({ checked, onChange, label }) {
 function SettingsScreen({
   settings,
   onUpdateSetting,
-  clientVersion = '2.0.0.13',
+  clientVersion = '2.0.0.14',
   hwid,
   initialCategory = 'connection',
 }) {
@@ -396,6 +396,10 @@ function SettingsScreen({
                   </div>)}
                   <div className="fluent-toggle-divider" />
 
+                  {window.electronAPI?.checkVpnConnection && <div className="fluent-toggle-row">
+                    <div className="fluent-toggle-text"><strong>Проверка подключения</strong><span>Сеть, DNS, сервер и туннель VPN</span></div>
+                    <button type="button" className="btn btn--secondary btn--sm" onClick={()=>window.dispatchEvent(new Event('viht-vpn-diagnostics'))}>Проверить</button>
+                  </div>}
                   {/* Экспорт логов */}
                   <div className="fluent-toggle-row">
                     <div className="fluent-toggle-text">

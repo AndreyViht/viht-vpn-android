@@ -18,6 +18,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.activity.BackEventCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -253,7 +254,20 @@ class MainActivity : ComponentActivity() {
             }
         }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            private fun backProgress(progress: Float?) {
+                if (!isTrustedPage) return
+                val script = if (progress == null) {
+                    "document.documentElement.removeAttribute('data-viht-back');"
+                } else {
+                    "(function(){const root=document.documentElement;root.setAttribute('data-viht-back','');root.style.setProperty('--viht-back-progress',$progress);})();"
+                }
+                webView.evaluateJavascript(script, null)
+            }
+            override fun handleOnBackStarted(backEvent: BackEventCompat) = backProgress(0f)
+            override fun handleOnBackProgressed(backEvent: BackEventCompat) = backProgress(backEvent.progress.coerceIn(0f, 1f))
+            override fun handleOnBackCancelled() = backProgress(null)
             override fun handleOnBackPressed() {
+                backProgress(null)
                 if (!isTrustedPage) { moveTaskToBack(true); return }
                 webView.evaluateJavascript("""
                     (function(){var d=document.querySelector('dialog[open]');if(d){d.close();return true;}
