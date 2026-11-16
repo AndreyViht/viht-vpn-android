@@ -19,6 +19,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven("https://nexus-external.vkteam.ru/repository/maven/") {
+            content { includeGroupByRegex("com\\.vk(\\..*)?") }
+        }
     }
 }
 

@@ -14,6 +14,10 @@ val pingwinKeyPassword = providers.gradleProperty("PINGWIN_KEY_PASSWORD")
 
 val yandexNativeLogin = providers.gradleProperty("vihtYandexNativeLogin").map { it.toBooleanStrict() }.orElse(true)
 
+val vkIdClientId = providers.gradleProperty("vihtVkClientId").orElse("54644585").get()
+require(vkIdClientId.matches(Regex("[1-9][0-9]{5,11}"))) { "Invalid VK ID application identifier" }
+val vkIdSdkKey = providers.environmentVariable("VIHT_VK_ANDROID_SDK_KEY").orElse("").get()
+
 android {
     namespace = "com.pingwin.vpn"
     compileSdk {
@@ -23,11 +27,16 @@ android {
     defaultConfig {
         manifestPlaceholders["YANDEX_CLIENT_ID"] = "8bae435b834b473c84e424088436d23e"
         buildConfigField("boolean", "YANDEX_NATIVE_LOGIN", yandexNativeLogin.get().toString())
+        manifestPlaceholders["VKIDClientID"] = vkIdClientId
+        manifestPlaceholders["VKIDClientSecret"] = vkIdSdkKey.ifBlank { "server-pkce" }
+        manifestPlaceholders["VKIDRedirectHost"] = "vk.ru"
+        manifestPlaceholders["VKIDRedirectScheme"] = "vk$vkIdClientId"
+        buildConfigField("boolean", "VK_USE_INSTALLED_APP", vkIdSdkKey.isNotBlank().toString())
         applicationId = "ru.anviht.vpn"
         minSdk = 26
         targetSdk = 36
-        versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 20012
-        versionName = "2.0.0.12"
+        versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 20013
+        versionName = "2.0.0.13"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -92,6 +101,7 @@ android {
 
 dependencies {
     implementation("com.yandex.android:authsdk:3.1.3")
+    implementation("com.vk.id:vkid:2.7.3")
     implementation("androidx.fragment:fragment:1.9.1")
     implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
     implementation("com.google.firebase:firebase-messaging")

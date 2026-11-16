@@ -104,6 +104,11 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
                             ok().put("available", true)
                         }
                     }
+                    "startNativeVk" -> {
+                        AndroidBrowserAuth.cancel(activity)
+                        withContext(Dispatchers.Main) { activity.launchNativeVk() }
+                        ok().put("available", true)
+                    }
                     "startAuthServer" -> {
                         val provider = args.getString(0)
                         AuthCallbackServer.stop()
@@ -301,24 +306,44 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
         emit("auth-error", error("Не удалось войти через Яндекс ID.").put("cancelled", cancelled).put("yandexNative", true))
     }
 
+    fun failNativeVk(cancelled: Boolean = false) {
+        emit("auth-error", error("Не удалось войти через VK ID.").put("cancelled", cancelled).put("nativeProvider", "vk"))
+    }
+
     fun completeNativeYandex(oauthToken: String) {
+        completeNativeSignIn("yandex", mapOf("Authorization" to "OAuth $oauthToken"), JSONObject(), ::failNativeYandex)
+    }
+
+    fun completeNativeVk(code: String, deviceId: String, verifier: String, state: String) {
+        val body = JSONObject().put("code", code).put("deviceId", deviceId)
+            .put("verifier", verifier).put("state", state)
+        completeNativeSignIn("vk", emptyMap(), body, ::failNativeVk)
+    }
+
+    private fun completeNativeSignIn(
+        provider: String,
+        headers: Map<String, String>,
+        body: JSONObject,
+        onFailure: (Boolean) -> Unit,
+    ) {
         scope.launch {
             try {
                 val reply = VihtHttp.request(
-                    "https://raupcrooynbdkfhclwak.supabase.co/functions/v1/yandex-android-session",
+                    "https://raupcrooynbdkfhclwak.supabase.co/functions/v1/$provider-android-session",
                     "POST",
-                    mapOf("Authorization" to "OAuth " + oauthToken),
-                    "{}"
+                    headers,
+                    body.toString(),
+                    readTimeoutMs = if (provider == "vk") 40_000 else 15_000,
                 )
-                if (reply.status !in 200..299) { failNativeYandex(); return@launch }
+                if (reply.status !in 200..299) { onFailure(false); return@launch }
                 val session = JSONObject(reply.body)
-                val accepted = AndroidSessionStore.accept(activity, session.getString("access_token"), session.getString("refresh_token"), "yandex")
-                preferences.edit().putString("provider", "yandex").apply()
-                emit("auth-success", JSONObject().put("token", accepted).put("originalToken", accepted).put("provider","yandex"))
+                val accepted = AndroidSessionStore.accept(activity, session.getString("access_token"), session.getString("refresh_token"), provider)
+                preferences.edit().putString("provider", provider).apply()
+                emit("auth-success", JSONObject().put("token", accepted).put("originalToken", accepted).put("provider", provider))
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                failNativeYandex()
+                onFailure(false)
             }
         }
     }

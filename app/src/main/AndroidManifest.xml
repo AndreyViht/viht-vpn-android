@@ -107,8 +107,8 @@
             android:name=".LauncherGreen"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_green"
-            android:roundIcon="@mipmap/ic_launcher_green_round"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:label="${appLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>

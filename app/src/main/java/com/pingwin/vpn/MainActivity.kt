@@ -33,6 +33,16 @@ import com.yandex.authsdk.YandexAuthSdk
 import com.yandex.authsdk.YandexAuthOptions
 import com.yandex.authsdk.YandexAuthLoginOptions
 import com.yandex.authsdk.YandexAuthResult
+import com.vk.id.AccessToken
+import com.vk.id.VKID
+import com.vk.id.VKIDAuthFail
+import com.vk.id.auth.AuthCodeData
+import com.vk.id.auth.VKIDAuthCallback
+import com.vk.id.auth.VKIDAuthParams
+import android.util.Base64
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -51,6 +61,36 @@ class MainActivity : ComponentActivity() {
     fun launchNativeYandex() {
         check(BuildConfig.YANDEX_NATIVE_LOGIN)
         yandexLauncher.launch(YandexAuthLoginOptions())
+    }
+
+    fun launchNativeVk() {
+        val flags = Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+        val random = SecureRandom()
+        val verifier = Base64.encodeToString(ByteArray(32).also(random::nextBytes), flags)
+        val stateValue = Base64.encodeToString(ByteArray(32).also(random::nextBytes), flags)
+        val challenge = Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()), flags)
+        val completed = AtomicBoolean()
+        VKID.init(applicationContext)
+        VKID.instance.authorize(this, object : VKIDAuthCallback {
+            override fun onAuthCode(data: AuthCodeData, isCompletion: Boolean) {
+                if (completed.compareAndSet(false, true)) {
+                    if (isCompletion) bridge.completeNativeVk(data.code, data.deviceId, verifier, stateValue)
+                    else bridge.failNativeVk()
+                }
+            }
+
+            override fun onAuth(accessToken: AccessToken) {
+                if (completed.compareAndSet(false, true)) bridge.failNativeVk()
+            }
+
+            override fun onFail(fail: VKIDAuthFail) {
+                if (completed.compareAndSet(false, true)) bridge.failNativeVk(cancelled = fail is VKIDAuthFail.Canceled)
+            }
+        }, VKIDAuthParams {
+            state = stateValue
+            codeChallenge = challenge
+            useOAuthProviderIfPossible = BuildConfig.VK_USE_INSTALLED_APP
+        })
     }
 
     private lateinit var webView: WebView

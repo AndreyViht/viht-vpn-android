@@ -424,13 +424,6 @@ class AutoVlessVpnService :
                 startHealthChecks(prepared.second, startId)
                 DevicePresenceReporter.connected(this)
 
-                if (
-                    !AppVisibility.isForeground()
-                ) {
-                    LauncherIconManager.showGreen(
-                        this
-                    )
-                }
 
 
                 updateForegroundNotification(
@@ -687,13 +680,6 @@ class AutoVlessVpnService :
             )
             DevicePresenceReporter.stopped(this)
 
-            if (
-                !AppVisibility.isForeground()
-            ) {
-                LauncherIconManager.showBlue(
-                    this
-                )
-            }
 
             if (BuildConfig.DEBUG) Log.d(
                 TAG,

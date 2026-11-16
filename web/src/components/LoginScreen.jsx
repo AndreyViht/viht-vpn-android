@@ -5,13 +5,13 @@ import SocialIcon from './SocialIcon';
 
 export default function LoginScreen({removalNotice=false,onDismissRemoval}) {
   const [waitingBrowser, setWaitingBrowser] = useState(false);
-  const [nativeWaiting, setNativeWaiting] = useState(false);
-  const [browserFallback, setBrowserFallback] = useState(false);
+  const [nativeWaiting, setNativeWaiting] = useState(null);
+  const [browserFallback, setBrowserFallback] = useState(null);
   const [error, setError] = useState('');
   useEffect(() => window.electronAPI?.onAuthError?.((data) => {
     setWaitingBrowser(false);
-    setNativeWaiting(false);
-    setBrowserFallback(Boolean(data?.yandexNative && !data?.cancelled));
+    setNativeWaiting(null);
+    setBrowserFallback(data?.cancelled ? null : data?.nativeProvider || (data?.yandexNative ? 'yandex' : null));
     if (data?.cancelled) return;
     setError(data?.error || 'Не удалось завершить вход. Повторите попытку.');
   }), []);
@@ -20,19 +20,23 @@ export default function LoginScreen({removalNotice=false,onDismissRemoval}) {
     try {
       setWaitingBrowser(true);
       setError('');
+      setBrowserFallback(null);
       try {
         localStorage.setItem('viht_chosen_provider', provider);
       } catch {}
 
-      if (provider === 'yandex' && !forceBrowser && window.electronAPI?.startNativeYandex) {
-        setNativeWaiting(true);
-        const native = await window.electronAPI.startNativeYandex();
-        if (native?.available) return;
-        setNativeWaiting(false);
-        if (native?.ok === false) {
-          setBrowserFallback(true);
-          throw new Error('Не удалось открыть Яндекс ID.');
+      const startNative = provider === 'vk' ? window.electronAPI?.startNativeVk : window.electronAPI?.startNativeYandex;
+      if (!forceBrowser && startNative) {
+        setNativeWaiting(provider);
+        try {
+          const native = await startNative();
+          if (native?.available) return;
+          if (native?.ok === false) throw new Error(provider === 'vk' ? 'Не удалось открыть VK ID.' : 'Не удалось открыть Яндекс ID.');
+        } catch (err) {
+          setBrowserFallback(provider);
+          throw err;
         }
+        setNativeWaiting(null);
       }
 
       if (window.electronAPI?.startAuthServer) {
@@ -49,6 +53,7 @@ export default function LoginScreen({removalNotice=false,onDismissRemoval}) {
     } catch (err) {
       console.error('Failed to start auth server:', err);
       setWaitingBrowser(false);
+      setNativeWaiting(null);
       window.electronAPI?.cancelAuthServer?.();
       setError(err.message || 'Не удалось открыть вход в браузере. Повторите попытку.');
     }
@@ -61,6 +66,8 @@ export default function LoginScreen({removalNotice=false,onDismissRemoval}) {
       window.open('https://anviht.ru', '_blank');
     }
   };
+
+  const nativeProviderName = nativeWaiting === 'vk' ? 'VK ID' : 'Яндекс ID';
 
   return (
     <div className="login-screen">
@@ -79,13 +86,13 @@ export default function LoginScreen({removalNotice=false,onDismissRemoval}) {
       {waitingBrowser ? (
         <div className="login-waiting-card">
           <Loader2 className="login-spinner" size={40} />
-          <h3 className="login-waiting-title">{nativeWaiting ? 'Вход через Яндекс ID…' : 'Авторизация в браузере…'}</h3>
+          <h3 className="login-waiting-title">{nativeWaiting ? `Вход через ${nativeProviderName}…` : 'Авторизация в браузере…'}</h3>
           <p className="login-waiting-desc">
-            {nativeWaiting ? 'Завершите вход в Яндекс ID.' : 'Завершите вход в браузере, чтобы открыть свой аккаунт в Viht.'}
+            {nativeWaiting ? `Завершите вход в ${nativeProviderName}.` : 'Завершите вход в браузере, чтобы открыть свой аккаунт в Viht.'}
           </p>
           <button 
             type="button" 
-            hidden={nativeWaiting}
+            hidden={Boolean(nativeWaiting)}
             className="btn btn--secondary btn--full"
             onClick={() => { window.electronAPI?.cancelAuthServer?.(); setWaitingBrowser(false); }}
           >
@@ -128,7 +135,7 @@ export default function LoginScreen({removalNotice=false,onDismissRemoval}) {
           </button>
 
           {error && <p className="login-error-text" role="alert">{error}</p>}
-          {browserFallback && <button type="button" className="login-link-btn" onClick={()=>startBrowserAuth('yandex', true)}>Войти через сайт</button>}
+          {browserFallback && <button type="button" className="login-link-btn" onClick={()=>startBrowserAuth(browserFallback, true)}>Войти через сайт</button>}
           <div className="login-footer">
             <span>Ещё нет аккаунта?</span>
             <button type="button" className="login-link-btn" onClick={openWebsite}>
