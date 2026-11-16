@@ -14,7 +14,7 @@ val pingwinKeyPassword = providers.gradleProperty("PINGWIN_KEY_PASSWORD")
 
 val yandexNativeLogin = providers.gradleProperty("vihtYandexNativeLogin").map { it.toBooleanStrict() }.orElse(true)
 
-val vkIdClientId = providers.gradleProperty("vihtVkClientId").orElse("54644585").get()
+val vkIdClientId = providers.gradleProperty("vihtVkClientId").orElse("54900535").get()
 require(vkIdClientId.matches(Regex("[1-9][0-9]{5,11}"))) { "Invalid VK ID application identifier" }
 val vkIdSdkKey = providers.environmentVariable("VIHT_VK_ANDROID_SDK_KEY").orElse("").get()
 
