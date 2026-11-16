@@ -259,7 +259,7 @@ class MainActivity : ComponentActivity() {
                 val script = if (progress == null) {
                     "document.documentElement.removeAttribute('data-viht-back');"
                 } else {
-                    "(function(){const root=document.documentElement;root.setAttribute('data-viht-back','');root.style.setProperty('--viht-back-progress',$progress);})();"
+                    "(function(){const root=document.documentElement;root.setAttribute('data-viht-back',document.querySelector('dialog[open]')?'dialog':'page');root.style.setProperty('--viht-back-progress',$progress);})();"
                 }
                 webView.evaluateJavascript(script, null)
             }

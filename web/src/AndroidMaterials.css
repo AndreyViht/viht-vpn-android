@@ -36,6 +36,6 @@ html[data-viht-theme] .fluent-modal-card,html[data-viht-theme] .viht-ios-dialog{
 .liquid-window.is-android .titlebar{height:calc(52px - var(--viht-header-collapse,0px));min-height:calc(52px - var(--viht-header-collapse,0px))}
 .liquid-window.is-android::before{height:calc(var(--viht-status-inset,0px) + 58px - var(--viht-header-collapse,0px))}
 .viht-payment-record button{min-height:48px}
-html[data-viht-back] .liquid-window.is-android .fluent-main-viewport,
-html[data-viht-back] dialog[open]{scale:calc(1 - var(--viht-back-progress,0) * .1);opacity:calc(1 - var(--viht-back-progress,0) * .12)}
-@media(prefers-reduced-motion:reduce){html[data-viht-back] .liquid-window.is-android .fluent-main-viewport,html[data-viht-back] dialog[open]{scale:1;opacity:1}}
+html[data-viht-back=page] .liquid-window.is-android .fluent-main-viewport,
+html[data-viht-back=dialog] dialog[open]{scale:calc(1 - var(--viht-back-progress,0) * .1);opacity:calc(1 - var(--viht-back-progress,0) * .12)}
+@media(prefers-reduced-motion:reduce){html[data-viht-back=page] .liquid-window.is-android .fluent-main-viewport,html[data-viht-back=dialog] dialog[open]{scale:1;opacity:1}}

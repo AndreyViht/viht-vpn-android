@@ -11,9 +11,6 @@ import {
   Monitor,
   Apple,
   RefreshCw,
-  Edit2,
-  Trash2,
-  Power,
   Check,
   X,
   PlusCircle,
@@ -486,17 +483,6 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
                             exit={{ opacity: 0 }}
                           >
                             <strong className="fluent-device-name">{displayName}</strong>
-                            <motion.button data-motion-press="true"
-                              type="button"
-                              className="fluent-btn-icon fluent-btn-icon--edit"
-                              onClick={() => handleStartRename(device)}
-                              disabled={busy}
-                              title={t('device_title_rename', lang)}
-                              whileTap={{ scale: 0.9 }}
-                              transition={springs.tactile}
-                            >
-                              <Edit2 size={13} />
-                            </motion.button>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -557,6 +543,7 @@ function DevicesScreen({ token, hwid, limits: propLimits, lang = 'ru', onBinding
       </div>
       {actions && <AndroidActionSheet title={actions.custom_name || actions.device_model || 'Действия с устройством'} onClose={()=>setActions(null)}>
         <div className="viht-sheet-list">
+          <button type="button" onClick={()=>{handleStartRename(actions);setActions(null);}}>Переименовать</button>
           <button type="button" onClick={()=>{
             const device = actions;
             setActions(null);

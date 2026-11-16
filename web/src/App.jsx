@@ -79,7 +79,9 @@ export default function App() {
   const updateHeader = useCallback(event => {
     if (window.electronAPI?.platform !== 'android') return;
     const collapse = Math.min(12, Math.max(0,event.currentTarget.scrollTop / 4));
-    document.documentElement.style.setProperty('--viht-header-collapse',collapse+'px');
+    const style = document.documentElement.style;
+    const height = collapse+'px';
+    if (style.getPropertyValue('--viht-header-collapse') !== height) style.setProperty('--viht-header-collapse',height);
   },[]);
   useEffect(() => { const back=e=>{ if(!e.defaultPrevented&&!e.detail?.modal&&activeTab!=='home'){e.preventDefault();setActiveTab('home');} };window.addEventListener('viht-back',back);return()=>window.removeEventListener('viht-back',back); },[activeTab]);
 

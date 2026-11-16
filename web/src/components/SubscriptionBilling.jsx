@@ -135,7 +135,7 @@ export default function SubscriptionBilling({ token, accountId, profileEmail = "
   const pay = async () => {
     if (!order && !emailStep) { setEmailStep(true); return; }
     if (!order && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Укажите корректную электронную почту'); return; }
-    if (payLock.current) return;
+    if (payLock.current || order?.status === 'processing') return;
     payLock.current = true; setBusy(true); setError('');
     try {
       if (!window.electronAPI?.openPayment) throw Error('Для встроенной оплаты обновите приложение Viht.');
@@ -174,7 +174,7 @@ export default function SubscriptionBilling({ token, accountId, profileEmail = "
         {(order||history.length>0)&&<button className="billing-retry" disabled={checkingPayment} onClick={()=>manualCheck.current?.()}>{checkingPayment?'Проверяем оплату…':order?'Проверить оплату':'Проверить отложенные платежи'}</button>}
         {error && <p className="billing-error" role="alert">{error}</p>}
         {!order && !loading && !tariffs.length && <button className="billing-retry" onClick={() => setLoadAttempt(n => n + 1)}>Повторить загрузку</button>}
-        <button className="billing-pay" disabled={busy || (!order && (loading || (isSlots ? !slotPrice : !tariffs.some(t => t.days === selected))))} onClick={pay}>{busy ? <Loader2 className="spinning" size={18} /> : <CreditCard size={18} />}{order ? 'Продолжить оплату' : `Карта / СБП · ${isSlots ? (slotPrice ? slotCount * slotPrice : '—') : (tariffs.find(t => t.days === selected)?.price ?? '')} ₽`}</button>
+        <button className="billing-pay" disabled={busy || order?.status === 'processing' || (!order && (loading || (isSlots ? !slotPrice : !tariffs.some(t => t.days === selected))))} onClick={pay}>{busy ? <Loader2 className="spinning" size={18} /> : <CreditCard size={18} />}{order?.status === 'processing' ? 'Ожидаем зачисление' : order ? 'Продолжить оплату' : `Карта / СБП · ${isSlots ? (slotPrice ? slotCount * slotPrice : '—') : (tariffs.find(t => t.days === selected)?.price ?? '')} ₽`}</button>
         <p className="billing-footnote">Карта и СБП — в защищённой форме Платеги. Для подтверждения банк может открыть своё приложение.</p>
         {order && <><button className="billing-retry" onClick={() => setOpen(false)}>Проверим оплату в фоне · закрыть</button><button className="billing-retry" onClick={postponeOrder}>{isSlots ? 'Изменить количество слотов' : 'Выбрать другой тариф'}</button><p className="billing-footnote">Если уже оплатили, дождитесь подтверждения. Изменение заказа не отменяет платёж в банке.</p></>}
       </>}
