@@ -86,7 +86,7 @@ export default function SubscriptionBilling({ token, accountId, profileEmail = "
       const paused=paymentPollDelay(order)===null;
       setTrackingPaused(paused);
       if(paused&&!force)return;
-      const targets=force?[...(order?[order]:[]),...historyRef.current.filter(item=>!(['canceled','expired'].includes(item.status)))]:order?[order]:[];
+      const targets=force?[...(order?[order]:[]),...historyRef.current]:order?[order]:[];
       if(!targets.length)return;
       inFlight.current=true;setCheckingPayment(true);
       try {
@@ -104,7 +104,7 @@ export default function SubscriptionBilling({ token, accountId, profileEmail = "
             } else saveHistory(archivePayment(historyRef.current,next));
           }
           if (status === 'canceled' || status === 'expired') {
-            saveHistory(archivePayment(historyRef.current,{...target,status}));
+            if (target.status !== status) saveHistory(archivePayment(historyRef.current,{...target,status}));
             if (target.label === order?.label) {
               localStorage.removeItem(storageKey);localStorage.removeItem(storageKey+':draft');setOrder(null);
               window.dispatchEvent(new Event(paymentRecordsEvent));
