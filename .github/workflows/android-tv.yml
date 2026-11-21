@@ -60,8 +60,26 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain --stacktrace -PciVersionCode=$((20001 + GITHUB_RUN_NUMBER)) -PciVersionName="2.0.0.${GITHUB_RUN_NUMBER}"
           cp app/build/outputs/apk/debug/app-debug.apk Viht-VPN-TV.apk
+      - name: Verify APK identity, signature and alignment
+        run: |
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$signer" verify --verbose --print-certs Viht-VPN-TV.apk > signature-verification.txt
+          grep -qi 'd0b6089540fa9af2a4a0a6b99140ca7f168c70e05df849b5abef4bed51fb1d66' signature-verification.txt
+          analyzer=$(find "$ANDROID_HOME" -path "*/bin/apkanalyzer" | head -1)
+          test "$("$analyzer" manifest application-id Viht-VPN-TV.apk)" = "ru.anviht.vpn.tv.test"
+          "$analyzer" manifest version-name Viht-VPN-TV.apk > version-name.txt
+          "$analyzer" manifest version-code Viht-VPN-TV.apk > version-code.txt
+          aligner=$(find "$ANDROID_HOME/build-tools" -name zipalign | sort -V | tail -1)
+          "$aligner" -c -P 16 -v 4 Viht-VPN-TV.apk > alignment-verification.txt
+          sha256sum Viht-VPN-TV.apk > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: Viht-VPN-TV-APK
-          path: Viht-VPN-TV.apk
+          path: |
+            Viht-VPN-TV.apk
+            signature-verification.txt
+            alignment-verification.txt
+            SHA256SUMS.txt
+            version-name.txt
+            version-code.txt
           if-no-files-found: error
