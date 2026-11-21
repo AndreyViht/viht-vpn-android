@@ -3,12 +3,12 @@ package com.pingwin.vpn
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Mandatory payment and operator routing is independent of optional Russian-site bypass. */
+/** Mandatory payment routing is independent of optional Russian-site bypass. */
 object PaymentNetworkPolicy {
-    val domains = listOf("yoomoney.ru", "yookassa.ru", "nspk.ru", "yastatic.net", "facct.ru", "smartcaptcha.yandexcloud.net") + BeelineNetworkPolicy.domains
+    val domains = listOf("yoomoney.ru", "yookassa.ru", "nspk.ru", "yastatic.net", "facct.ru", "smartcaptcha.yandexcloud.net")
 
     fun directPackages(ownPackage: String, settings: JSONObject): List<String> =
-        (listOf(ownPackage) + BeelineNetworkPolicy.packages + VpnBypassSettings.packages(settings)).distinct()
+        (listOf(ownPackage) + VpnBypassSettings.packages(settings)).distinct()
 
     fun apply(config: JSONObject) {
         val dns = config.optJSONObject("dns") ?: return
@@ -34,5 +34,6 @@ object PaymentNetworkPolicy {
         }
         if (!inserted) rules.put(direct)
         route.put("rules",rules)
+        BeelineNetworkPolicy.apply(config)
     }
 }

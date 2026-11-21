@@ -54,7 +54,7 @@ function FluentSwitch({ checked, onChange, label }) {
 function SettingsScreen({
   settings,
   onUpdateSetting,
-  clientVersion = '2.0.0.15',
+  clientVersion = '2.0.0.16',
   hwid,
   initialCategory = 'connection',
 }) {
