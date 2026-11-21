@@ -14,6 +14,8 @@ class PaymentNetworkPolicyTest {
         assertEquals("direct",direct.getString("outbound"))
         assertEquals("proxy",config.getJSONObject("route").getString("final"))
         assertFalse(PaymentNetworkPolicy.domains.contains("ru"))
+        assertTrue(PaymentNetworkPolicy.domains.contains("beeline.ru"))
+        assertTrue(PaymentNetworkPolicy.directPackages("ru.anviht.vpn.test",JSONObject()).contains("ru.beeline.services"))
         val dns=config.getJSONObject("dns").getJSONArray("rules").getJSONObject(0)
         assertEquals("bootstrap",dns.getString("server"))
         assertEquals("hijack-dns",rules.getJSONObject(1).getString("action"))
@@ -25,9 +27,9 @@ class PaymentNetworkPolicyTest {
         val rules=config.getJSONObject("route").getJSONArray("rules")
         assertTrue((0 until rules.length()).any { rules.getJSONObject(it).optString("action")=="reject" })
     }
-    @Test fun onlyTheOwnApplicationAndExplicitUserExceptionsAreExcluded() {
+    @Test fun ownApplicationBeelineAndExplicitUserExceptionsAreExcluded() {
         val settings=JSONObject().put("bypassRules",JSONObject().put("apps",JSONArray(listOf("ru.anviht.vpn.test","example.bank"))))
-        assertEquals(listOf("ru.anviht.vpn.test","example.bank"),PaymentNetworkPolicy.directPackages("ru.anviht.vpn.test",settings))
-        assertEquals(listOf("ru.anviht.vpn.test"),PaymentNetworkPolicy.directPackages("ru.anviht.vpn.test",JSONObject()))
+        assertEquals(listOf("ru.anviht.vpn.test","ru.beeline.services","example.bank"),PaymentNetworkPolicy.directPackages("ru.anviht.vpn.test",settings))
+        assertEquals(listOf("ru.anviht.vpn.test","ru.beeline.services"),PaymentNetworkPolicy.directPackages("ru.anviht.vpn.test",JSONObject()))
     }
 }
