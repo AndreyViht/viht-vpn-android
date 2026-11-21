@@ -18,7 +18,8 @@ class VpnBypassSettingsTest {
         val rules=config.getJSONObject("route").getJSONArray("rules")
         assertEquals("sniff",rules.getJSONObject(0).getString("action"))
         assertEquals("hijack-dns",rules.getJSONObject(1).getString("action"))
-        assertEquals("direct",rules.getJSONObject(2).getString("outbound"))
+        assertEquals("proxy",rules.getJSONObject(2).getString("outbound"))
+        assertEquals("beeline.ru",rules.getJSONObject(2).getJSONArray("domain_suffix").getString(0))
         assertTrue((0 until rules.length()).any {
             val rule=rules.getJSONObject(it)
             rule.optString("outbound")=="direct" && rule.optJSONArray("domain_suffix")?.toString()?.contains("example.org")==true
