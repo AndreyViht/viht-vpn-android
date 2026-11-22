@@ -39,7 +39,6 @@ import io.nekohasekai.libbox.WIFIState
 import java.io.File
 import java.net.Inet6Address
 import java.net.InetSocketAddress
-import java.net.Inet4Address
 import java.net.ServerSocket
 import org.json.JSONArray
 import org.json.JSONObject
@@ -561,7 +560,9 @@ class AutoVlessVpnService :
             try {
                 network to hosts.map { (outbound, host) ->
                     val addresses = network.getAllByName(host)
-                    val address = addresses.firstOrNull { it is Inet4Address } ?: addresses.first()
+                    // Android orders these for this network, including synthesized DNS64 addresses.
+                    // Forcing IPv4 breaks IPv6-only mobile networks that need the NAT64 address.
+                    val address = addresses.first()
                     outbound to address.hostAddress
                 }
             } catch (_: java.net.UnknownHostException) { null }
