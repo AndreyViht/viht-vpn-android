@@ -35,6 +35,7 @@ import com.yandex.authsdk.YandexAuthOptions
 import com.yandex.authsdk.YandexAuthLoginOptions
 import com.yandex.authsdk.YandexAuthResult
 import com.vk.id.AccessToken
+import com.vk.id.OAuth
 import com.vk.id.VKID
 import com.vk.id.VKIDAuthFail
 import com.vk.id.auth.AuthCodeData
@@ -47,6 +48,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        private var vkInitialized = false
+    }
     private val yandexLauncher by lazy {
         val sdk = YandexAuthSdk.create(YandexAuthOptions(this))
         registerForActivityResult(sdk.contract) { result ->
@@ -71,7 +75,10 @@ class MainActivity : ComponentActivity() {
         val stateValue = Base64.encodeToString(ByteArray(32).also(random::nextBytes), flags)
         val challenge = Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()), flags)
         val completed = AtomicBoolean()
-        VKID.init(applicationContext)
+        if (!vkInitialized) {
+            VKID.init(applicationContext)
+            vkInitialized = true
+        }
         VKID.instance.authorize(this, object : VKIDAuthCallback {
             override fun onAuthCode(data: AuthCodeData, isCompletion: Boolean) {
                 if (completed.compareAndSet(false, true)) {
