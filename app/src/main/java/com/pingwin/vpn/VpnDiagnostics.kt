@@ -17,13 +17,13 @@ object VpnDiagnostics {
         "https://cp.cloudflare.com/generate_204",
     )
 
-    fun probeTunnel(port: Int): Boolean = healthTargets.any { target ->
+    fun probeTunnel(port: Int, timeoutMillis: Int = 4_000, onFailure: (String) -> Unit = {}): Boolean = healthTargets.any { target ->
         runCatching {
             val proxy = Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", port))
             val connection = URL(target).openConnection(proxy) as HttpURLConnection
             try {
-                connection.connectTimeout = 4_000
-                connection.readTimeout = 4_000
+                connection.connectTimeout = timeoutMillis
+                connection.readTimeout = timeoutMillis
                 connection.instanceFollowRedirects = false
                 connection.useCaches = false
                 connection.setRequestProperty("Cache-Control", "no-cache")
@@ -37,6 +37,10 @@ object VpnDiagnostics {
             } finally {
                 connection.disconnect()
             }
+        }.onSuccess { success ->
+            if (!success) onFailure("Tunnel probe ${URL(target).host}: unexpected HTTP response")
+        }.onFailure { failure ->
+            onFailure("Tunnel probe ${URL(target).host}: ${failure.javaClass.simpleName}: ${failure.message.orEmpty().take(180)}")
         }.getOrDefault(false)
     }
 

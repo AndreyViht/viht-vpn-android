@@ -115,9 +115,9 @@ class AutoVlessVpnService :
     private var recoveryTask: java.util.concurrent.ScheduledFuture<*>? = null
     private var recoveryPending = false
     private val coreEpoch = java.util.concurrent.atomic.AtomicLong(0)
-    @Volatile private var everConnected = false
-    @Volatile private var lastSource: String? = null
-    @Volatile private var lastConnection: String? = null
+    private var everConnected = false
+    private var lastSource: String? = null
+    private var lastConnection: String? = null
     private var retryAttempt = 0
     private var networkSignature: String? = null
     private var wakeLock: android.os.PowerManager.WakeLock? = null
@@ -132,7 +132,7 @@ class AutoVlessVpnService :
     private var singBoxLogClient: SingBoxLogClient? = null
     private var xrayRuntime: XrayHevRuntime? = null
     private var lastNotificationTick = 0L
-    @Volatile private var tunDescriptor: ParcelFileDescriptor? = null
+    private var tunDescriptor: ParcelFileDescriptor? = null
     private val tunLock = Any()
 
     private val mainHandler =
@@ -389,7 +389,14 @@ class AutoVlessVpnService :
                 }
 
                 check(tunDescriptor != null) { "VPN interface was not established" }
-                check(VpnDiagnostics.probeTunnel(prepared.second)) { "Туннель запустился, но не подтвердил передачу данных." }
+                check(TunnelStartupVerifier.awaitReady(
+                    now = { android.os.SystemClock.elapsedRealtime() },
+                    cancelled = { destroyed || latestServiceStartId != startId || !VpnRunStore.desired(this) },
+                    pause = { android.os.SystemClock.sleep(it) },
+                    probe = { timeout -> VpnDiagnostics.probeTunnel(prepared.second, timeout) { message ->
+                        DiagnosticLogStore.append(this, message)
+                    } },
+                )) { "Туннель запустился, но не подтвердил передачу данных." }
                 if (destroyed || latestServiceStartId != startId) {
                     releaseVpnResources()
                     currentSessionStartId = 0
@@ -984,7 +991,7 @@ class AutoVlessVpnService :
     override fun systemCertificates(): StringIterator? =
         null
 
-    @Volatile private var lastOwnerFailureLog = -30_000L
+    private var lastOwnerFailureLog = -30_000L
 
     private val uidPackageCache = UidPackageCache(
         now = { android.os.SystemClock.elapsedRealtime() },
@@ -1269,7 +1276,7 @@ class AutoVlessVpnService :
         val current =
             connectivityManager.activeNetwork
 
-        if (current != null) {
+        if (physicalDefaultNetwork == null && current != null) {
             val caps =
                 connectivityManager
                     .getNetworkCapabilities(current)
@@ -1331,6 +1338,11 @@ class AutoVlessVpnService :
                     } else {
                         choosePhysicalNetwork() ?: network
                     }
+                    // Do not replace the network used to resolve the endpoint halfway through startup.
+                    // Network availability callbacks run on the main thread while the core starts.
+                    val preparedNetwork = physicalDefaultNetwork
+                    if (isStarting && preparedNetwork != null && selected != preparedNetwork &&
+                        connectivityManager.getNetworkCapabilities(preparedNetwork) != null) return
                     physicalDefaultNetwork = selected
                     if (BuildConfig.DEBUG) Log.d(TAG, "Physical network available: $network, selected: $selected")
                     notifyDefaultInterface(selected)
