@@ -3,8 +3,9 @@ package com.pingwin.vpn
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
-import java.net.UnknownHostException
+import android.os.SystemClock
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
 import java.net.URL
 
 data class HttpReply(val status: Int, val body: String)
@@ -16,28 +17,28 @@ object VihtHttp {
         connectivity = context.applicationContext.getSystemService(ConnectivityManager::class.java)
     }
 
-    fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(), body: String? = null, readTimeoutMs: Int = 15_000): HttpReply {
+    fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(), body: String? = null, readTimeoutMs: Int = ServiceRequestPolicy.DEFAULT_READ_TIMEOUT_MS): HttpReply {
         val endpoint = URL(url)
-        try {
+        require(endpoint.protocol == "https") { "Only HTTPS service requests are allowed" }
+        val manager = connectivity
+        if (!endpoint.host.equals("anviht.ru", ignoreCase = true) || manager == null) {
             return send(endpoint, method, headers, body, readTimeoutMs, null)
-        } catch (failure: UnknownHostException) {
-            if (!endpoint.host.equals("anviht.ru", ignoreCase = true)) throw failure
-            val manager = connectivity ?: throw failure
-            for (network in PhysicalNetworks.ranked(manager)) {
-                try {
-                    return send(endpoint, method, headers, body, readTimeoutMs, network)
-                } catch (_: UnknownHostException) { /* Try the next physical network. */ }
-            }
-            throw UnknownHostException("Не удалось найти адрес anviht.ru. Проверьте подключение к интернету.").apply { initCause(failure) }
+        }
+        // Bind this request only, not the process. A stalled VPN cannot capture its own
+        // subscription, authentication, device list or recovery requests.
+        return ServiceRequestPolicy.execute(method, readTimeoutMs,
+            networks = { PhysicalNetworks.ranked(manager) }, clock = SystemClock::elapsedRealtime,
+        ) { network, connectTimeout, readTimeout, deadline ->
+            send(endpoint, method, headers, body, readTimeout, network, connectTimeout, deadline)
         }
     }
 
-    private fun send(url: URL, method: String, headers: Map<String, String>, body: String?, readTimeoutMs: Int, network: Network?): HttpReply {
+    private fun send(url: URL, method: String, headers: Map<String, String>, body: String?, readTimeoutMs: Int, network: Network?, connectTimeoutMs: Int = 10_000, deadline: Long? = null): HttpReply {
         require(url.protocol == "https") { "Only HTTPS service requests are allowed" }
         val connection = (network?.openConnection(url) ?: url.openConnection()) as HttpURLConnection
         return try {
             connection.requestMethod = method
-            connection.connectTimeout = 10_000
+            connection.connectTimeout = connectTimeoutMs
             connection.readTimeout = readTimeoutMs.coerceIn(1000, 120000)
             connection.instanceFollowRedirects = false
             connection.useCaches = false
@@ -54,6 +55,11 @@ object VihtHttp {
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(8192)
                 while (true) {
+                    if (deadline != null) {
+                        val remaining = deadline - SystemClock.elapsedRealtime()
+                        if (remaining <= 0) throw SocketTimeoutException("Service response deadline exceeded")
+                        connection.readTimeout = minOf(readTimeoutMs.toLong(), remaining).toInt().coerceAtLeast(1)
+                    }
                     val count = it.read(buffer)
                     if (count < 0) break
                     check(output.size() + count <= 4 * 1024 * 1024) { "Ответ сервиса слишком большой" }

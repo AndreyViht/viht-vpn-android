@@ -18,7 +18,7 @@ export async function fetchSubscriptionClients(subscriptionToken) {
   try {
     const subscription = await Promise.race([
       window.electronAPI.fetchSubscription(subscriptionToken),
-      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Время синхронизации истекло. Повторите попытку.')), subscriptionToken==='guest'?65000:12000); }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Время синхронизации истекло. Повторите попытку.')), 75000); }),
     ]);
     reportGuestAccess(requestToken,subscription);
     if (!subscription?.ok) return { ok: false, error: subscription?.error || 'Ошибка загрузки подписки' };

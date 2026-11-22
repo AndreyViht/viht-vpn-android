@@ -21,6 +21,7 @@ import ForeignVpnModal from './components/ForeignVpnModal';
 import IosBottomNav from './components/IosBottomNav';
 import { isMobile, isAndroid } from './utils/platform';
 import { parseApiClients, fetchCabinetProfile, fetchSubscriptionClients } from './services/api';
+import {freshConnectionTarget} from './services/connectionRefresh.mjs';
 import { Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { springs, pageVariants } from './utils/motion';
@@ -64,7 +65,7 @@ export default function App() {
   const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
   const [hwid, setHwid] = useState('');
-  const [appVersion, setAppVersion] = useState('2.0.0.16');
+  const [appVersion, setAppVersion] = useState('2.0.0.17');
   const [manualConnectOnly, setManualConnectOnly] = useState(true);
   const [toast, setToast] = useState(null); // { id, message, type: 'success' | 'ping' | 'error' }
   const [foreignVpnWarning, setForeignVpnWarning] = useState(null);
@@ -214,6 +215,17 @@ export default function App() {
 
   const handleSelectServerRef = useRef();
   const handleToggleConnectionRef = useRef();
+  const synchronizeKeysRef = useRef(null), connectionIntentRef = useRef(0);
+  const connectToServer = useCallback(async (server, preferences) => {
+    if (!isAndroid) return window.electronAPI.vpnConnect(server, preferences);
+    const owner = tokenRef.current, intent = ++connectionIntentRef.current;
+    const target = await freshConnectionTarget(server, () => synchronizeKeysRef.current?.(true),
+      () => owner === tokenRef.current && intent === connectionIntentRef.current && !manualDisconnectRef.current && !['disabled','removed','mismatch'].includes(guestStateRef.current));
+    if (target.cancelled) return {ok:false,cancelled:true};
+    if (target.error) return {ok:false,error:target.error};
+    currentServerRef.current = target.server; setCurrentServer(target.server);
+    return window.electronAPI.vpnConnect(target.server, preferences);
+  }, []);
 
   const showToast = (message, type = 'success') => {
     const id = Date.now();
@@ -290,7 +302,7 @@ export default function App() {
 
       try {
         if (window.electronAPI?.vpnConnect) {
-          const res = await window.electronAPI.vpnConnect(targetServer, settingsRef.current);
+          const res = await connectToServer(targetServer, settingsRef.current);
           if (!res?.ok) {
             if (res?.cancelled) return;
             setConnectionState('error');
@@ -669,7 +681,8 @@ export default function App() {
       setConnectionState('connecting');
 
       if (window.electronAPI?.vpnConnect) {
-        window.electronAPI.vpnConnect(targetServer, settings).then((res) => {
+        connectToServer(targetServer, settings).then((res) => {
+          if (res?.cancelled) return;
           if (!res?.ok) {
             setConnectionState('error');
             showToast(res?.error || 'Не удалось автоподключиться к VPN', 'error');
@@ -692,10 +705,6 @@ export default function App() {
     if (connectionState === 'disconnected' || connectionState === 'error') {
       hadConnectedSessionRef.current = false;
       clearTimeout(stableConnectionTimerRef.current);
-      if (!currentServer?.vless_uri) {
-        showToast('Нет актуального ключа. Обновите подписку на странице серверов.', 'error');
-        return;
-      }
       if (foreignVpnWarning) {
         setForeignVpnWarning(null);
         showToast('Проверка готовности сетевого подключения...', 'ping');
@@ -711,7 +720,8 @@ export default function App() {
       setConnectionState('connecting');
       try {
         if (window.electronAPI?.vpnConnect) {
-          const res = await window.electronAPI.vpnConnect(currentServer, settings);
+          const res = await connectToServer(currentServer, settings);
+          if (res?.cancelled) return;
           if (!res?.ok) {
             setConnectionState('error');
             showToast(res?.error || 'Не удалось подключиться к VPN', 'error');
@@ -762,11 +772,11 @@ export default function App() {
     manualDisconnectRef.current=true;hadConnectedSessionRef.current=false;clearTimeout(stableConnectionTimerRef.current);setConnectionState('disconnecting');
     try{await window.electronAPI?.vpnDisconnect();if(epoch!==serverSelectionEpoch.current)return;
       manualDisconnectRef.current=false;setConnectionState('connecting');
-      const result=await window.electronAPI?.vpnConnect(srv,settingsRef.current);if(epoch!==serverSelectionEpoch.current)return;
+      const result=await connectToServer(srv,settingsRef.current);if(epoch!==serverSelectionEpoch.current||result?.cancelled)return;
       if(!result?.ok){setConnectionState('error');showToast(result?.error||'Ошибка подключения к серверу','error');}
     }catch(error){if(epoch===serverSelectionEpoch.current){setConnectionState('error');showToast('Ошибка при переключении сервера','error');}}
     finally{if(epoch===serverSelectionEpoch.current)serverHandover.current=false;}
-  },[]);
+  },[connectToServer]);
   useEffect(()=>{if(!token||!user||user.is_guest)return;const timer=setTimeout(()=>{void prefetchDevices(token,hwid).catch(()=>{});},250);return()=>clearTimeout(timer);},[token,hwid,!!user,user?.is_guest]);
 
   handleSelectServerRef.current = handleSelectServer;
@@ -819,6 +829,7 @@ export default function App() {
   }, [token, hwid, applyServerList]);
 
   const handleRefreshKeys = useCallback(() => synchronizeKeys(false), [synchronizeKeys]);
+  synchronizeKeysRef.current = synchronizeKeys;
 
   useEffect(() => {
     if (activeTab !== 'servers' || !token || !hwid) return;
