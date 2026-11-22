@@ -12,7 +12,7 @@ class TunnelStartupVerifierTest {
             ++attempts == 2
         }))
         assertEquals(2, attempts)
-        assertTrue(clock <= 25_000L)
+        assertTrue(clock <= 45_000L)
     }
 
     @Test fun neverAcceptsAStoppedSession() {
@@ -29,6 +29,6 @@ class TunnelStartupVerifierTest {
             clock += 6L * it
             false
         }))
-        assertTrue(clock <= 25_000L)
+        assertTrue(clock <= 45_000L)
     }
 }

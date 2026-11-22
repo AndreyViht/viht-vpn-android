@@ -7,14 +7,14 @@ internal object TunnelStartupVerifier {
         cancelled: () -> Boolean,
         pause: (Long) -> Unit,
         probe: (Int) -> Boolean,
-        budgetMillis: Long = 25_000L,
+        budgetMillis: Long = 45_000L,
     ): Boolean {
         val deadline = now() + budgetMillis
         while (!cancelled()) {
             val remaining = deadline - now()
             // Each probe can try three independent endpoints (connect and read timeouts).
             if (remaining < 1_500L) return false
-            val timeout = (remaining / 6).coerceAtMost(2_500L).toInt()
+            val timeout = (remaining / 6).coerceAtMost(5_000L).toInt()
             if (probe(timeout)) return !cancelled()
             if (cancelled() || deadline - now() < 1_750L) return false
             pause(250L)
