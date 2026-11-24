@@ -1,3 +1,4 @@
+import { designAttributes } from './components/designOptions';
 import IosDeviceAccess from './components/IosDeviceAccess.jsx';
 import {restoreStoredSession} from './services/sessionRestore';
 import {iosCabinetRequest} from './services/api';
@@ -67,7 +68,7 @@ export default function App() {
   const [renewTrigger, setRenewTrigger] = useState(null);
   const consumeRenewTrigger = useCallback(() => setRenewTrigger(null), []);
   const [hwid, setHwid] = useState('');
-  const [appVersion, setAppVersion] = useState('2.0.0.20');
+  const [appVersion, setAppVersion] = useState('2.0.0.21');
   const [manualConnectOnly, setManualConnectOnly] = useState(true);
   const [toast, setToast] = useState(null); // { id, message, type: 'success' | 'ping' | 'error' }
   const [foreignVpnWarning, setForeignVpnWarning] = useState(null);
@@ -1025,7 +1026,7 @@ export default function App() {
   const currentLang = settings?.language || 'ru';
 
   return (
-    <div ref={glassRef} className={`fluent-window liquid-window theme-${settings?.theme || 'emerald'} ${isWindowDragging ? 'is-window-dragging' : ''} ${isMobile ? 'is-mobile' : ''} ${isAndroid ? 'is-android' : ''}`}>
+    <div ref={glassRef} {...(isAndroid ? designAttributes(settings.design) : {})} className={`fluent-window liquid-window theme-${settings?.theme || 'emerald'} ${isWindowDragging ? 'is-window-dragging' : ''} ${isMobile ? 'is-mobile' : ''} ${isAndroid ? 'is-android' : ''}`}>
       {/* Living Ambient Aura (Dynamic Island / Fluent glow) */}
       <LiquidBackdrop />
 

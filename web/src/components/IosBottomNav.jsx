@@ -56,6 +56,7 @@ function IosBottomNav({
               className={`ios-tab-item ${isActive ? 'ios-tab-item--active' : ''}`}
               onClick={() => onTabChange(tab.id)}
               aria-current={isActive ? 'page' : undefined}
+              aria-label={tab.label}
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.88, y: 1 }}
               transition={springs.tactile}

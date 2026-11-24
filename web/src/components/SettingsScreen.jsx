@@ -1,3 +1,4 @@
+import DesignStudio from './DesignStudio';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -576,6 +577,8 @@ function SettingsScreen({
                     </div>
                   </div>
                 </div>
+
+                {isAndroid && <DesignStudio design={settings.design} lang={currentLang} onChange={value => onUpdateSetting('design', value)}/>}
 
                 {/* Themes Selection Group */}
                 <div className="fluent-card fluent-settings-group">
