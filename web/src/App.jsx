@@ -64,8 +64,10 @@ export default function App() {
   const [profileRetry, setProfileRetry] = useState(0);
   const [newsUnread,setNewsUnread]=useState(0);
   const [user, setUser] = useState(null);
+  const [renewTrigger, setRenewTrigger] = useState(null);
+  const consumeRenewTrigger = useCallback(() => setRenewTrigger(null), []);
   const [hwid, setHwid] = useState('');
-  const [appVersion, setAppVersion] = useState('2.0.0.17');
+  const [appVersion, setAppVersion] = useState('2.0.0.20');
   const [manualConnectOnly, setManualConnectOnly] = useState(true);
   const [toast, setToast] = useState(null); // { id, message, type: 'success' | 'ping' | 'error' }
   const [foreignVpnWarning, setForeignVpnWarning] = useState(null);
@@ -897,7 +899,7 @@ export default function App() {
     const networkChange = ['killSwitch', 'allowLan', 'bypassRussia', 'dnsAdblock', 'legacyVpnCore', 'excludedApps', 'excludedDomains', 'bypassRules', 'detailedLogs'].includes(key);
     if ((networkChange || key === 'autoReconnect') && settingsChangeRef.current) {
       showToast('Дождитесь применения предыдущей сетевой настройки', 'info');
-      return;
+      return {ok:false,error:'Дождитесь применения предыдущей сетевой настройки'};
     }
     if (networkChange) settingsChangeRef.current = true;
     const previous = settingsRef.current;
@@ -1035,7 +1037,7 @@ export default function App() {
       <JoinSubscription signedIn={!!token} beforeJoin={handleLogout}/>
       <IosNotificationBanner toast={toast} onClose={() => setToast(null)} />
       {token&&user&&<AppAnnouncements key={'news:'+String(user.id||user.telegram_id||user.yandex_email)} accountId={String(user.id||user.telegram_id||user.yandex_email)} enabled={settings.notifyNews!==false} onUnreadChange={setNewsUnread}/>}
-      {token && user && !user.is_guest && <SubscriptionBilling key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} profileEmail={user.yandex_email || user.email || ""} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => { setProfileRetry(n => n + 1); setActiveTab("home"); if(settingsRef.current.notifyPayments!==false)showToast("Оплата получена. Обновляем подписку.", "success"); }} />}
+      {token && user && !user.is_guest && <SubscriptionBilling renewTrigger={renewTrigger} onRenewHandled={consumeRenewTrigger} key={String(user.id || user.telegram_id || user.yandex_email || token)} token={token} profileEmail={user.yandex_email || user.email || ""} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => { setProfileRetry(n => n + 1); setActiveTab("home"); if(settingsRef.current.notifyPayments!==false)showToast("Оплата получена. Обновляем подписку.", "success"); }} />}
       {token && user && !user.is_guest && <SubscriptionBilling product="slots" key={'slots:' + String(user.id || user.telegram_id || user.yandex_email || token)} token={token} profileEmail={user.yandex_email || user.email || ""} accountId={String(user.id || user.telegram_id || user.yandex_email || 'current')} onPaid={() => { setProfileRetry(n => n + 1); setActiveTab("home"); if(settingsRef.current.notifyPayments!==false)showToast("Оплата получена. Обновляем подписку.", "success"); }} />}
       <UpdateBanner enabled={settings.notifyUpdate!==false} release={availableUpdate} onDismiss={()=>setAvailableUpdate(null)}/>
       <ForeignVpnModal
@@ -1088,6 +1090,7 @@ export default function App() {
                       reconnecting={connectionState==='connecting' && hadConnectedSessionRef.current}
                       onToggleConnection={handleToggleConnection}
                       onOpenServerSelector={() => setActiveTab('servers')}
+                      onRenew={event => setRenewTrigger(event.currentTarget)}
                       lang={currentLang}
                     />
                   </motion.div>

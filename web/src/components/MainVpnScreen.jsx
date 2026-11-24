@@ -4,7 +4,7 @@ import {Power, ShieldCheck, ArrowDown, ArrowUp, ArrowUpRight, Loader2, CreditCar
 import {SessionTimer, TransferValue, PhoneTrafficDetails} from './LiveVpnValues';
 import './MinimalHome.css';
 
-export default function MainVpnScreen({accessDisabled=false, user, currentServer, connectionState, connectedAt, connectionError, reconnecting = false, onToggleConnection, lang='ru'}) {
+export default function MainVpnScreen({accessDisabled=false, user, currentServer, connectionState, connectedAt, connectionError, reconnecting = false, onToggleConnection, onRenew, lang='ru'}) {
   const reduced = useReducedMotion();
   const connected = connectionState === 'connected';
   const pending = ['connecting', 'disconnecting'].includes(connectionState);
@@ -24,9 +24,7 @@ export default function MainVpnScreen({accessDisabled=false, user, currentServer
   const expires = user?.subscription_expires_at ? new Date(user.subscription_expires_at).getTime() : null;
   const hours = expires ? Math.max(0, Math.floor((expires - Date.now()) / 3600000)) : Number(user?.subscription_days_left || 0) * 24 + Number(user?.subscription_hours_left || 0);
   const validity = hours > 0 ? Math.floor(hours / 24) + (english ? ' d ' : ' дн. ') + hours % 24 + (english ? ' h' : ' ч.') : (english ? 'Expired' : 'Истекла');
-  const renew = () => {
-    if (!user?.is_guest) window.dispatchEvent(new Event('viht-open-tariffs'));
-  };
+
 
   return <section className="viht-minimal-home">
     {accessDisabled && <p className="viht-home-notice" role="alert">Доступ отключён владельцем подписки</p>}
@@ -67,7 +65,7 @@ export default function MainVpnScreen({accessDisabled=false, user, currentServer
     </div>
     <div className="viht-home-subscription">
       <div><span>{english ? 'Subscription valid for' : 'Срок действия подписки'}</span><strong>{validity}</strong></div>
-      <button type="button" className="viht-home-renew" onClick={renew} disabled={user?.is_guest}>
+      <button type="button" className="viht-home-renew" onClick={onRenew} disabled={!user || user.is_guest}>
         <CreditCard size={15}/>{user?.is_guest ? (english ? 'Owner subscription' : 'Подписка владельца') : (english ? 'Renew subscription' : 'Продлить подписку')}
       </button>
     </div>

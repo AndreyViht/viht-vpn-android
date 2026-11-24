@@ -280,26 +280,25 @@ class AndroidVihtBridge(private val activity: MainActivity, private val webView:
     }
     private suspend fun ping(array: JSONArray): JSONObject = coroutineScope {
         val manager = activity.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-        val network = manager.allNetworks.firstOrNull { candidate ->
-            manager.getNetworkCapabilities(candidate)?.let { it.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) && !it.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) } == true
-        }
+        // Use one physical network for the entire round so Wi-Fi and LTE results remain comparable.
+        val network = PhysicalNetworks.ranked(manager).firstOrNull()
         val values = (0 until minOf(array.length(), 32)).map { index -> async {
             val server = array.getJSONObject(index)
             val value = runCatching {
-                require(network != null) { "Нет физического подключения" }
+                if (network == null) return@runCatching null
                 val uri = java.net.URI(server.getString("vless_uri"))
                 val host = server.optString("host").ifBlank { uri.host }
                 val port = server.optInt("port", if (uri.port < 0) 443 else uri.port)
-                val addresses = network.getAllByName(host)
-                DiagnosticLogStore.appendDetailed(activity,"DNS probe: $host; addresses=${addresses.size}; network=$network")
-                val address = addresses.firstOrNull { it is java.net.Inet4Address } ?: addresses.first()
-                (1..server.optInt("attempts",2).coerceIn(1,2)).mapNotNull {
+                val timeout = server.optInt("timeoutMs", 1200).coerceIn(900, 1500)
+                network.getAllByName(host).take(2).firstNotNullOfOrNull { address ->
                     runCatching {
-                        val start = System.nanoTime()
-                        network.socketFactory.createSocket().use { socket -> socket.connect(InetSocketAddress(address, port), server.optInt("timeoutMs",2500).coerceIn(500,2500)) }
-                        maxOf(1, ((System.nanoTime() - start) / 1_000_000).toInt())
+                        network.socketFactory.createSocket().use { socket ->
+                            val start = System.nanoTime()
+                            socket.connect(InetSocketAddress(address, port), timeout)
+                            maxOf(1, ((System.nanoTime() - start) / 1_000_000).toInt())
+                        }
                     }.getOrNull()
-                }.minOrNull()
+                }
             }.getOrNull()
             server.getString("id") to value
         } }.awaitAll()

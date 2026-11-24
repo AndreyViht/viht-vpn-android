@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, CheckCircle2, Loader2, CreditCard } from 'lucide-react';
 import { fetchAppTariffs, createAppCheckout, fetchAppPaymentStatus } from '../services/api';
 import './SubscriptionBilling.css';
 import { normalizePayment, paymentPollDelay, archivePayment, paymentStorageKey, paymentRecordsEvent } from '../services/paymentTracking';
 
-export default function SubscriptionBilling({ token, accountId, profileEmail = "", onPaid, product = 'subscription' }) {
+export default function SubscriptionBilling({ token, accountId, profileEmail = "", onPaid, renewTrigger, onRenewHandled, product = 'subscription' }) {
   const [email, setEmail] = useState(profileEmail);
   const [emailStep, setEmailStep] = useState(false);
   const isSlots = product === 'slots';
@@ -38,6 +38,16 @@ export default function SubscriptionBilling({ token, accountId, profileEmail = "
   onPaidRef.current = onPaid;
   const dialog = useRef(null);
   const trigger = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!renewTrigger) return;
+    trigger.current = renewTrigger;
+    setPaid(false);
+    setEmail(profileEmail);
+    setEmailStep(false);
+    setOpen(true);
+    onRenewHandled();
+  }, [renewTrigger, onRenewHandled, profileEmail]);
 
   useEffect(() => {
     const show = event => { if ((event.detail?.product || 'subscription') !== product) return; trigger.current = document.activeElement; setPaid(false); setEmail(profileEmail); setEmailStep(false); setOpen(true); };

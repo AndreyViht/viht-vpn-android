@@ -9,6 +9,13 @@ function serverName(name) {
   return String(name || '').replace(/[\uD83C][\uDDE6-\uDDFF][\uD83C][\uDDE6-\uDDFF]/g, '').replace(/^(DE|NL|SE|RU|EU)\s+/i, '').replace(/^[-–—•\s]+/, '').trim();
 }
 
+function median(values) {
+  const sorted = values.filter(Number.isFinite).sort((a,b) => a-b);
+  const middle = Math.floor(sorted.length / 2);
+  if (!sorted.length) return null;
+  return Math.round((sorted[middle] + sorted[Math.floor((sorted.length - 1) / 2)]) / 2);
+}
+
 function useLivePing(servers, enabled) {
   const [samples, setSamples] = useState({});
   const [measuring, setMeasuring] = useState(false);
@@ -28,14 +35,16 @@ function useLivePing(servers, enabled) {
     request.current = flight;
     setMeasuring(true);
     try {
-      const result = await window.electronAPI.pingServers(snapshot.map(server => ({...server, attempts:1, timeoutMs:900})));
+      const result = await window.electronAPI.pingServers(snapshot.map(server => ({...server, timeoutMs:1200})));
       if (!active.current || epoch !== generation.current) return;
       const at = Date.now();
       setSamples(previous => Object.fromEntries(snapshot.map(server => {
         const value = result?.[server.id];
         const reachable = Number.isFinite(value) && value >= 0;
         const history = [...(previous[server.id]?.history || []), reachable ? value : null].slice(-12);
-        return [server.id, {ping:reachable ? value : null, at, history}];
+        const consecutiveMisses = reachable ? 0 : (previous[server.id]?.consecutiveMisses || 0) + 1;
+        const ping = consecutiveMisses < 2 ? median(history.slice(-5)) : null;
+        return [server.id, {ping, at, history, consecutiveMisses}];
       })));
       setError('');
     } catch {
@@ -53,7 +62,7 @@ function useLivePing(servers, enabled) {
     setMeasuring(false);
     if (!enabled) return;
     void measure();
-    const interval = setInterval(measure,1000);
+    const interval = setInterval(measure,3000);
     const resume = () => { if (!document.hidden && !window.__vihtUiBackground) void measure(); };
     document.addEventListener('visibilitychange',resume);
     window.addEventListener('focus',resume);
@@ -79,10 +88,9 @@ export default React.memo(function ServersScreen({accessDisabled=false,servers=[
   const {samples,measuring,error} = useLivePing(servers,live && !accessDisabled);
   const best = servers.map(server => {
     const sample = samples[server.id];
-    const values = (sample?.history || []).slice(-5).filter(Number.isFinite).sort((a,b)=>a-b);
-    const middle = Math.floor(values.length / 2);
-    const median = values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
-    return {server, score: median, eligible: values.length >= 3 && Number.isFinite(sample?.ping) && Date.now()-sample.at < 10000};
+    const recent = (sample?.history || []).slice(-5);
+    return {server, score: sample?.ping, eligible: recent.filter(Number.isFinite).length >= 3 &&
+      sample.consecutiveMisses === 0 && Date.now() - sample.at < 10000};
   }).filter(item=>item.eligible).sort((a,b)=>a.score-b.score)[0];
   const english = lang === 'en';
   useEffect(() => {mounted.current=true;return()=>{mounted.current=false;};},[]);
@@ -115,7 +123,7 @@ export default React.memo(function ServersScreen({accessDisabled=false,servers=[
     <div className="viht-server-actions">
       <button type="button" className="viht-server-action" aria-pressed={live} disabled={accessDisabled} onClick={()=>setLive(value=>!value)}>
         <span className="viht-server-action-icon"><Activity size={19}/></span>
-        <span><strong>{english ? 'Live ping' : 'Живой пинг'}</strong><small>{live ? (english ? 'Every second · TCP' : 'Каждую секунду · TCP') : (english ? 'Paused' : 'Приостановлен')}</small></span>
+        <span><strong>{english ? 'Live ping' : 'Живой пинг'}</strong><small>{live ? (english ? 'Every 3 seconds · TCP' : 'Каждые 3 секунды · TCP') : (english ? 'Paused' : 'Приостановлен')}</small></span>
         {live ? <Pause size={14}/> : <Play size={14}/>}
       </button>
       <button type="button" className="viht-server-action" disabled={busy} aria-busy={busy} onClick={synchronize}>
@@ -159,7 +167,7 @@ export default React.memo(function ServersScreen({accessDisabled=false,servers=[
       })}
     </div>
     {!servers.length && <div className="viht-server-empty"><ArrowDownUp size={26}/><strong>{english?'No available servers':'Нет доступных серверов'}</strong><p>{english?'Sync to load your subscription.':'Нажмите «Синхронизация», чтобы получить серверы из подписки.'}</p></div>}
-    {!!servers.length && <p className="viht-server-footnote">{english?'TCP measures server connection latency.':'TCP-пинг показывает задержку соединения с сервером.'}{live&&measuring?' · '+(english?'Measuring':'Измеряем'):''}</p>}
+    {!!servers.length && <p className="viht-server-footnote">{english?'Shows the median of recent TCP probes. Bars show individual probes.':'Число показывает медиану недавних TCP-замеров. Столбцы показывают отдельные замеры.'}{live&&measuring?' · '+(english?'Measuring':'Измеряем'):''}</p>}
   </section>;
 });
 
