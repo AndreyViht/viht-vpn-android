@@ -209,7 +209,8 @@ jobs:
           apk=release-apk/VihtVPN-Android-2.0.0.22-armeabi-v7a.apk
           "$tools/apksigner" sign --ks "$VIHT_TEST_KEYSTORE" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out "$apk" aligned.apk
           "$tools/apksigner" verify --verbose --print-certs "$apk" > release-apk/signature-verification.txt
-          grep -F 'Verified using v1 scheme (JAR signing): true' release-apk/signature-verification.txt
+          "$tools/apksigner" verify --min-sdk-version 21 --max-sdk-version 23 --verbose --print-certs "$apk" > release-apk/signature-v1-verification.txt
+          grep -F 'Verified using v1 scheme (JAR signing): true' release-apk/signature-v1-verification.txt
           grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true' release-apk/signature-verification.txt
           test "$(node tools/apk-signer-sha256.mjs "$apk")" = "d0b6089540fa9af2a4a0a6b99140ca7f168c70e05df849b5abef4bed51fb1d66"
           "$tools/zipalign" -c -P 16 -v 4 "$apk" > release-apk/alignment-verification.txt
