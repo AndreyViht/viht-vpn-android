@@ -11,7 +11,7 @@ import org.junit.runner.RunWith
 
 /** Used only by the isolated emulator fresh-install/upgrade script. */
 @RunWith(AndroidJUnit4::class)
-@androidx.annotation.RequiresApi(33)
+@androidx.test.filters.SdkSuppress(minSdkVersion = 33)
 class InstallationUpgradeTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
@@ -22,7 +22,7 @@ class InstallationUpgradeTest {
 
     private fun assertFinalVersion() {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
-        assertEquals("2.0.0.23", info.versionName)
+        assertEquals("2.0.0.24", info.versionName)
         assertTrue(info.longVersionCode > 20182L)
     }
 

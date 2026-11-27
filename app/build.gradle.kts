@@ -36,7 +36,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 20014
-        versionName = "2.0.0.23"
+        versionName = "2.0.0.24"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
