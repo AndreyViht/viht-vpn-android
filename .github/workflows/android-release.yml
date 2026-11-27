@@ -4,10 +4,6 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      arm32_compat:
-        description: "Build compact signed ARM32 compatibility APK from verified 2.0.0.22"
-        type: boolean
-        default: false
       run_16k_diagnostic:
         description: "Run additional 16 KB runtime diagnostics (known Go runtime failure)"
         type: boolean
@@ -16,7 +12,6 @@ permissions:
   contents: read
 jobs:
   build:
-    if: ${{ inputs.arm32_compat != true }}
     name: Android universal test APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -122,29 +117,35 @@ jobs:
           arch: x86_64
           target: google_apis
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: ./gradlew connectedDebugAndroidTest --console=plain --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=com.pingwin.vpn.XrayHevRuntimeTest -PciVersionCode=$((20001 + GITHUB_RUN_NUMBER))
+          script: |
+            ./gradlew connectedDebugAndroidTest --console=plain --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=com.pingwin.vpn.XrayHevRuntimeTest -PciVersionCode=$((20001 + GITHUB_RUN_NUMBER))
+            bash tools/test-universal-install.sh
       - name: Prepare universal APK
         run: |
           mkdir -p release-apk
           analyzer=$(find "$ANDROID_HOME" -path "*/bin/apkanalyzer" | head -1)
-          test "$("$analyzer" manifest version-name app/build/outputs/apk/debug/app-debug.apk)" = "2.0.0.22"
+          test "$("$analyzer" manifest version-name app/build/outputs/apk/debug/app-debug.apk)" = "2.0.0.23"
           test "$("$analyzer" manifest application-id app/build/outputs/apk/debug/app-debug.apk)" = "ru.anviht.vpn.test"
           "$analyzer" manifest permissions app/build/outputs/apk/debug/*.apk > release-apk/permissions.txt
           if grep -E "android.permission.(CAMERA|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|ACCESS_BACKGROUND_LOCATION|READ_MEDIA_IMAGES|READ_MEDIA_VIDEO|READ_MEDIA_VISUAL_USER_SELECTED|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE)" release-apk/permissions.txt; then echo "Unexpected sensitive permission in final APK"; exit 1; fi
           "$analyzer" manifest print app/build/outputs/apk/debug/*.apk | grep 'extractNativeLibs="true"'
           python3 tools/verify-native-packaging.py app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/*.apk release-apk/VihtVPN-2.0.0.22-universal.apk
+          cp app/build/outputs/apk/debug/*.apk release-apk/VihtVPN-2.0.0.23-universal.apk
           sha256sum release-apk/*.apk > release-apk/SHA256SUMS.txt
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          "$signer" verify --verbose --print-certs release-apk/VihtVPN-2.0.0.22-universal.apk > release-apk/signature-verification.txt
+          "$signer" verify --verbose --print-certs release-apk/VihtVPN-2.0.0.23-universal.apk > release-apk/signature-verification.txt
+          "$signer" verify --min-sdk-version 21 --max-sdk-version 23 --verbose --print-certs release-apk/VihtVPN-2.0.0.23-universal.apk > release-apk/signature-v1-verification.txt
+          grep -F 'Verified using v1 scheme (JAR signing): true' release-apk/signature-v1-verification.txt
+          grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true' release-apk/signature-verification.txt
+          grep -F 'Verified using v3 scheme (APK Signature Scheme v3): true' release-apk/signature-verification.txt
           expected=$(keytool -exportcert -keystore "$VIHT_TEST_KEYSTORE" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f1)
-          actual=$(node tools/apk-signer-sha256.mjs release-apk/VihtVPN-2.0.0.22-universal.apk)
+          actual=$(node tools/apk-signer-sha256.mjs release-apk/VihtVPN-2.0.0.23-universal.apk)
           echo "Expected certificate: $expected; APK certificate: $actual"
           test "$expected" = "$actual"
           aligner=$(find "$ANDROID_HOME/build-tools" -name zipalign | sort -V | tail -1)
-          "$aligner" -c -P 16 -v 4 release-apk/VihtVPN-2.0.0.22-universal.apk > release-apk/alignment-verification.txt
+          "$aligner" -c -P 16 -v 4 release-apk/VihtVPN-2.0.0.23-universal.apk > release-apk/alignment-verification.txt
           for abi in armeabi-v7a arm64-v8a x86 x86_64; do
-            unzip -Z1 release-apk/VihtVPN-2.0.0.22-universal.apk | grep "^lib/$abi/.*\.so$" > /dev/null || exit 1
+            unzip -Z1 release-apk/VihtVPN-2.0.0.23-universal.apk | grep "^lib/$abi/.*\.so$" > /dev/null || exit 1
           done
       - uses: actions/upload-artifact@v4
         with:
@@ -157,66 +158,7 @@ jobs:
           path: |
             app/build/reports/tests/
             app/build/reports/androidTests/
+            app/build/reports/installability/
             app/build/outputs/androidTest-results/
             app/build/reports/lint-results-debug.*
 
-  arm32_compat:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.arm32_compat == true }}
-    name: Compact ARM32 compatibility APK
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      VIHT_TEST_SIGNING_KEYSTORE: ${{ secrets.VIHT_TEST_SIGNING_KEYSTORE }}
-      VIHT_TEST_KEYSTORE: ${{ github.workspace }}/.viht-test-signing.keystore
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: android-actions/setup-android@v4
-      - name: Install signing tools
-        run: sdkmanager "build-tools;36.0.0"
-      - uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: viht-android-test-signing-v1
-      - name: Restore original signing key
-        run: |
-          if [ -n "$VIHT_TEST_SIGNING_KEYSTORE" ]; then
-            printf '%s' "$VIHT_TEST_SIGNING_KEYSTORE" | base64 --decode > "$VIHT_TEST_KEYSTORE"
-          else
-            test -f "$HOME/.android/debug.keystore"
-            cp "$HOME/.android/debug.keystore" "$VIHT_TEST_KEYSTORE"
-          fi
-          chmod 600 "$VIHT_TEST_KEYSTORE"
-          actual=$(keytool -exportcert -keystore "$VIHT_TEST_KEYSTORE" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f1)
-          test "$actual" = "d0b6089540fa9af2a4a0a6b99140ca7f168c70e05df849b5abef4bed51fb1d66"
-      - name: Verify original published APK
-        run: |
-          curl --fail --location --retry 3 --max-time 180 -o source.apk https://anviht.ru/download/VihtVPN-Android-2.0.0.22.apk
-          echo '1d4aaa88daa298141047739191b136135b1104a72a713dad31190d875bcaa125  source.apk' | sha256sum --check
-          test "$(node tools/apk-signer-sha256.mjs source.apk)" = "d0b6089540fa9af2a4a0a6b99140ca7f168c70e05df849b5abef4bed51fb1d66"
-      - name: Package and sign unchanged ARM32 payload
-        run: |
-          mkdir -p release-apk
-          python3 tools/make-arm32-compatible-apk.py source.apk unsigned.apk
-          tools="$ANDROID_HOME/build-tools/36.0.0"
-          "$tools/zipalign" -f -P 16 4 unsigned.apk aligned.apk
-          apk=release-apk/VihtVPN-Android-2.0.0.22-armeabi-v7a.apk
-          "$tools/apksigner" sign --ks "$VIHT_TEST_KEYSTORE" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out "$apk" aligned.apk
-          "$tools/apksigner" verify --verbose --print-certs "$apk" > release-apk/signature-verification.txt
-          "$tools/apksigner" verify --min-sdk-version 21 --max-sdk-version 23 --verbose --print-certs "$apk" > release-apk/signature-v1-verification.txt
-          grep -F 'Verified using v1 scheme (JAR signing): true' release-apk/signature-v1-verification.txt
-          grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true' release-apk/signature-verification.txt
-          test "$(node tools/apk-signer-sha256.mjs "$apk")" = "d0b6089540fa9af2a4a0a6b99140ca7f168c70e05df849b5abef4bed51fb1d66"
-          "$tools/zipalign" -c -P 16 -v 4 "$apk" > release-apk/alignment-verification.txt
-          python3 tools/make-arm32-compatible-apk.py --verify source.apk "$apk" > release-apk/compatibility-verification.json
-          sha256sum "$apk" > release-apk/SHA256SUMS.txt
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VihtVPN-Android-test
-          path: release-apk/

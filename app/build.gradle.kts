@@ -36,7 +36,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = providers.gradleProperty("ciVersionCode").orNull?.toInt() ?: 20014
-        versionName = "2.0.0.22"
+        versionName = "2.0.0.23"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -59,6 +59,10 @@ android {
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = false
         }
         if (pingwinStoreFile.isPresent && pingwinStorePassword.isPresent && pingwinKeyAlias.isPresent && pingwinKeyPassword.isPresent) {
             create("release") {
@@ -66,6 +70,10 @@ android {
                 storePassword = pingwinStorePassword.get()
                 keyAlias = pingwinKeyAlias.get()
                 keyPassword = pingwinKeyPassword.get()
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = false
             }
         }
     }
