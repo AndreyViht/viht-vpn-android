@@ -41,6 +41,10 @@ class PaymentActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val url = intent.getStringExtra("paymentUrl") ?: ""
         if (!PlategaCheckout.isEntry(url)) { finish(); return }
+        val providerUrl = url.replaceFirst(
+            Regex("^https://pay[.]platega[.]io(?=[:/])"), "https://payment.platega.com"
+        )
+        var currentUrl = providerUrl
         val label = intent.getStringExtra("paymentLabel") ?: ""
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.parseColor("#0c1521")) }
         val header = LinearLayout(this).apply { setPadding(20, 8, 12, 8); gravity = android.view.Gravity.CENTER_VERTICAL; minimumHeight = (56 * resources.displayMetrics.density).toInt() }
@@ -51,11 +55,31 @@ class PaymentActivity : ComponentActivity() {
         root.addView(progress, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 5))
         val message = TextView(this).apply { setTextColor(Color.LTGRAY); textSize = 13f; setPadding(20, 4, 20, 4) }
         root.addView(message)
-        fun submitCheckout() {
-            message.text = ""; progress.visibility = android.view.View.VISIBLE
-            payment.loadUrl(url)
+        val external = Button(this).apply {
+            text = "Открыть оплату в браузере"
+            visibility = android.view.View.GONE
+            setOnClickListener {
+                runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(currentUrl)).addCategory(Intent.CATEGORY_BROWSABLE)) }
+                    .onFailure { message.text = "Браузер недоступен." }
+            }
         }
-        message.setOnClickListener { submitCheckout() }
+        root.addView(external)
+        fun submitCheckout() {
+            loadWarning?.let { payment.removeCallbacks(it) }
+            message.text = ""
+            external.visibility = android.view.View.GONE
+            progress.visibility = android.view.View.VISIBLE
+            payment.loadUrl(currentUrl)
+            loadWarning = Runnable {
+                progress.visibility = android.view.View.GONE
+                message.text = "Форма долго загружается. Нажмите здесь для повтора."
+                external.visibility = android.view.View.VISIBLE
+            }.also { payment.postDelayed(it, 8000) }
+        }
+        message.setOnClickListener {
+            currentUrl = if (currentUrl == providerUrl) url else providerUrl
+            submitCheckout()
+        }
         payment = WebView(this).apply {
             setBackgroundColor(Color.WHITE)
             settings.apply {
