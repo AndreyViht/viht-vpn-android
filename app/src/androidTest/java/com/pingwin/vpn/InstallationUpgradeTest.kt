@@ -22,7 +22,7 @@ class InstallationUpgradeTest {
 
     private fun assertFinalVersion() {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
-        assertEquals("2.0.0.24", info.versionName)
+        assertEquals(BuildConfig.VERSION_NAME, info.versionName)
         assertTrue(info.longVersionCode > 20182L)
     }
 
